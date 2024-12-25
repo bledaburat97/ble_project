@@ -1,0 +1,28 @@
+{
+    "C_Cpp.intelliSenseEngine": "default",
+    "idf.espIdfPathWin": "C:\\Users\\bleda.burat\\esp\\v5.3.1\\esp-idf",
+    "idf.toolsPathWin": "C:\\Users\\bleda.burat\\.espressif",
+    "files.associations": {
+        "cstdlib": "c",
+        "cstdint": "c",
+        "ble_control.h": "c",
+        "laser_driver_control.h": "c",
+        "i2c_control.h": "c",
+        "proximity_sensor_control.h": "c",
+        "task.h": "c",
+        "compare": "c",
+        "array": "c",
+        "*.tcc": "c",
+        "executor": "c",
+        "memory": "c",
+        "format": "c",
+        "future": "c",
+        "istream": "c",
+        "functional": "c",
+        "tuple": "c",
+        "utility": "c",
+        "variant": "c",
+        "json_parser.h": "c",
+        "freertos.h": "c"
+    }
+}
