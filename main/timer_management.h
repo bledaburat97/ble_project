@@ -5,6 +5,8 @@
 void start_therapy_timer(uint32_t duration);
 void get_last_therapy_data(uint8_t *buffer);
 void stop_therapy_timer();
+void start_inactivity_timer();
+void restart_inactivity_timer();
 
 #endif 
 

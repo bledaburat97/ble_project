@@ -68,17 +68,18 @@ void app_main() {
 // Call when mechanical button is pressed to turn on
 void onDeviceIsTurnedOn() {
     init_ble();
+    start_inactivity_timer();
 }
 
 
 void onBleConnectionActivated()
 {
     uint8_t helmet_data = get_helmet_status() ? 0x01 : 0x00;
-    send_aperiodic_info(PROXIMITY_CHAR_HANDLE, &helmet_data);
+    send_aperiodic_info(NOTIFICATION_INFO_CHAR_HANDLE, &helmet_data, sizeof(helmet_data));
 
     uint8_t last_therapy_data[10];
     get_last_therapy_data(last_therapy_data);
-    send_aperiodic_info(LAST_THERAPY_INFO_CHAR_HANDLE, last_therapy_data);
+    send_aperiodic_info(LAST_THERAPY_INFO_CHAR_HANDLE, last_therapy_data, sizeof(last_therapy_data));
     
     xTaskCreate(ble_notify_task, "Ble Notify Task", 4096, NULL, 5, NULL);
 }
@@ -87,7 +88,7 @@ void onBleConnectionActivated()
 
 void checkProximitySensor(uint8_t asserted_sensor_index){
     if(get_helmet_status()) {
-        //STOP LASERS
+        //TODO: STOP LASERS
     }
     if(get_sensor_detection_status(asserted_sensor_index)){
         if(check_threshold_exceeded(asserted_sensor_index, false)) {
@@ -98,9 +99,10 @@ void checkProximitySensor(uint8_t asserted_sensor_index){
         }
         else
         {
-            //ERROR
+            uint8_t notification_data = 0x02;
+            send_aperiodic_info(NOTIFICATION_INFO_CHAR_HANDLE, &notification_data, sizeof(notification_data));
             reset_interrupt(asserted_sensor_index);
-            //TRY TO START LASERS AGAIN
+            //TODO: TRY TO START LASERS AGAIN
         }
     }
     else {
@@ -119,16 +121,18 @@ void checkProximitySensor(uint8_t asserted_sensor_index){
 //Call when esp32 detects ALERT pin of any temperature sensor as LOW
 void checkTemperatureSensor(uint8_t asserted_sensor_index) {
     //STOP LASERS
-    uint8_t temp_data[2];
-    get_temperature_of_sensor(temp_data, asserted_sensor_index);
-    send_aperiodic_info(TEMPERATURE_CHAR_HANDLE, temp_data);
+    uint8_t temp_data[7];
+    temp_data[0] = asserted_sensor_index; //indicates sensor index which sends alert
+    get_temperature_of_all_sensors(&temp_data[1]);
+    send_aperiodic_info(TEMPERATURE_INFO_CHAR_HANDLE, temp_data, sizeof(temp_data));
 }
-
-
-
 
 void onStop() {
-    stop_therapy_timer();
 }
 
 
+void stop_therapy() {
+    stop_therapy_timer();
+    //TODO: turn off lasers
+
+}

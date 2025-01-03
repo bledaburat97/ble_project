@@ -17,6 +17,7 @@ static const char *LAST_THERAPY_APPLIED_DURATION = "last_therapy_applied_duratio
 static time_t therapy_start_time = 0;
 bool isDeviceRunning = false;
 static TimerHandle_t therapy_timer = NULL;
+static TimerHandle_t inactivity_timer = NULL;
 static TaskHandle_t periodic_saving_task_handle = NULL;
 
 
@@ -28,8 +29,12 @@ static void save_current_time_and_applied_therapy_duration(){
     save_parameter(LAST_THERAPY_APPLIED_DURATION, &elapsed_time, sizeof(elapsed_time));
 }
 
-static void timer_expiry_callback(TimerHandle_t xTimer) {
+static void therapy_timer_expiry_callback(TimerHandle_t xTimer) {
     stop_therapy_timer();
+}
+
+static void inactivity_timer_expiry_callback(TimerHandle_t xTimer) {
+    //TODO: turn off the device. 
 }
 
 static void periodic_saving_task(void *param) {
@@ -62,7 +67,56 @@ static uint32_t get_last_therapy_applied_duration() {
     return last_therapy_applied_duration;
 }
 
+void start_inactivity_timer() {
+    if(isDeviceRunning) {
+        return;    
+    }
+
+    uint16_t inactive_threshold = 300;
+
+    if(inactivity_timer == NULL) {
+        inactivity_timer = xTimerCreate(
+            "InactivityTimer",
+            pdMS_TO_TICKS(inactive_threshold * 1000),  
+            pdFALSE,
+            NULL,                        
+            inactivity_timer_expiry_callback        
+        );
+
+        if (inactivity_timer == NULL) {
+            ESP_LOGE(TAG, "Failed to create inactivity timer.");
+            return;
+        }
+    }
+
+    if (xTimerStart(inactivity_timer, 0) == pdPASS) {
+        ESP_LOGI(TAG, "Inactivity timer started for %u s.", inactive_threshold);
+    } else {
+        ESP_LOGE(TAG, "Failed to start inactivity timer.");
+    }
+}
+
+static void stop_inactivity_timer() {
+    if (inactivity_timer == NULL) {
+        ESP_LOGW(TAG, "Inactivity timer has not been created.");
+        return;
+    }
+
+    if (xTimerStop(inactivity_timer, 0) == pdPASS) {
+        ESP_LOGI(TAG, "Inactivity timer stopped.");
+    } else {
+        ESP_LOGE(TAG, "Failed to stop inactivity timer.");
+    }
+    inactivity_timer = NULL;
+}
+
+void restart_inactivity_timer() {
+    stop_inactivity_timer();
+    start_inactivity_timer();
+}
+
 void start_therapy_timer(uint32_t duration) {
+    stop_inactivity_timer();
     if (therapy_timer == NULL) {
         // Create the timer if it does not exist
         therapy_timer = xTimerCreate(
@@ -70,7 +124,7 @@ void start_therapy_timer(uint32_t duration) {
             pdMS_TO_TICKS(duration * 1000),  // Timer period in ticks
             pdFALSE,                     // One-shot timer
             NULL,                        // Timer ID (not used)
-            timer_expiry_callback        // Callback function
+            therapy_timer_expiry_callback        // Callback function
         );
 
         if (therapy_timer == NULL) {
@@ -97,11 +151,24 @@ void start_therapy_timer(uint32_t duration) {
 
 void stop_therapy_timer()
 {
+    if (therapy_timer == NULL) {
+        ESP_LOGW(TAG, "Therapy timer has not been created.");
+        return;
+    }
+
     isDeviceRunning = false;
     if (periodic_saving_task_handle != NULL) {
         vTaskDelete(periodic_saving_task_handle);
         periodic_saving_task_handle = NULL;
     }
+
+    if (xTimerStop(therapy_timer, 0) == pdPASS) {
+        ESP_LOGI(TAG, "Therapy timer stopped.");
+    } else {
+        ESP_LOGE(TAG, "Failed to stop therapy timer.");
+    }
+    therapy_timer = NULL;
+    start_inactivity_timer();
 }
 
 void get_last_therapy_data(uint8_t *buffer) {

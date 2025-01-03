@@ -218,7 +218,8 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
         ESP_LOGI(BLE_TAG, "ESP_GATTS_WRITE_EVT, handle: %d", param->write.handle);
 
         // Check if this write is for the Laser Control Characteristic
-        if (param->write.handle == THERAPY_ACTIVATION_CHAR_HANDLE) {
+        if (param->write.handle == ACTIVATION_INFO_CHAR_HANDLE) {
+            restart_inactivity_timer();
             // Validate input data
             if (param->write.len == 0) {
                 ESP_LOGE(BLE_TAG, "No data received for Laser Control");
@@ -241,46 +242,40 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                 ESP_LOGE(BLE_TAG, "Failed to parse therapy activation info");
                 return;
             }
+            if (therapy_activation_info->received_command == 0x00) {
 
-            ESP_LOGI(BLE_TAG, "Parsed Therapy ID: %u, Duration: %lu, Regions: %d",
-                    therapy_activation_info->therapy_id,
-                    therapy_activation_info->therapy_duration,
-                    therapy_activation_info->num_of_changed_regions);
+                //TODO: stop_therapy
+            }
+            else {
+                ESP_LOGI(BLE_TAG, "Parsed Therapy ID: %u, Duration: %lu, Regions: %d",
+                        therapy_activation_info->therapy_id,
+                        therapy_activation_info->therapy_duration,
+                        therapy_activation_info->num_of_changed_regions);
 
-            //TODO:Check isHelmetOn
-            //TODO: Check temperature sensors
+                //TODO:Check isHelmetOn
+                //TODO: Check temperature sensors
 
-            start_therapy_timer(therapy_activation_info->therapy_duration);
+                start_therapy_timer(therapy_activation_info->therapy_duration);
 
-            if (therapy_activation_info->region_infos != NULL && therapy_activation_info->num_of_changed_regions > 0) {
-                set_brightness(therapy_activation_info->region_infos, therapy_activation_info->num_of_changed_regions);
-                ESP_LOGI(BLE_TAG, "Brightness updated successfully.");
+                if (therapy_activation_info->region_infos != NULL && therapy_activation_info->num_of_changed_regions > 0) {
+                    set_brightness(therapy_activation_info->region_infos, therapy_activation_info->num_of_changed_regions);
+                    ESP_LOGI(BLE_TAG, "Brightness updated successfully.");
+                }
+
+                else
+                {
+                    ESP_LOGW(BLE_TAG, "No regions to update.");
+                }
             }
 
-            else
-            {
-                ESP_LOGW(BLE_TAG, "No regions to update.");
-            }
 
             free(therapy_activation_info->region_infos);
             free(therapy_activation_info);
-            
-
-        } else if (param->write.handle == PROXIMITY_CHAR_HANDLE) {
-            
-        } else if (param->write.handle == TEMPERATURE_CHAR_HANDLE) {
 
         } 
         break;
 
     case ESP_GATTS_READ_EVT: 
-        if (param->read.handle == PROXIMITY_CHAR_HANDLE) {
-            //uint8_t prox_data = read_proximity_sensor(); // Read proximity data
-            //send_gatt_response(gatts_if, param, prox_data);
-        } else if (param->read.handle == TEMPERATURE_CHAR_HANDLE) {
-            //uint8_t temp_data = read_temperature_sensor(); // Read temperature data
-            //send_gatt_response(gatts_if, param, temp_data);
-        }
         break;
 
     case ESP_GATTS_DISCONNECT_EVT:
@@ -347,13 +342,10 @@ void ble_notify_task(void *param) {
                 ble_send_message(LASER_CTRL_CHAR_HANDLE, led_data, sizeof(led_data));
 
                 // Send temperature notification
-                uint8_t temp_data[6];
-                get_temperature_of_all_sensors(temp_data);
-                ble_send_message(TEMPERATURE_CHAR_HANDLE, temp_data, sizeof(temp_data));
-
-                // Send helmet status notification
-                uint8_t helmet_data = get_helmet_status() ? 0x01 : 0x00;
-                ble_send_message(PROXIMITY_CHAR_HANDLE, &helmet_data, sizeof(helmet_data));
+                uint8_t temp_data[7];
+                temp_data[0] = 0x00; //indicates no alert
+                get_temperature_of_all_sensors(&temp_data[1]);
+                ble_send_message(TEMPERATURE_INFO_CHAR_HANDLE, temp_data, sizeof(temp_data));
 
                 // Release the mutex for other tasks
                 xSemaphoreGive(ble_mutex);
@@ -370,7 +362,7 @@ void ble_notify_task(void *param) {
 }
 
 
-void send_aperiodic_info(uint16_t char_handle, uint8_t* data)
+void send_aperiodic_info(uint16_t char_handle, uint8_t* data, size_t data_length)
 {
     if (isBleConnected) {
         if (xSemaphoreTake(ble_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {

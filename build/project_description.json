@@ -1,7 +1,7 @@
 {
     "version":            "1.1",
     "project_name":       "gatt_server_demos",
-    "project_version":    "1",
+    "project_version":    "71a2124-dirty",
     "project_path":       "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server",
     "idf_path":           "C:/Users/bleda.burat/esp/v5.3.1/esp-idf",
     "build_dir":          "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/build",

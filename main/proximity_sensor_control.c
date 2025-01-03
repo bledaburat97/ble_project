@@ -224,5 +224,5 @@ void initialize_proximity_sensors()
     init_helmet_status_mutex();
     set_sensor_detection_status(0, false);
     set_sensor_detection_status(1, false);
-    helmet_status = false;
+    set_helmet_status(false);
 }

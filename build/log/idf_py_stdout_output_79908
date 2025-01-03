@@ -1,7 +1,0 @@
-[1/10] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/proximity_sensor_control.c.obj
-C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/proximity_sensor_control.c:185:10: warning: 'initialize_proximity_sensors' defined but not used [-Wunused-function]
-  185 |     void initialize_proximity_sensors()
-      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
-[2/10] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/main.c.obj
-[3/10] Performing build step for 'bootloader'
-[1/1] cmd.exe /C "cd /D C:\Users\bleda.burat\Desktop\example_ble_projects\gatt_server\build\bootloader\esp-idf\esptool_py && C:\Users\bleda.burat\.espressif\python_env\idf5.3_py3.11_env\Scripts\python.exe C:/Users/bleda.burat/esp/v5.3.1/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x1000 C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/build/bootloader/bootloader.bin"

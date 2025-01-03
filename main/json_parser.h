@@ -5,6 +5,7 @@
 #define JSON_PARSER_H
 
 typedef struct {
+    uint8_t received_command;
     uint16_t therapy_id;
     uint32_t therapy_duration;
     int num_of_changed_regions;
