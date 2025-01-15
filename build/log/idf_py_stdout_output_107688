@@ -1,0 +1,24 @@
+[1/9] Performing build step for 'bootloader'
+[1/1] cmd.exe /C "cd /D C:\Users\bleda.burat\Desktop\example_ble_projects\gatt_server\build\bootloader\esp-idf\esptool_py && C:\Users\bleda.burat\.espressif\python_env\idf5.3_py3.11_env\Scripts\python.exe C:/Users/bleda.burat/esp/v5.3.1/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x1000 C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/build/bootloader/bootloader.bin"
+Bootloader binary size 0x6880 bytes. 0x780 bytes (7%) free.
+[2/7] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/therapy_controller.c.obj
+C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/therapy_controller.c:21:13: warning: 'init_lasers_status_mutex' defined but not used [-Wunused-function]
+   21 | static void init_lasers_status_mutex() {
+      |             ^~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/therapy_controller.c:18:13: warning: 'init_temperature_status_mutex' defined but not used [-Wunused-function]
+   18 | static void init_temperature_status_mutex() {
+      |             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/therapy_controller.c:15:13: warning: 'init_helmet_status_mutex' defined but not used [-Wunused-function]
+   15 | static void init_helmet_status_mutex() {
+      |             ^~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/therapy_controller.c:13:20: warning: 'Therapy_Controller_TAG' defined but not used [-Wunused-variable]
+   13 | static const char *Therapy_Controller_TAG = "TherapyController";
+      |                    ^~~~~~~~~~~~~~~~~~~~~~
+C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/therapy_controller.c:9:13: warning: 'is_therapy_active' defined but not used [-Wunused-variable]
+    9 | static bool is_therapy_active;
+      |             ^~~~~~~~~~~~~~~~~
+C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/therapy_controller.c:8:13: warning: 'is_lasers_running' defined but not used [-Wunused-variable]
+    8 | static bool is_lasers_running;
+      |             ^~~~~~~~~~~~~~~~~
+C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/therapy_controller.c:7:13: warning: 'is_temperature_normal' defined but not used [-Wunused-variable]
+    7 | static bool is_temperature_normal;

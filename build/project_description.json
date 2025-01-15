@@ -1,7 +1,7 @@
 {
     "version":            "1.1",
     "project_name":       "gatt_server_demos",
-    "project_version":    "71a2124-dirty",
+    "project_version":    "fe6ac76-dirty",
     "project_path":       "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server",
     "idf_path":           "C:/Users/bleda.burat/esp/v5.3.1/esp-idf",
     "build_dir":          "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/build",
@@ -1180,7 +1180,7 @@
             "managed_reqs": [],
             "managed_priv_reqs": [],
             "file": "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/build/esp-idf/main/libmain.a",
-            "sources": [ "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/storage_management.c", "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/timer_management.c", "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/i2c_control.c", "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/proximity_sensor_control.c", "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/temperature_sensor_control.c", "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/json_parser.c", "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/laser_driver_control.c", "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/ble_control.c", "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/main.c", "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/app_main.c", "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/gatts_demo.c" ],
+            "sources": [ "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/therapy_controller.c", "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/storage_management.c", "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/timer_management.c", "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/i2c_control.c", "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/proximity_sensor_control.c", "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/temperature_sensor_control.c", "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/json_parser.c", "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/laser_driver_control.c", "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/ble_control.c", "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/main.c", "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/app_main.c", "C:/Users/bleda.burat/Desktop/example_ble_projects/gatt_server/main/gatts_demo.c" ],
             "include_dirs": [ "." ]
         },
         "mbedtls": {

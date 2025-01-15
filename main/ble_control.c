@@ -27,21 +27,44 @@
 #include "proximity_sensor_control.h"
 #include "timer_management.h"
 #include "json_parser.h"
-
+#include "therapy_controller.h"
 #include "ble_control.h"
-
-
 
 #define PROFILE_NUM 1
 #define adv_config_flag      (1 << 0)
 #define scan_rsp_config_flag (1 << 1)
 
 static const char *BLE_TAG = "BLEControl";
-static bool isBleConnected = false;
-static bool isNotificationOn = true;
+static bool ble_connection_status = false;
 static uint8_t adv_config_done = 0;
 
+static const uint8_t GATTS_SERVICE_UUID128[16] = {
+    0xFB, 0x34, 0x9B, 0x5F, 0x80, 0x00, 0x00, 0x80,
+    0x00, 0x10, 0x00, 0x00, 0x12, 0x34, 0x56, 0x78 //TODO: Unique UUID yarat.
+};
+
 SemaphoreHandle_t ble_mutex = NULL; // Define and initialize the mutex
+
+static void set_ble_connection_status(bool status) {
+    if (xSemaphoreTake(ble_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
+        ble_connection_status = status;
+        ESP_LOGI(BLE_TAG, "ble_connection_status updated to: %s", status ? "true" : "false");
+        xSemaphoreGive(ble_mutex);
+    } else {
+        ESP_LOGE(BLE_TAG, "Failed to acquire BLE mutex for ble_connection_status update");
+    }
+}
+
+static bool get_ble_connection_status() {
+    bool status = false;
+    if (xSemaphoreTake(ble_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
+        status = ble_connection_status;
+        xSemaphoreGive(ble_mutex);
+    } else {
+        ESP_LOGE(BLE_TAG, "Failed to acquire BLE mutex for ble_connection_status read");
+    }
+    return status;
+}
 
 
 static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
@@ -70,13 +93,12 @@ struct gatts_profile_inst {
     uint16_t app_id;
     uint16_t conn_id;
     uint16_t service_handle;
-    esp_gatt_srvc_id_t service_id;
-    uint16_t char_handle;
-    esp_bt_uuid_t char_uuid;
-    esp_gatt_perm_t perm;
-    esp_gatt_char_prop_t property;
-    uint16_t descr_handle;
-    esp_bt_uuid_t descr_uuid;
+    uint16_t notification_handle;
+    uint16_t temperature_handle;
+    uint16_t humidity_handle;
+    uint16_t last_therapy_handle;
+    uint16_t activation_handle;
+    uint16_t laser_control_handle;
 };
 
 static struct gatts_profile_inst gl_profile_tab[PROFILE_NUM] = {
@@ -85,6 +107,19 @@ static struct gatts_profile_inst gl_profile_tab[PROFILE_NUM] = {
         .gatts_if = ESP_GATT_IF_NONE,       //Not get the gatt_if, so initial is ESP_GATT_IF_NONE
     },
 };
+
+static void onBleConnectionActivated()
+{
+    set_ble_connection_status(true);
+    NotificationType helmet_status = get_helmet_status() ? HELMET_ON : HELMET_OFF;
+    send_notification(helmet_status);
+
+    uint8_t last_therapy_data[10];
+    get_last_therapy_data(last_therapy_data);
+    send_aperiodic_info(get_last_therapy_handle(), last_therapy_data, sizeof(last_therapy_data));
+    
+    xTaskCreate(ble_notify_task, "Ble Notify Task", 4096, NULL, 5, NULL);
+}
 
 static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 {
@@ -183,42 +218,85 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
         esp_ble_gatts_create_service(gatts_if, &(esp_gatt_srvc_id_t){
             .is_primary = true,
             .id.inst_id = 0x00,
-            .id.uuid.len = ESP_UUID_LEN_16,
-            .id.uuid.uuid.uuid16 = GATTS_SERVICE_UUID,
-        }, 8);  // Number of handles
+            .id.uuid.len = ESP_UUID_LEN_128,
+            .id.uuid.uuid.uuid128 = {
+            GATTS_SERVICE_UUID128[0], GATTS_SERVICE_UUID128[1], GATTS_SERVICE_UUID128[2], GATTS_SERVICE_UUID128[3],
+            GATTS_SERVICE_UUID128[4], GATTS_SERVICE_UUID128[5], GATTS_SERVICE_UUID128[6], GATTS_SERVICE_UUID128[7],
+            GATTS_SERVICE_UUID128[8], GATTS_SERVICE_UUID128[9], GATTS_SERVICE_UUID128[10], GATTS_SERVICE_UUID128[11],
+            GATTS_SERVICE_UUID128[12], GATTS_SERVICE_UUID128[13], GATTS_SERVICE_UUID128[14], GATTS_SERVICE_UUID128[15]
+        }
+        }, 8); // Handle sayısı
         break;
 
+    case ESP_GATTS_ADD_CHAR_EVT:
+    if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_LASER_CONTROL) {
+        gl_profile_tab[PROFILE_A_APP_ID].laser_control_handle = param->add_char.attr_handle;
+        ESP_LOGI(BLE_TAG, "Laser Control Characteristic Handle: %d", param->add_char.attr_handle);
+    } else if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_TEMPERATURE) {
+        gl_profile_tab[PROFILE_A_APP_ID].temperature_handle = param->add_char.attr_handle;
+        ESP_LOGI(BLE_TAG, "Temperature Characteristic Handle: %d", param->add_char.attr_handle);
+    } else if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_HUMIDITY) {
+        gl_profile_tab[PROFILE_A_APP_ID].humidity_handle = param->add_char.attr_handle;
+        ESP_LOGI(BLE_TAG, "Humdity Characteristic Handle: %d", param->add_char.attr_handle);
+    } else if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_LAST_THERAPY) {
+        gl_profile_tab[PROFILE_A_APP_ID].last_therapy_handle = param->add_char.attr_handle;
+        ESP_LOGI(BLE_TAG, "Last Therapy Characteristic Handle: %d", param->add_char.attr_handle);
+    } else if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_NOTIFICATION) {
+        gl_profile_tab[PROFILE_A_APP_ID].notification_handle = param->add_char.attr_handle;
+        ESP_LOGI(BLE_TAG, "Notification Characteristic Handle: %d", param->add_char.attr_handle);
+    } else if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_ACTIVATION) {
+        gl_profile_tab[PROFILE_A_APP_ID].activation_handle = param->add_char.attr_handle;
+        ESP_LOGI(BLE_TAG, "Activation Characteristic Handle: %d", param->add_char.attr_handle);
+    }
+    break;
+
     case ESP_GATTS_CREATE_EVT:
+        gl_profile_tab[PROFILE_A_APP_ID].service_handle = param->create.service_handle;
         ESP_LOGI(BLE_TAG, "Service created, handle: %d", param->create.service_handle);
-        // Add Laser Control Characteristic
-        esp_ble_gatts_add_char(param->create.service_handle, &(esp_bt_uuid_t){
+
+        // Laser Control Characteristic
+        esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle, &(esp_bt_uuid_t){
             .len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_LASER_CONTROL},
+            ESP_GATT_PERM_READ, ESP_GATT_CHAR_PROP_BIT_READ,
+            NULL, NULL);
+
+        // Temperature Characteristic
+        esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle, &(esp_bt_uuid_t){
+            .len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_TEMPERATURE},
+            ESP_GATT_PERM_READ, ESP_GATT_CHAR_PROP_BIT_READ,
+            NULL, NULL);
+
+        // Humidity Characteristic
+        esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle, &(esp_bt_uuid_t){
+            .len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_HUMIDITY},
+            ESP_GATT_PERM_READ, ESP_GATT_CHAR_PROP_BIT_READ,
+            NULL, NULL);
+
+        // Last Therapy Characteristic
+        esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle, &(esp_bt_uuid_t){
+            .len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_LAST_THERAPY},
+            ESP_GATT_PERM_READ, ESP_GATT_CHAR_PROP_BIT_READ,
+            NULL, NULL);
+
+        // Notification Characteristic
+        esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle, &(esp_bt_uuid_t){
+            .len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_NOTIFICATION},
+            ESP_GATT_PERM_READ, ESP_GATT_CHAR_PROP_BIT_READ,
+            NULL, NULL);
+
+        // Activation Characteristic
+        esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle, &(esp_bt_uuid_t){
+            .len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_ACTIVATION},
             ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
             ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_READ,
             NULL, NULL);
 
-        // Add Proximity Characteristic
-        esp_ble_gatts_add_char(param->create.service_handle, &(esp_bt_uuid_t){
-            .len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_PROXIMITY},
-            ESP_GATT_PERM_READ,
-            ESP_GATT_CHAR_PROP_BIT_READ,
-            NULL, NULL);
-
-        // Add Temperature Characteristic
-        esp_ble_gatts_add_char(param->create.service_handle, &(esp_bt_uuid_t){
-            .len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_TEMPERATURE},
-            ESP_GATT_PERM_READ,
-            ESP_GATT_CHAR_PROP_BIT_READ,
-            NULL, NULL);
-
-        isBleConnected = true;
         break;
 
     case ESP_GATTS_WRITE_EVT:
         ESP_LOGI(BLE_TAG, "ESP_GATTS_WRITE_EVT, handle: %d", param->write.handle);
 
-        // Check if this write is for the Laser Control Characteristic
-        if (param->write.handle == ACTIVATION_INFO_CHAR_HANDLE) {
+        if (param->write.handle == gl_profile_tab[PROFILE_A_APP_ID].activation_handle) {
             restart_inactivity_timer();
             // Validate input data
             if (param->write.len == 0) {
@@ -240,34 +318,35 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
             
             if (therapy_activation_info == NULL) {
                 ESP_LOGE(BLE_TAG, "Failed to parse therapy activation info");
+                esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_INVALID_PDU, NULL);
                 return;
             }
             if (therapy_activation_info->received_command == 0x00) {
 
-                //TODO: stop_therapy
+                stop_therapy_timer();
+                //TODO: turn lasers off
             }
             else {
                 ESP_LOGI(BLE_TAG, "Parsed Therapy ID: %u, Duration: %lu, Regions: %d",
-                        therapy_activation_info->therapy_id,
-                        therapy_activation_info->therapy_duration,
-                        therapy_activation_info->num_of_changed_regions);
-
-                //TODO:Check isHelmetOn
-                //TODO: Check temperature sensors
-
-                start_therapy_timer(therapy_activation_info->therapy_duration);
-
-                if (therapy_activation_info->region_infos != NULL && therapy_activation_info->num_of_changed_regions > 0) {
-                    set_brightness(therapy_activation_info->region_infos, therapy_activation_info->num_of_changed_regions);
-                    ESP_LOGI(BLE_TAG, "Brightness updated successfully.");
-                }
-
-                else
-                {
-                    ESP_LOGW(BLE_TAG, "No regions to update.");
-                }
+                    therapy_activation_info->therapy_id,
+                    therapy_activation_info->therapy_duration,
+                    therapy_activation_info->num_of_changed_regions);
+                    if(can_therapy_start()) {
+                        if (therapy_activation_info->region_infos != NULL && therapy_activation_info->num_of_changed_regions > 0) {
+                            set_brightness(therapy_activation_info->region_infos, therapy_activation_info->num_of_changed_regions);
+                            ESP_LOGI(BLE_TAG, "Brightness updated successfully.");
+                        }
+                        else
+                        {
+                            ESP_LOGW(BLE_TAG, "No regions to update.");
+                        }
+                        start_therapy_timer(therapy_activation_info->therapy_duration);
+                        //TODO: turn lasers on
+                    }
+                    else{
+                        ESP_LOGE(BLE_TAG, "Therapy couldn't start.");
+                    }
             }
-
 
             free(therapy_activation_info->region_infos);
             free(therapy_activation_info);
@@ -275,13 +354,15 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
         } 
         break;
 
-    case ESP_GATTS_READ_EVT: 
-        break;
-
     case ESP_GATTS_DISCONNECT_EVT:
         ESP_LOGI(BLE_TAG, "Device disconnected, restarting advertising...");
-        isBleConnected = false;
+        set_ble_connection_status(false);
         esp_ble_gap_start_advertising(&adv_params);
+        break;
+    
+    case ESP_GATTS_CONNECT_EVT:
+        ESP_LOGI(BLE_TAG, "Device connected");
+        onBleConnectionActivated();
         break;
 
     default:
@@ -312,6 +393,8 @@ void init_ble(){
     if (local_mtu_ret) {
         ESP_LOGE(BLE_TAG, "set local MTU failed, error code = %x", local_mtu_ret);
     }
+
+    register_timer_notification_callback(send_notification);
 }
 
 static void ble_send_message(uint16_t char_handle, uint8_t* data, size_t data_length)
@@ -333,27 +416,28 @@ static void ble_send_message(uint16_t char_handle, uint8_t* data, size_t data_le
 }
 
 void ble_notify_task(void *param) {
-    while (isNotificationOn) {
-        if (isBleConnected) {
+    while (true) {
+        if(get_ble_connection_status()){
             if (xSemaphoreTake(ble_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
                 // Send Laser status notification
                 uint8_t led_data[2];
                 setDataOfActiveLaserCount(led_data);
-                ble_send_message(LASER_CTRL_CHAR_HANDLE, led_data, sizeof(led_data));
+                ble_send_message(gl_profile_tab[PROFILE_A_APP_ID].laser_control_handle, led_data, sizeof(led_data));
 
                 // Send temperature notification
                 uint8_t temp_data[7];
                 temp_data[0] = 0x00; //indicates no alert
                 get_temperature_of_all_sensors(&temp_data[1]);
-                ble_send_message(TEMPERATURE_INFO_CHAR_HANDLE, temp_data, sizeof(temp_data));
+                ble_send_message(gl_profile_tab[PROFILE_A_APP_ID].temperature_handle, temp_data, sizeof(temp_data));
 
                 // Release the mutex for other tasks
                 xSemaphoreGive(ble_mutex);
             } else {
                 ESP_LOGW(BLE_TAG, "Failed to obtain BLE mutex within 1 second");
             }
-        } else {
-            ESP_LOGW(BLE_TAG, "No active BLE connection, skipping notifications");
+        }
+        else {
+            break;
         }
 
         // Delay for a specified period (e.g., every 1 second)
@@ -364,13 +448,74 @@ void ble_notify_task(void *param) {
 
 void send_aperiodic_info(uint16_t char_handle, uint8_t* data, size_t data_length)
 {
-    if (isBleConnected) {
+    if (!get_ble_connection_status()) {
+        ESP_LOGW(BLE_TAG, "No active BLE connection, cannot send aperiodic info.");
+        return;
+    }
+
+    int retry_count = 0;
+    const int max_retries = 2;  // Set the maximum number of retries
+    const int retry_delay_ms = 100;  // Delay between retries in milliseconds
+
+    while (retry_count < max_retries) {
         if (xSemaphoreTake(ble_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
-            ble_send_message(char_handle, data, sizeof(data));
+            // Successfully acquired the mutex
+            esp_err_t ret = esp_ble_gatts_send_indicate(
+                gl_profile_tab[PROFILE_A_APP_ID].gatts_if,  // GATT interface
+                gl_profile_tab[PROFILE_A_APP_ID].conn_id,   // Connection ID
+                char_handle,                                // Characteristic handle
+                data_length,                                // Data length
+                data,                                       // Pointer to the data
+                false                                       // Need confirmation?
+            );
+
+            if (ret == ESP_OK) {
+                ESP_LOGI(BLE_TAG, "Successfully sent aperiodic info.");
+            } else {
+                ESP_LOGE(BLE_TAG, "Failed to send aperiodic info: %s", esp_err_to_name(ret));
+            }
+
             xSemaphoreGive(ble_mutex);
+            return;
+        } else {
+            retry_count++;
+            ESP_LOGW(BLE_TAG, "Failed to acquire BLE mutex, retrying... (%d/%d)", retry_count, max_retries);
+            vTaskDelay(pdMS_TO_TICKS(retry_delay_ms));  // Wait before retrying
         }
     }
-    else {
-        ESP_LOGW(BLE_TAG, "No active BLE connection, cannot send alert.");
+
+    // If the retries are exhausted, log the failure
+    ESP_LOGE(BLE_TAG, "Failed to acquire BLE mutex after %d attempts. Data not sent.", max_retries);
+}
+
+
+uint16_t get_last_therapy_handle() {
+    return gl_profile_tab[PROFILE_A_APP_ID].last_therapy_handle;
+}
+
+uint16_t get_temperature_handle() {
+    return gl_profile_tab[PROFILE_A_APP_ID].temperature_handle;
+}
+
+uint16_t get_notification_handle() {
+    return gl_profile_tab[PROFILE_A_APP_ID].notification_handle;
+}
+
+
+
+void send_notification(NotificationType notification_type) {
+    if (!get_ble_connection_status()) {
+        ESP_LOGW("Main", "No BLE connection, notification not sent");
+        return;
     }
+
+    uint8_t notification_data = (uint8_t)notification_type;
+
+    send_aperiodic_info(
+        get_notification_handle(),
+        &notification_data,
+        sizeof(notification_data)
+    );
+
+    ESP_LOGI("Main", "Notification sent: 0x%02X", notification_data);
 }

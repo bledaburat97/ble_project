@@ -176,31 +176,6 @@ bool check_other_sensor_detected(uint8_t asserted_sensor_index)
     return get_sensor_detection_status(other_sensor_index);
 }
 
-static SemaphoreHandle_t helmet_status_mutex = NULL;
-
-static void init_helmet_status_mutex() {
-    helmet_status_mutex = xSemaphoreCreateMutex();
-    if (helmet_status_mutex == NULL) {
-        ESP_LOGE(Proximity_TAG, "Failed to create helmet status mutex");
-    }
-}
-
-void set_helmet_status(bool status) {
-    if (xSemaphoreTake(helmet_status_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
-        helmet_status = status;
-        xSemaphoreGive(helmet_status_mutex);
-    }
-}
-
-bool get_helmet_status() {
-    bool status = false;
-    if (xSemaphoreTake(helmet_status_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
-        status = helmet_status;
-        xSemaphoreGive(helmet_status_mutex);
-    }
-    return status;
-}
-
 void initialize_proximity_sensors()
 {
     set_proximity_measurement_rate(master_num_of_sensors[0], 7.8125);
@@ -221,8 +196,6 @@ void initialize_proximity_sensors()
     enable_periodic_self_measurement(master_num_of_sensors[0]);
     enable_periodic_self_measurement(master_num_of_sensors[1]);
 
-    init_helmet_status_mutex();
     set_sensor_detection_status(0, false);
     set_sensor_detection_status(1, false);
-    set_helmet_status(false);
 }

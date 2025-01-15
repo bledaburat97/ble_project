@@ -4,6 +4,7 @@
 #include "proximity_sensor_control.h"
 #include "temperature_sensor_control.h"
 #include "timer_management.h"
+#include "therapy_controller.h"
 
 #include "freertos/semphr.h"
 #include <stdio.h>
@@ -52,6 +53,10 @@ void app_main() {
     ret = esp_bluedroid_enable();
     ESP_ERROR_CHECK(ret);
 
+    init_ble();
+    init_device_param_status();
+    start_inactivity_timer();
+
     initialize_i2c();
     initialize_laser_driver();
     initialize_proximity_sensors();
@@ -63,25 +68,6 @@ void app_main() {
 
     // Start temperature update task
     xTaskCreate(temperature_update_task, "Temperature Update Task", 4096, NULL, 5, NULL);
-}
-
-// Call when mechanical button is pressed to turn on
-void onDeviceIsTurnedOn() {
-    init_ble();
-    start_inactivity_timer();
-}
-
-
-void onBleConnectionActivated()
-{
-    uint8_t helmet_data = get_helmet_status() ? 0x01 : 0x00;
-    send_aperiodic_info(NOTIFICATION_INFO_CHAR_HANDLE, &helmet_data, sizeof(helmet_data));
-
-    uint8_t last_therapy_data[10];
-    get_last_therapy_data(last_therapy_data);
-    send_aperiodic_info(LAST_THERAPY_INFO_CHAR_HANDLE, last_therapy_data, sizeof(last_therapy_data));
-    
-    xTaskCreate(ble_notify_task, "Ble Notify Task", 4096, NULL, 5, NULL);
 }
 
 //Call when esp32 detects INT pin of any proximity sensor HIGH.
@@ -96,11 +82,12 @@ void checkProximitySensor(uint8_t asserted_sensor_index){
             set_default_thresholds(asserted_sensor_index);
             reset_interrupt(asserted_sensor_index);
             set_helmet_status(false);
+            send_notification(HELMET_OFF);
+
         }
         else
         {
-            uint8_t notification_data = 0x02;
-            send_aperiodic_info(NOTIFICATION_INFO_CHAR_HANDLE, &notification_data, sizeof(notification_data));
+            send_notification(WRONG_HELMET_STATUS);
             reset_interrupt(asserted_sensor_index);
             //TODO: TRY TO START LASERS AGAIN
         }
@@ -114,6 +101,10 @@ void checkProximitySensor(uint8_t asserted_sensor_index){
                 set_helmet_status(true);
             }
         }
+        else {
+            send_notification(HELMET_ON);
+            reset_interrupt(asserted_sensor_index);
+        }
     }
 
 }
@@ -124,15 +115,5 @@ void checkTemperatureSensor(uint8_t asserted_sensor_index) {
     uint8_t temp_data[7];
     temp_data[0] = asserted_sensor_index; //indicates sensor index which sends alert
     get_temperature_of_all_sensors(&temp_data[1]);
-    send_aperiodic_info(TEMPERATURE_INFO_CHAR_HANDLE, temp_data, sizeof(temp_data));
-}
-
-void onStop() {
-}
-
-
-void stop_therapy() {
-    stop_therapy_timer();
-    //TODO: turn off lasers
-
+    send_aperiodic_info(get_temperature_handle(), temp_data, sizeof(temp_data));
 }

@@ -11,8 +11,6 @@ void set_default_thresholds(uint8_t sensor_index);
 void increase_thresholds(uint8_t sensor_index);
 void reset_interrupt(uint8_t sensor_index);
 bool check_other_sensor_detected(uint8_t asserted_sensor_index);
-void set_helmet_status(bool status);
-bool get_helmet_status();
 void initialize_proximity_sensors();
 
 typedef struct {

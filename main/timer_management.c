@@ -9,17 +9,17 @@
 #include "time.h"
 
 #include "storage_management.h"
+#include "therapy_controller.h"
 
 static const char *TAG = "TimerManagement";
 static const char *LAST_THERAPY_END_TIME = "last_therapy_end_time";
 static const char *LAST_THERAPY_APPLIED_DURATION = "last_therapy_applied_duration";
 
 static time_t therapy_start_time = 0;
-bool isDeviceRunning = false;
 static TimerHandle_t therapy_timer = NULL;
 static TimerHandle_t inactivity_timer = NULL;
 static TaskHandle_t periodic_saving_task_handle = NULL;
-
+static void (*timer_notification_callback)(NotificationType) = NULL;
 
 static void save_current_time_and_applied_therapy_duration(){
     time_t current_time;
@@ -31,6 +31,9 @@ static void save_current_time_and_applied_therapy_duration(){
 
 static void therapy_timer_expiry_callback(TimerHandle_t xTimer) {
     stop_therapy_timer();
+    if (timer_notification_callback) {
+        timer_notification_callback(TIMER_ENDED);
+    }
 }
 
 static void inactivity_timer_expiry_callback(TimerHandle_t xTimer) {
@@ -38,7 +41,7 @@ static void inactivity_timer_expiry_callback(TimerHandle_t xTimer) {
 }
 
 static void periodic_saving_task(void *param) {
-    while (isDeviceRunning) {
+    while (get_lasers_status()) {
         save_current_time_and_applied_therapy_duration();
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
@@ -67,17 +70,19 @@ static uint32_t get_last_therapy_applied_duration() {
     return last_therapy_applied_duration;
 }
 
+void register_timer_notification_callback(void (*callback)(NotificationType)) {
+    timer_notification_callback = callback;
+}
+
 void start_inactivity_timer() {
-    if(isDeviceRunning) {
+    if(get_lasers_status()) {
         return;    
     }
-
-    uint16_t inactive_threshold = 300;
 
     if(inactivity_timer == NULL) {
         inactivity_timer = xTimerCreate(
             "InactivityTimer",
-            pdMS_TO_TICKS(inactive_threshold * 1000),  
+            pdMS_TO_TICKS(INACTIVITY_THRESHOLD_SECONDS * 1000),  
             pdFALSE,
             NULL,                        
             inactivity_timer_expiry_callback        
@@ -90,7 +95,7 @@ void start_inactivity_timer() {
     }
 
     if (xTimerStart(inactivity_timer, 0) == pdPASS) {
-        ESP_LOGI(TAG, "Inactivity timer started for %u s.", inactive_threshold);
+        ESP_LOGI(TAG, "Inactivity timer started for %u s.", INACTIVITY_THRESHOLD_SECONDS);
     } else {
         ESP_LOGE(TAG, "Failed to start inactivity timer.");
     }
@@ -134,7 +139,7 @@ void start_therapy_timer(uint32_t duration) {
     }
 
     therapy_start_time = time(NULL);    
-    isDeviceRunning = true;
+    set_lasers_status(true);
 
     // Start periodic saving task
     if (periodic_saving_task_handle == NULL) {
@@ -156,7 +161,8 @@ void stop_therapy_timer()
         return;
     }
 
-    isDeviceRunning = false;
+    set_lasers_status(false);
+
     if (periodic_saving_task_handle != NULL) {
         vTaskDelete(periodic_saving_task_handle);
         periodic_saving_task_handle = NULL;

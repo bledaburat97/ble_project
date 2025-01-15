@@ -23,6 +23,14 @@
         "utility": "c",
         "variant": "c",
         "json_parser.h": "c",
-        "freertos.h": "c"
+        "freertos.h": "c",
+        "esp_log.h": "c",
+        "timer_management.h": "c",
+        "storage_management.h": "c",
+        "therapy_controller.h": "c",
+        "timers.h": "c",
+        "event_groups.h": "c",
+        "semphr.h": "c",
+        "stdint.h": "c"
     }
 }
