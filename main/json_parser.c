@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include "esp_log.h"
+#include <esp_log.h>
 #include <stddef.h>
 
 #include "laser_driver_control.h"

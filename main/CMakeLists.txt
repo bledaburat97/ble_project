@@ -1,2 +1,2 @@
-idf_component_register(SRCS "therapy_controller.c" "storage_management.c" "timer_management.c" "i2c_control.c" "proximity_sensor_control.c" "temperature_sensor_control.c" "json_parser.c" "laser_driver_control.c" "ble_control.c" "main.c" "app_main.c" "gatts_demo.c"
+idf_component_register(SRCS "i2c_control.c" "json_parser.c" "laser_driver_control.c" "main.c"
                     INCLUDE_DIRS ".")

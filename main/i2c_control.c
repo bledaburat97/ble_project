@@ -30,17 +30,17 @@ void initialize_i2c()
 }
 
 
-void write_register(uint8_t device_address, uint8_t reg_address, uint8_t *data, size_t length, uint8_t i2c_master_number) {
+esp_err_t write_register(uint8_t device_address, uint8_t reg_address, uint8_t *data, size_t length, uint8_t i2c_master_number) {
     if (data == NULL) {
         ESP_LOGE(I2C_TAG, "Invalid data pointer or length");
-        return;
+        return ESP_ERR_INVALID_ARG;
     }
     
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
     i2c_master_write_byte(cmd, (device_address << 1) | I2C_MASTER_WRITE, true);
     i2c_master_write_byte(cmd, reg_address, true);
-    i2c_master_write(cmd, data, 1, true);
+    i2c_master_write(cmd, data, length, true);
 
     i2c_master_stop(cmd);
     esp_err_t ret = i2c_master_cmd_begin(i2c_master_number, cmd, pdMS_TO_TICKS(1000));
@@ -53,12 +53,15 @@ void write_register(uint8_t device_address, uint8_t reg_address, uint8_t *data, 
         vTaskDelay(pdMS_TO_TICKS(100));
     }
     i2c_cmd_link_delete(cmd);
+
+    return ret; // Return the status of the I2C operation
 }
 
-void read_register(uint8_t device_address, uint8_t reg_address, uint8_t *data, size_t length, uint8_t i2c_master_number) {
+
+esp_err_t read_register(uint8_t device_address, uint8_t reg_address, uint8_t *data, size_t length, uint8_t i2c_master_number) {
     if (data == NULL || (length != 1 && length != 2)) {
         ESP_LOGE(I2C_TAG, "Invalid data pointer or length");
-        return;
+        return ESP_ERR_INVALID_ARG;
     }
 
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
@@ -88,4 +91,5 @@ void read_register(uint8_t device_address, uint8_t reg_address, uint8_t *data, s
     }
 
     i2c_cmd_link_delete(cmd);
+    return ret;
 }

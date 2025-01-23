@@ -6,7 +6,7 @@
 #define LASER_DRIVER_CONTROL_H
 
 
-#define TOTAL_REGION_COUNT 5 
+#define TOTAL_REGION_COUNT 4 
 #define MAX_NUM_OF_LED_OF_LP5036 36
 
 
@@ -17,20 +17,30 @@ typedef struct {
 } RegionStatusChangedInfo;
 
 typedef struct {
-    int regionId;
-    int numOfLEDs;
-    int ledList[MAX_NUM_OF_LED_OF_LP5036];
-    int isBank;
+    uint8_t region_id;
+    uint64_t led_list;
+    bool is_bank;
 } Region;
 
 typedef struct {
-    Region region[TOTAL_REGION_COUNT];
-    uint16_t address;
+    uint8_t region_count;
+    Region region_list[TOTAL_REGION_COUNT];
+    uint8_t address;
+    uint8_t i2c_master_num;
 } LP5036Info;
 
-void initialize_laser_driver();
-void set_brightness(RegionStatusChangedInfo *region_status_changed_infos, int num_of_changed_regions);
-void setDataOfActiveLaserCount(uint8_t* data);
-void stop_notification();
+typedef enum {
+    LED_GLOBAL_OFF = 0x00,
+    MAX_CURRENT_OPTION = 0x01,
+    PWM_DITHERING_EN = 0x02,
+    AUTO_INCR_EN = 0x03,
+    POWER_SAVE_EN = 0x04,
+    LOG_SCALE_EN = 0x05
+} DeviceConfig1UpdateType;
+
+void set_brightness(RegionStatusChangedInfo *region_status_changed_infos, uint8_t num_of_changed_regions);
+void initialize_laser_drivers();
+void stop_laser_drivers();
+void update_device_config1(bool status, DeviceConfig1UpdateType type);
 
 #endif 
