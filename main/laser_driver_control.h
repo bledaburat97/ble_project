@@ -12,7 +12,6 @@
 
 typedef struct {
     uint8_t region_id;
-    bool on;
     uint8_t brightness;
 } RegionStatusChangedInfo;
 
@@ -20,11 +19,11 @@ typedef struct {
     uint8_t region_id;
     uint64_t led_list;
     bool is_bank;
-} Region;
+} RegionPiece;
 
 typedef struct {
-    uint8_t region_count;
-    Region region_list[TOTAL_REGION_COUNT];
+    uint8_t region_piece_count;
+    RegionPiece region_piece_list[TOTAL_REGION_COUNT];
     uint8_t address;
     uint8_t i2c_master_num;
 } LP5036Info;

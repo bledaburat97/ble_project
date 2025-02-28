@@ -24,8 +24,8 @@ static const char *LASER_TAG = "LaserDriverControl";
 static const LP5036Info lp5036Infos[NUM_OF_LP5036] = {
     {
         .address = LP5036_ADDRESS_1,
-        .region_count = 2,
-        .region_list = {
+        .region_piece_count = 2,
+        .region_piece_list = {
             {
                 .region_id = 1,
                 .led_list = 0x000000000000003F, //1,2,3,4,5,6
@@ -41,8 +41,8 @@ static const LP5036Info lp5036Infos[NUM_OF_LP5036] = {
     },
     {
         .address = LP5036_ADDRESS_2,
-        .region_count = 2,
-        .region_list = {
+        .region_piece_count = 2,
+        .region_piece_list = {
             {
                 .region_id = 2,
                 .led_list = 0x000000000000038, //4,5,6
@@ -58,8 +58,8 @@ static const LP5036Info lp5036Infos[NUM_OF_LP5036] = {
     },
     {
         .address = LP5036_ADDRESS_3,
-        .region_count = 1,
-        .region_list = {
+        .region_piece_count = 1,
+        .region_piece_list = {
             {
                 .region_id = 3,
                 .led_list = 0x000000000000007, //1,2,3
@@ -70,25 +70,25 @@ static const LP5036Info lp5036Infos[NUM_OF_LP5036] = {
     }
 };
 
-static void set_banked_leds(const LP5036Info lp5036Infos[]) {
+static void set_banked_leds() {
     for (uint8_t i = 0; i < NUM_OF_LP5036; i++) {
         const LP5036Info *info = &lp5036Infos[i];
 
-        for (uint8_t j = 0; j < info->region_count; j++) {
-            const Region *region = &info->region_list[j];
+        for (uint8_t j = 0; j < info->region_piece_count; j++) {
+            const RegionPiece *region_piece = &info->region_piece_list[j];
 
-            if (region == NULL) {
-                ESP_LOGE(LASER_TAG, "Region is not found");
+            if (region_piece == NULL) {
+                ESP_LOGE(LASER_TAG, "DriverRegion is not found");
                 continue;
             }
-            if (region->region_id == 0) {
+            if (region_piece->region_id == 0) {
                 continue;
             }
             uint16_t led_config = 0;
 
-            if (region->is_bank) {
+            if (region_piece->is_bank) {
                 for (uint8_t led_index = 0; led_index < MAX_NUM_OF_LED_OF_LP5036; led_index++) {
-                    if ((region->led_list >> led_index) & 1) {
+                    if ((region_piece->led_list >> led_index) & 1) {
                         if(led_index % 3 == 0) {
                             uint8_t x = led_index / 3;
                             led_config |= (1 << x);
@@ -112,18 +112,18 @@ static void set_banked_leds(const LP5036Info lp5036Infos[]) {
     }
 }
 
-static const Region* getSelectedRegion(uint8_t region_id, const LP5036Info *info) {
+static const RegionPiece* get_region_piece_of_driver_by_id(uint8_t region_id, const LP5036Info *info) {
         
-    for (uint8_t i = 0; i < info->region_count; i++) {
-        const Region *region = &info->region_list[i];
+    for (uint8_t i = 0; i < info->region_piece_count; i++) {
+        const RegionPiece *region = &info->region_piece_list[i];
         if (region->region_id == region_id) {
-            return &info->region_list[i];
+            return &info->region_piece_list[i];
         }
     }
     return NULL;
 }
 
-static void set_brightness_of_region(const LP5036Info lp5036Infos[], uint8_t region_id, uint8_t brightness){
+static void set_brightness_of_region(uint8_t region_id, uint8_t brightness){
     if (region_id < 1 || region_id > TOTAL_REGION_COUNT) {
         ESP_LOGE(LASER_TAG, "Invalid region ID: %d", region_id);
         return;
@@ -133,14 +133,14 @@ static void set_brightness_of_region(const LP5036Info lp5036Infos[], uint8_t reg
     {
         const LP5036Info *info = &lp5036Infos[i];
 
-        const Region *region = getSelectedRegion(region_id, info);
+        const RegionPiece *region_piece = get_region_piece_of_driver_by_id(region_id, info);
 
-        if (region == NULL) {
-            ESP_LOGE(LASER_TAG, "Region with ID %d not found", region_id);
+        if (region_piece == NULL) {
+            ESP_LOGE(LASER_TAG, "DriverRegion with ID %d not found", region_id);
             continue;
         }
 
-        if(region->is_bank)
+        if(region_piece->is_bank)
         {
             if (write_register(info->address, BANK_A_COLOR_REG, &brightness, 1, info->i2c_master_num) != ESP_OK) {
                 ESP_LOGE(LASER_TAG, "Failed to write BANK_A_COLOR_REG brightness for address 0x%02X", info->address);
@@ -149,7 +149,7 @@ static void set_brightness_of_region(const LP5036Info lp5036Infos[], uint8_t reg
         else
         {
             for (uint8_t j = 0; j < MAX_NUM_OF_LED_OF_LP5036; j++) {
-                if ((region->led_list >> j) & 1) {
+                if ((region_piece->led_list >> j) & 1) {
                     if (write_register(info->address, OUT0_COLOR_REG + j, &brightness, 1, info->i2c_master_num) != ESP_OK) {
                         ESP_LOGE(LASER_TAG, "Failed to write OUT0_COLOR_REG brightness for address 0x%02X, for led index %d", info->address, j);
                     }
@@ -159,11 +159,13 @@ static void set_brightness_of_region(const LP5036Info lp5036Infos[], uint8_t reg
     }
 }
 
-static void set_laser_drivers_active(bool status, const LP5036Info * lp5036_info)
+static void set_laser_drivers_status(bool status)
 {
-    uint8_t chip_en = status ? 0x40 : 0x00;
-    if (write_register(lp5036_info->address, DEVICE_CONFIG0_REG, &chip_en, 1, lp5036_info->i2c_master_num) != ESP_OK) {
-        ESP_LOGE(LASER_TAG, "Failed to write DEVICE_CONFIG0_REG for address 0x%02X, for status: %d", lp5036_info->address, status);
+    for(uint8_t lp5036_index = 0; lp5036_index < NUM_OF_LP5036; lp5036_index++){
+        uint8_t chip_en = status ? 0x40 : 0x00;
+        if (write_register(lp5036Infos[lp5036_index].address, DEVICE_CONFIG0_REG, &chip_en, 1, lp5036Infos[lp5036_index].i2c_master_num) != ESP_OK) {
+            ESP_LOGE(LASER_TAG, "Failed to write DEVICE_CONFIG0_REG for address 0x%02X, for status: %d", lp5036Infos[lp5036_index].address, status);
+        }
     }
 }
 
@@ -195,30 +197,18 @@ void update_device_config1(bool status, DeviceConfig1UpdateType type) {
 void set_brightness(RegionStatusChangedInfo *region_status_changed_infos, uint8_t num_of_changed_regions)
 {
     for(uint8_t i = 0; i < num_of_changed_regions; i++){
-        if(region_status_changed_infos[i].on)
-        {
-            set_brightness_of_region(lp5036Infos, region_status_changed_infos[i].region_id, region_status_changed_infos[i].brightness); 
-        }
-        else
-        {
-            set_brightness_of_region(lp5036Infos, region_status_changed_infos[i].region_id, MIN_BRIGHTNESS); 
-        }
+        set_brightness_of_region(region_status_changed_infos[i].region_id, region_status_changed_infos[i].brightness);
     }
 }
 
 void initialize_laser_drivers() 
 {
-    for(uint8_t lp5036_index = 0; lp5036_index < NUM_OF_LP5036; lp5036_index++){
-        set_laser_drivers_active(true, &lp5036Infos[lp5036_index]);
-    }
-
-    set_banked_leds(lp5036Infos);
+    set_laser_drivers_status(true);
+    set_banked_leds();
 }
 
 
 void stop_laser_drivers() 
 {
-    for(uint8_t lp5036_index = 0; lp5036_index < NUM_OF_LP5036; lp5036_index++){
-        set_laser_drivers_active(false, &lp5036Infos[lp5036_index]);
-    }
+    set_laser_drivers_status(false);
 }

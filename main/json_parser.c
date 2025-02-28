@@ -74,21 +74,18 @@ TherapyActivationInfo* parse_therapy_activation_info(const char *json_data) {
     cJSON *region_status_info = NULL;
     cJSON_ArrayForEach(region_status_info, region_infos) {
         cJSON *region_id = cJSON_GetObjectItem(region_status_info, "region_id");
-        cJSON *on = cJSON_GetObjectItem(region_status_info, "on");
         cJSON *brightness = cJSON_GetObjectItem(region_status_info, "brightness");
 
-        if (!cJSON_IsNumber(region_id) || !cJSON_IsBool(on)) {
-            ESP_LOGW(JsonTAG, "Invalid JSON in region: 'region_id' or 'on' field missing/invalid");
+        if (!cJSON_IsNumber(region_id)) {
+            ESP_LOGW(JsonTAG, "Invalid JSON in region: 'region_id' field missing/invalid");
             continue;
         }
 
         therapy_activation_info->region_infos[index].region_id = (uint8_t)region_id->valueint;
-        therapy_activation_info->region_infos[index].on = cJSON_IsTrue(on);
         therapy_activation_info->region_infos[index].brightness = (brightness && cJSON_IsNumber(brightness)) ? (uint8_t)brightness->valueint : 0;
 
-        ESP_LOGI(JsonTAG, "Parsed region - RegionId: %d, On: %d, Brightness: %d",
+        ESP_LOGI(JsonTAG, "Parsed region - RegionId: %d, Brightness: %d",
                  therapy_activation_info->region_infos[index].region_id,
-                 therapy_activation_info->region_infos[index].on,
                  therapy_activation_info->region_infos[index].brightness);
         index++;
     }
