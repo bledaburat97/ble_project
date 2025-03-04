@@ -37,6 +37,7 @@
 #include "driver/rtc_io.h"
 #include "esp_sleep.h"
 //////
+#include "lp_core_queue_manager.h"
 
 #define MAX_BRIGHTNESS 0xFF
 #define DEBOUNCE_TIME_MS 200
@@ -120,11 +121,33 @@ void stop_lasers() {
     stop_laser_drivers();
 }
 
-void check_lp_core_status() {
-    if (ulp_lp_core_value == 0) {
-        ESP_LOGE("HP_CORE", "LP-Core işlemi başarisiz!");
-    } else {
-        ESP_LOGI("HP_CORE", "lp_core_value: %lu", ulp_lp_core_value);
+void process_lp_queue_task(void *arg) {
+    lp_core_task_t task;
+
+    while (1) {
+        if(ulp_lp_core_command == 0){
+            if (queue_get_task(&task, pdMS_TO_TICKS(10)) == pdPASS) {
+
+                ulp_lp_core_command = task.lp_core_command;
+                ulp_lp_core_register = task.lp_core_register;
+                ulp_lp_core_value = task.lp_core_value;
+                ulp_lp_core_device_address = task.lp_core_device_address;
+                ulp_lp_core_byte_count = task.lp_core_byte_count;
+
+                ESP_LOGI("MAIN", "Queue'dan çıktı: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu", 
+                        task.lp_core_command, task.lp_core_register, task.lp_core_value, task.lp_core_device_address, task.lp_core_byte_count);
+            }
+        }
+        else if(ulp_lp_core_command == 3) {
+            ESP_LOGI(TAG, "Write tamamlandı: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu", 
+                ulp_lp_core_command, ulp_lp_core_register, ulp_lp_core_value, ulp_lp_core_device_address, ulp_lp_core_byte_count);
+            ulp_lp_core_command = 0;
+        }
+        else if(ulp_lp_core_command == 4) {
+            ESP_LOGI(TAG, "Read tamamlandı: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu", 
+                ulp_lp_core_command, ulp_lp_core_register, ulp_lp_core_value, ulp_lp_core_device_address, ulp_lp_core_byte_count);
+            ulp_lp_core_command = 0;
+        }
     }
 }
 
@@ -137,10 +160,10 @@ void app_main() {
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
+    queue_init();
 
     initialize_i2c();
-    //lp_core_init();
-
+    //-LP-//lp_core_init();
 
     if(laser_test)
     {
@@ -215,20 +238,11 @@ void app_main() {
     xTaskCreate(monitor_alert_task, "Monitor Alert Task", 2048, NULL, 1, NULL);
 
     //xTaskCreate(temperature_update_task, "Temperature Update Task", 2048, NULL, 1, NULL);
+    //-LP-//xTaskCreate(process_lp_queue_task, "ProcessLpQueueTask", 2048, NULL, 1, NULL);
 
     ESP_LOGI(TAG, "System Ready.");
-    
     while (1) {
-        ESP_LOGI(TAG, "LP-Core ulp_lp_core_command: %lu", ulp_lp_core_command);
-        log_temperature();
-        check_lp_core_status();
-        ESP_LOGI(TAG, "LP-Core ulp_lp_core_command2: %lu", ulp_lp_core_command);
-        ESP_LOGI(TAG, "LP-Core ulp_lp_core_register: %lu", ulp_lp_core_register);
-        ESP_LOGI(TAG, "LP-Core ulp_lp_core_value: %lu", ulp_lp_core_value);
-        ESP_LOGI(TAG, "LP-Core ulp_lp_core_device_address: %lu", ulp_lp_core_device_address);
-        ESP_LOGI(TAG, "LP-Core ulp_lp_core_byte_count: %lu", ulp_lp_core_byte_count);
-        ESP_LOGI(TAG, "LP-Core ulp_lp_core_result: %lu", ulp_lp_core_result);
-        
+        log_temperature();        
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }

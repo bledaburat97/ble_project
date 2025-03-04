@@ -10,19 +10,10 @@
 #define I2C_MASTER_SCL_IO_2 7   // GPIO number for I2C SCL
 #define I2C_MASTER_SDA_IO_2 6    // GPIO number for I2C SDA
 
-
 static const char *TAG = "I2CControl";
 #define I2C_MASTER_FREQ_HZ 400000 // Max I2C frequency for temperature sensors
 
 static void init_i2c_master(uint8_t i2c_num, int sda_io, int scl_io) {
-    /*
-    ESP_LOGI(TAG, "Init I2C Master");
-    gpio_set_direction(sda_io, GPIO_MODE_OUTPUT);
-    gpio_set_direction(scl_io, GPIO_MODE_OUTPUT);
-    gpio_set_level(sda_io, 1);  // SDA’yı HIGH yap
-    gpio_set_level(scl_io, 1);  // SCL’yi HIGH yap
-    vTaskDelay(pdMS_TO_TICKS(10));  // **10ms bekleyerek hat temizlensin**
-    */
     i2c_config_t conf = {
         .mode = I2C_MODE_MASTER,
         .sda_io_num = sda_io,
@@ -55,7 +46,6 @@ static void init_lp_i2c_master() {
     esp_err_t ret = ESP_OK;
     lp_core_i2c_cfg_t i2c_cfg;
 
-    /* Initialize LP I2C with default configuration */
     i2c_cfg.i2c_pin_cfg.sda_io_num = GPIO_NUM_6;
     i2c_cfg.i2c_pin_cfg.scl_io_num = GPIO_NUM_7;
     i2c_cfg.i2c_pin_cfg.sda_pullup_en = true;
@@ -75,7 +65,7 @@ static void init_lp_i2c_master() {
 void initialize_i2c()
 {
     init_i2c_master(I2C_FIRST_MASTER_NUM, I2C_MASTER_SDA_IO_1, I2C_MASTER_SCL_IO_1);
-    //init_lp_i2c_master();
+    //-LP-//init_lp_i2c_master();
 }
 
 esp_err_t write_register(uint8_t device_address, uint8_t reg_address, uint8_t *data, size_t length, uint8_t i2c_master_number) {
@@ -104,7 +94,7 @@ esp_err_t write_register(uint8_t device_address, uint8_t reg_address, uint8_t *d
 
     i2c_cmd_link_delete(cmd);
 
-    return ret; // Return the status of the I2C operation
+    return ret;
 }
 
 
@@ -146,50 +136,4 @@ esp_err_t read_register(uint8_t device_address, uint8_t reg_address, uint8_t *da
 
     i2c_cmd_link_delete(cmd);
     return ret;
-}
-
-esp_err_t lp_core_send_read_command(uint8_t device_address, uint8_t reg_address, uint8_t *data, size_t length) {
-    ulp_lp_core_device_address = (ulp_lp_core_device_address & 0xFFFFFF00) | (device_address & 0xFF);
-    ulp_lp_core_register = (ulp_lp_core_register & 0xFFFFFF00) | (reg_address & 0xFF);
-    if(length == 1) {
-        ulp_lp_core_command = 1;
-    }
-    else {
-        ulp_lp_core_command = 3;
-    }
-
-    vTaskDelay(pdMS_TO_TICKS(100)); // LP-Core'un işlemi tamamlamasını bekle
-    uint16_t value = ulp_lp_core_value & 0xFFFF;  // Sadece ilk 16 biti al
-    if(length == 1) {
-        data[0] = value & 0xFF;
-    }
-    else if (length == 2) {
-        data[0] = (value >> 8) & 0xFF;
-        data[1] = value & 0xFF;
-    }
-    ESP_LOGI(TAG, "lp_core_send_read_command: %lu", ulp_lp_core_value);
-
-    return ESP_OK;
-}
-
-esp_err_t lp_core_send_write_command(uint8_t device_address, uint8_t reg_address, uint8_t* data, size_t length) {
-    ulp_lp_core_device_address = (ulp_lp_core_device_address & 0xFFFFFF00) | (device_address & 0xFF);
-    ulp_lp_core_register = (ulp_lp_core_register & 0xFFFFFF00) | (reg_address & 0xFF);
-    if(length == 1) {
-        ulp_lp_core_value = (ulp_lp_core_value & 0xFFFFFF00) | (data[0] & 0xFF);
-    }
-    else if(length == 2) {
-        ulp_lp_core_value = (ulp_lp_core_value & 0xFFFF0000) | ((data[0] << 8) | data[1]);
-    }
-    ESP_LOGI(TAG, "lp_core_send_write_command: %lu", ulp_lp_core_value);
-    if(length == 1) {
-        ulp_lp_core_command = 2; // Yazma komutu gönder
-    }
-    else {
-        ulp_lp_core_command = 4; // Yazma komutu gönder
-    }
-
-    vTaskDelay(pdMS_TO_TICKS(100)); // LP-Core'un işlemi tamamlamasını bekle
-
-    return ESP_OK;
 }

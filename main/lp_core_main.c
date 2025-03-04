@@ -22,7 +22,6 @@ void lp_core_init(void)
     else{
         ESP_LOGI("LP_CORE_MAIN", "LP-Core baslatildi!");
     }
-
 }
 
 

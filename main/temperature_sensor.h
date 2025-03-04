@@ -11,7 +11,6 @@ typedef enum {
 
 void set_configuration(uint8_t device_address, TempSensorConfigReg config);
 void set_threshold_temperature(uint8_t device_address, float thresholdInDegree, TemperatureThresholdType type);
-void log_current_temperature(uint8_t device_address);
 float read_temperature_of_sensor(uint8_t device_address);
 void set_i2c_master_num(uint8_t master_num);
 #endif

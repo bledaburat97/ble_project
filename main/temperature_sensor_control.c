@@ -25,7 +25,7 @@ void initialize_temperature_sensor() {
     config.altm = ALERT_COMPARATOR_MODE;
     config.sd = NORMAL_MODE;
     set_alert_pin_normal_status(config.pol != ALERT_ACTIVE_HIGH);
-    set_i2c_master_num(I2C_FIRST_MASTER_NUM);
+    set_i2c_master_num(I2C_FIRST_MASTER_NUM); //-LP-//
     set_configuration(sensor_addresses[0], config);
     set_threshold_temperature(sensor_addresses[0], 25.5, LOW);
     set_threshold_temperature(sensor_addresses[0], 27, HIGH);

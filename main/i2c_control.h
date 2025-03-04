@@ -12,7 +12,5 @@
 void initialize_i2c();
 esp_err_t write_register(uint8_t device_address, uint8_t reg_address, uint8_t *data, size_t length, uint8_t i2c_master_number);
 esp_err_t read_register(uint8_t device_address, uint8_t reg_address, uint8_t *data, size_t length, uint8_t i2c_master_number);
-esp_err_t lp_core_send_read_command(uint8_t device_address, uint8_t reg_address, uint8_t *data, size_t length);
-esp_err_t lp_core_send_write_command(uint8_t device_address, uint8_t reg_address, uint8_t* data, size_t length);
 
 #endif
