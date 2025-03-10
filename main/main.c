@@ -38,6 +38,9 @@
 #include "esp_sleep.h"
 //////
 #include "lp_core_queue_manager.h"
+#include "proximity_sensor_control.h"
+#include "proximity_sensor_config.h"
+#include "proximity_int_control.h"
 
 #define MAX_BRIGHTNESS 0xFF
 #define DEBOUNCE_TIME_MS 200
@@ -146,6 +149,10 @@ void process_lp_queue_task(void *arg) {
         else if(ulp_lp_core_command == 4) {
             ESP_LOGI(TAG, "Read tamamlandı: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu", 
                 ulp_lp_core_command, ulp_lp_core_register, ulp_lp_core_value, ulp_lp_core_device_address, ulp_lp_core_byte_count);
+            if(ulp_lp_core_register == INTERRUPT_STATUS_REG && ulp_lp_core_device_address == VCNL_3020_ADDRESS) {
+                check_interrupt_status(ulp_lp_core_value & 0xFF, true);
+            }
+            
             ulp_lp_core_command = 0;
         }
     }
@@ -163,7 +170,8 @@ void app_main() {
     queue_init();
 
     initialize_i2c();
-    //-LP-//lp_core_init();
+    //-LP-//
+    lp_core_init();
 
     if(laser_test)
     {
@@ -176,9 +184,12 @@ void app_main() {
     }
     else if(temperature_test) {
         ESP_LOGI(TAG, "Start temperature measurements");
-        initialize_temperature_sensor();
+        //initialize_temperature_sensor();
     }
-    initialize_alert_gpio();
+    //initialize_alert_gpio();
+    initialize_proximity_int_gpio();
+
+    initialize_proximity_sensors();
 
     //--- FOR TEST
     // LEDC (PWM) yapılandırması
@@ -236,13 +247,16 @@ void app_main() {
 
     xTaskCreate(button_task, "button_task", 2048, NULL, 1, NULL);
     xTaskCreate(monitor_alert_task, "Monitor Alert Task", 2048, NULL, 1, NULL);
+    xTaskCreate(monitor_proximity_int_task, "Monitor Proximity Int Task", 2048, NULL, 1, NULL);
 
     //xTaskCreate(temperature_update_task, "Temperature Update Task", 2048, NULL, 1, NULL);
-    //-LP-//xTaskCreate(process_lp_queue_task, "ProcessLpQueueTask", 2048, NULL, 1, NULL);
+    //-LP-//
+    xTaskCreate(process_lp_queue_task, "ProcessLpQueueTask", 2048, NULL, 1, NULL);
 
     ESP_LOGI(TAG, "System Ready.");
     while (1) {
-        log_temperature();        
+        //log_temperature();
+        log_proximity(1);
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }

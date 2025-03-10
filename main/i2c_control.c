@@ -65,7 +65,8 @@ static void init_lp_i2c_master() {
 void initialize_i2c()
 {
     init_i2c_master(I2C_FIRST_MASTER_NUM, I2C_MASTER_SDA_IO_1, I2C_MASTER_SCL_IO_1);
-    //-LP-//init_lp_i2c_master();
+    //-LP-//
+    init_lp_i2c_master();
 }
 
 esp_err_t write_register(uint8_t device_address, uint8_t reg_address, uint8_t *data, size_t length, uint8_t i2c_master_number) {

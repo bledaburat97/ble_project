@@ -58,10 +58,10 @@ static void add_lp_write_command_to_queue(uint8_t device_address, uint8_t reg_ad
     uint32_t lp_core_command = 1;
     uint32_t lp_core_value = 0;
     if(length == 1) {
-        lp_core_value = (lp_core_value & 0xFFFFFF00) | (data[0] & 0xFF);
+        lp_core_value = lp_core_value | (data[0] & 0xFF);
     }
     else if(length == 2) {
-        lp_core_value = (lp_core_value & 0xFFFF0000) | ((data[0] << 8) | data[1]);
+        lp_core_value = lp_core_value | ((data[0] << 8) | data[1]);
     }
     ESP_LOGI(TAG, "Queue'ya yaz: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu", 
         lp_core_command, lp_core_register, lp_core_value, lp_core_device_address, lp_core_byte_count);

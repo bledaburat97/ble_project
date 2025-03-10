@@ -1,0 +1,53 @@
+#include "constants.h"
+#include "temperature_alarm_control.h"
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+#include "proximity_sensor_control.h"
+
+#define NUM_SENSORS 2
+#define NORMAL_PIN_STATUS 1  // Default hali HIGH
+
+static const char *TAG = "ProximityInt";
+const int PROX_SENSOR_INT_GPIO[NUM_SENSORS] = {18, 19};
+
+static void checkProximitySensor(uint8_t asserted_sensor_index){
+    /*TODO: add therapy controller.
+    if(get_helmet_status()) {
+        //TODO: STOP LASERS
+    }
+    */
+    request_excess_status(asserted_sensor_index);
+}
+
+void monitor_proximity_int_task(void *param) {
+    while (1) {
+        for (int i = 0; i < NUM_SENSORS; i++) {
+            int current_level = gpio_get_level(PROX_SENSOR_INT_GPIO[i]);
+
+            if (current_level != NORMAL_PIN_STATUS) {
+                ESP_LOGI(TAG, "Proximity Sensor %d: INT is triggered!", i);
+                checkProximitySensor(i);
+            }
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(20));
+    }
+}
+
+void initialize_proximity_int_gpio() {
+    gpio_config_t io_conf = {};
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_INPUT; 
+    io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
+    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+
+
+    for (int i = 0; i < NUM_SENSORS; i++) {
+        io_conf.pin_bit_mask = (1ULL << PROX_SENSOR_INT_GPIO[i]);
+        gpio_config(&io_conf);
+        ESP_LOGI(TAG, "Proximity sensor %d INT pin monitoring started on GPIO %d", i, PROX_SENSOR_INT_GPIO[i]);
+    }
+
+}
