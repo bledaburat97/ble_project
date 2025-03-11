@@ -15,8 +15,9 @@ typedef struct {
 
 extern QueueHandle_t lp_core_queue;
 
-void queue_init();
+void initialize_lp_core_queue();
 BaseType_t queue_add_task(uint32_t command, uint32_t reg, uint32_t value, uint32_t device_address, uint32_t byte_count);
 BaseType_t queue_get_task(lp_core_task_t *task, TickType_t timeout);
+void process_lp_queue_task(void *arg);
 
 #endif

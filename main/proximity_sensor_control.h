@@ -11,8 +11,8 @@ typedef enum {
     HIGH = 1
 } ProximityThresholdType;
 
-void initialize_proximity_sensors();
-void request_excess_status(uint8_t asserted_sensor_index);
+void initialize_proximity_sensors(bool hp_prox_sensor_exist, bool lp_prox_sensor_exist);
+void request_excess_status(bool is_lp);
 void check_interrupt_status(uint8_t status, bool is_lp);
-void log_proximity(uint8_t sensor_index);
+void read_proximity_of_sensors();
 #endif 

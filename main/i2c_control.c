@@ -5,33 +5,34 @@
 #include "lp_core_main.h"
 #include "lp_core_firmware.h"
 
-#define I2C_MASTER_SCL_IO_1 GPIO_NUM_13    // GPIO number for I2C SCL
-#define I2C_MASTER_SDA_IO_1 GPIO_NUM_12    // GPIO number for I2C SDA
-#define I2C_MASTER_SCL_IO_2 7   // GPIO number for I2C SCL
-#define I2C_MASTER_SDA_IO_2 6    // GPIO number for I2C SDA
+#define I2C_MASTER_SCL_IO_1 GPIO_NUM_13
+#define I2C_MASTER_SDA_IO_1 GPIO_NUM_12
+#define I2C_MASTER_SCL_IO_2 GPIO_NUM_7
+#define I2C_MASTER_SDA_IO_2 GPIO_NUM_6
 
 static const char *TAG = "I2CControl";
-#define I2C_MASTER_FREQ_HZ 400000 // Max I2C frequency for temperature sensors
+#define I2C_MASTER_FREQ_HZ 400000
+#define LP_I2C_MASTER_FREQ_HZ 100000
 
-static void init_i2c_master(uint8_t i2c_num, int sda_io, int scl_io) {
+void init_i2c_master() {
     i2c_config_t conf = {
         .mode = I2C_MODE_MASTER,
-        .sda_io_num = sda_io,
+        .sda_io_num = I2C_MASTER_SDA_IO_1,
         .sda_pullup_en = GPIO_PULLUP_DISABLE,
-        .scl_io_num = scl_io,
+        .scl_io_num = I2C_MASTER_SCL_IO_1,
         .scl_pullup_en = GPIO_PULLUP_DISABLE,
         .master.clk_speed = I2C_MASTER_FREQ_HZ,
     };
 
     esp_err_t err;
 
-    err = i2c_param_config(i2c_num, &conf);
+    err = i2c_param_config(I2C_FIRST_MASTER_NUM, &conf);
     if (err != ESP_OK) {
         ESP_LOGE("I2C", "I2C parametre yapılandırması başarısız! Hata: 0x%x", err);
         return;
     }
 
-    err = i2c_driver_install(i2c_num, conf.mode, 0, 0, 0);
+    err = i2c_driver_install(I2C_FIRST_MASTER_NUM, conf.mode, 0, 0, 0);
     if (err != ESP_OK) {
         ESP_LOGE("I2C", "I2C sürücüsü yüklenemedi! Hata: 0x%x", err);
     } else {
@@ -39,18 +40,17 @@ static void init_i2c_master(uint8_t i2c_num, int sda_io, int scl_io) {
     }
 }
 
-
-static void init_lp_i2c_master() {
+void init_lp_i2c_master() {
     ESP_LOGI(TAG, "Initializing LP I2C Master in HP Core...");
 
     esp_err_t ret = ESP_OK;
     lp_core_i2c_cfg_t i2c_cfg;
 
-    i2c_cfg.i2c_pin_cfg.sda_io_num = GPIO_NUM_6;
-    i2c_cfg.i2c_pin_cfg.scl_io_num = GPIO_NUM_7;
+    i2c_cfg.i2c_pin_cfg.sda_io_num = I2C_MASTER_SDA_IO_2;
+    i2c_cfg.i2c_pin_cfg.scl_io_num = I2C_MASTER_SCL_IO_2;
     i2c_cfg.i2c_pin_cfg.sda_pullup_en = true;
     i2c_cfg.i2c_pin_cfg.scl_pullup_en = true;
-    i2c_cfg.i2c_timing_cfg.clk_speed_hz = 100000;
+    i2c_cfg.i2c_timing_cfg.clk_speed_hz = LP_I2C_MASTER_FREQ_HZ;
     i2c_cfg.i2c_src_clk = LP_I2C_SCLK_LP_FAST;
 
     ret = lp_core_i2c_master_init(I2C_SECOND_MASTER_NUM, (const lp_core_i2c_cfg_t*)&i2c_cfg);
@@ -60,13 +60,6 @@ static void init_lp_i2c_master() {
     }
     ESP_LOGI(TAG, "LP I2C initialized successfully\n");
 
-}
-
-void initialize_i2c()
-{
-    init_i2c_master(I2C_FIRST_MASTER_NUM, I2C_MASTER_SDA_IO_1, I2C_MASTER_SCL_IO_1);
-    //-LP-//
-    init_lp_i2c_master();
 }
 
 esp_err_t write_register(uint8_t device_address, uint8_t reg_address, uint8_t *data, size_t length, uint8_t i2c_master_number) {

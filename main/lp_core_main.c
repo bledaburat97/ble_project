@@ -4,7 +4,7 @@
 #include "ulp_lp_core_utils.h"
 #include "ulp_lp_core_i2c.h"
 
-void lp_core_init(void)
+void initialize_lp_core(void)
 {
     size_t firmware_size = lp_core_main_bin_end - lp_core_main_bin_start;
     ESP_LOGI("LP_CORE_MAIN", "LP-Core firmware boyutu: %d byte", firmware_size);

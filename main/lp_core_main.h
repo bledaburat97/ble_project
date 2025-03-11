@@ -12,7 +12,16 @@
 #define RTC_DATA_ATTR __attribute__((section(".rtc.data")))
 #endif
 
-void lp_core_init(void);
+typedef enum {
+    NO_COMMAND = 0,
+    WRITE_COMMAND = 1,
+    READ_COMMAND = 2,
+    WRITE_COMPLETED = 3,
+    READ_COMPLETED = 4
+} LpI2COperations;
+
+void initialize_lp_core(void);
+
 
 extern const uint8_t lp_core_main_bin_start[] asm("_binary_lp_core_firmware_bin_start");
 extern const uint8_t lp_core_main_bin_end[] asm("_binary_lp_core_firmware_bin_end");

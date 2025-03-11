@@ -27,9 +27,7 @@ esp_err_t save_parameter(const char *key, void *value, size_t value_size) {
 
     if (err == ESP_OK) {
         err = nvs_commit(nvs_handle);
-        if (err == ESP_OK) {
-            ESP_LOGI(TAG, "Saved key '%s' successfully.", key);
-        } else {
+        if (err != ESP_OK) {
             ESP_LOGE(TAG, "Failed to commit key '%s'.", key);
         }
     } else {

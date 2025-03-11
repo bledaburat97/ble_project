@@ -6,11 +6,11 @@
 #include "driver/gpio.h"
 #include "proximity_sensor_control.h"
 
-#define NUM_SENSORS 2
+#define MAX_NUM_OF_SENSORS 2
 #define NORMAL_PIN_STATUS 1  // Default hali HIGH
 
 static const char *TAG = "ProximityInt";
-const int PROX_SENSOR_INT_GPIO[NUM_SENSORS] = {18, 19};
+const int PROX_SENSOR_INT_GPIO[MAX_NUM_OF_SENSORS] = {18, 19};
 
 static void checkProximitySensor(uint8_t asserted_sensor_index){
     /*TODO: add therapy controller.
@@ -18,12 +18,12 @@ static void checkProximitySensor(uint8_t asserted_sensor_index){
         //TODO: STOP LASERS
     }
     */
-    request_excess_status(asserted_sensor_index);
+    request_excess_status(asserted_sensor_index == 1);
 }
 
 void monitor_proximity_int_task(void *param) {
     while (1) {
-        for (int i = 0; i < NUM_SENSORS; i++) {
+        for (int i = 0; i < MAX_NUM_OF_SENSORS; i++) {
             int current_level = gpio_get_level(PROX_SENSOR_INT_GPIO[i]);
 
             if (current_level != NORMAL_PIN_STATUS) {
@@ -32,7 +32,7 @@ void monitor_proximity_int_task(void *param) {
             }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(20));
+        vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
 
@@ -44,7 +44,7 @@ void initialize_proximity_int_gpio() {
     io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
 
 
-    for (int i = 0; i < NUM_SENSORS; i++) {
+    for (int i = 0; i < MAX_NUM_OF_SENSORS; i++) {
         io_conf.pin_bit_mask = (1ULL << PROX_SENSOR_INT_GPIO[i]);
         gpio_config(&io_conf);
         ESP_LOGI(TAG, "Proximity sensor %d INT pin monitoring started on GPIO %d", i, PROX_SENSOR_INT_GPIO[i]);

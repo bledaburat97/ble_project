@@ -8,7 +8,7 @@
 
 #define TOTAL_REGION_COUNT 4 
 #define MAX_NUM_OF_LED_OF_LP5036 36
-
+#define NUM_OF_LASER_DRIVERS 3
 
 typedef struct {
     uint8_t region_id;
