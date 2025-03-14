@@ -106,6 +106,6 @@ float read_temperature_of_sensor(uint8_t device_address) {
     read_register(device_address, TEMPERATURE_REG, temperatureBytes, 2, i2c_master_num);
     //-LP-//add_lp_read_command_to_queue(device_address, TEMPERATURE_REG, 2);
     float temperature = convert_bytes_to_threshold(temperatureBytes[0], temperatureBytes[1]);
-    ESP_LOGI(TAG, "Temperature: %.2f°C", temperature);
+    //ESP_LOGI(TAG, "Temperature: %.2f°C", temperature);
     return temperature;
 }

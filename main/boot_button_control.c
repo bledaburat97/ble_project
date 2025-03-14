@@ -7,6 +7,7 @@
 #include "freertos/semphr.h"
 #include "esp_log.h"
 #include "timer_management.h"
+#include "ble_control.h"
 
 const int BOOT_BUTTON_GPIO = GPIO_NUM_9;
 static QueueHandle_t button_queue;
@@ -27,6 +28,12 @@ void monitor_boot_button_task(void *arg) {
         if (xQueueReceive(button_queue, &button_pressed, portMAX_DELAY)) {
             ESP_LOGI(TAG, "Button Pressed!");
     
+            //to test
+            uint8_t last_therapy_data[2];
+            last_therapy_data[0] = 0x45;
+            last_therapy_data[1] = 0x74;
+            send_aperiodic_info(get_last_therapy_handle(), last_therapy_data, sizeof(last_therapy_data));
+            //
             if(timer_test)
             {
                 if(current_index == 0) {

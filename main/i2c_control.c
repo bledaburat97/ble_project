@@ -119,9 +119,9 @@ esp_err_t read_register(uint8_t device_address, uint8_t reg_address, uint8_t *da
 
     if (ret == ESP_OK) {
         if (length == 1) {
-            ESP_LOGI(TAG, "Read successful: Device 0x%02x, Register 0x%02x, Data 0x%02x", device_address, reg_address, data[0]);
+            //ESP_LOGI(TAG, "Read successful: Device 0x%02x, Register 0x%02x, Data 0x%02x", device_address, reg_address, data[0]);
         } else if(length == 2) {
-            ESP_LOGI(TAG, "Read successful: Device 0x%02x, Register 0x%02x, Data 0x%02x%02x", device_address, reg_address, data[0], data[1]);
+            //ESP_LOGI(TAG, "Read successful: Device 0x%02x, Register 0x%02x, Data 0x%02x%02x", device_address, reg_address, data[0], data[1]);
         }
     } else {
         ESP_LOGE(TAG, "Read failed: Device 0x%02x, Register 0x%02x, Error 0x%x", device_address, reg_address, ret);

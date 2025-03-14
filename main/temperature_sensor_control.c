@@ -50,10 +50,10 @@ void initialize_temperature_sensor() {
     }
 }
 
-void log_temperature() {
+uint8_t log_temperature() {
     ESP_LOGI(TAG, "Log temperature.");
     float temperatureInDegree = read_temperature_of_sensor(sensor_addresses[0]);
-    save_parameter(NVS_KEY_TEMPERATURE, &temperatureInDegree, sizeof(float));
+    return (uint8_t)temperatureInDegree;
 }
 
 void temperature_update_task(void *param) {
@@ -67,7 +67,7 @@ void temperature_update_task(void *param) {
         float average_temperature = sum_of_temperatures / TEMPERATURE_SENSOR_COUNT;
         save_parameter(NVS_KEY_TEMPERATURE, &average_temperature, sizeof(float));
 
-        ESP_LOGI(TAG, "Saved temperature: %.2f°C", average_temperature);
+        //ESP_LOGI(TAG, "Saved temperature: %.2f°C", average_temperature);
         
         vTaskDelay(pdMS_TO_TICKS(2000));
     }

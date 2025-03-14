@@ -45,18 +45,18 @@ void process_lp_queue_task(void *arg) {
                 ulp_lp_core_device_address = task.lp_core_device_address;
                 ulp_lp_core_byte_count = task.lp_core_byte_count;
 
-                ESP_LOGI("MAIN", "Queue'dan çıktı: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu", 
-                        task.lp_core_command, task.lp_core_register, task.lp_core_value, task.lp_core_device_address, task.lp_core_byte_count);
+                //ESP_LOGI("MAIN", "Queue'dan çıktı: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu", 
+                  //      task.lp_core_command, task.lp_core_register, task.lp_core_value, task.lp_core_device_address, task.lp_core_byte_count);
             }
         }
         else if(ulp_lp_core_command == WRITE_COMPLETED) {
-            ESP_LOGI(TAG, "Write tamamlandı: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu", 
-                ulp_lp_core_command, ulp_lp_core_register, ulp_lp_core_value, ulp_lp_core_device_address, ulp_lp_core_byte_count);
+            //ESP_LOGI(TAG, "Write tamamlandı: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu", 
+              //  ulp_lp_core_command, ulp_lp_core_register, ulp_lp_core_value, ulp_lp_core_device_address, ulp_lp_core_byte_count);
             ulp_lp_core_command = NO_COMMAND;
         }
         else if(ulp_lp_core_command == READ_COMPLETED) {
-            ESP_LOGI(TAG, "Read tamamlandı: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu", 
-                ulp_lp_core_command, ulp_lp_core_register, ulp_lp_core_value, ulp_lp_core_device_address, ulp_lp_core_byte_count);
+            //ESP_LOGI(TAG, "Read tamamlandı: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu", 
+              //  ulp_lp_core_command, ulp_lp_core_register, ulp_lp_core_value, ulp_lp_core_device_address, ulp_lp_core_byte_count);
             if(ulp_lp_core_register == INTERRUPT_STATUS_REG && ulp_lp_core_device_address == VCNL_3020_ADDRESS) {
                 check_interrupt_status(ulp_lp_core_value & 0xFF, true);
             }

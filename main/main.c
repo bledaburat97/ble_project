@@ -42,6 +42,8 @@
 #include "proximity_sensor_config.h"
 #include "proximity_int_control.h"
 #include "boot_button_control.h"
+#include "ble_control.h"
+#include "therapy_controller.h"
 
 static const char *TAG = "Main";
 
@@ -68,10 +70,29 @@ void app_main() {
     }
     ESP_ERROR_CHECK(ret);
 
+    ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
+
+    esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
+    ret = esp_bt_controller_init(&bt_cfg);
+    ESP_ERROR_CHECK(ret);
+
+    ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
+    ESP_ERROR_CHECK(ret);
+
+    ret = esp_bluedroid_init();
+    ESP_ERROR_CHECK(ret);
+
+    ret = esp_bluedroid_enable();
+    ESP_ERROR_CHECK(ret);
+
+    init_ble();
+    init_device_param_status();
+
     //I2C
-    init_i2c_master();
+    //init_i2c_master();
     
     //LP
+    /*
     bool lp_exists = true;
     if(lp_exists)
     {
@@ -80,22 +101,24 @@ void app_main() {
         initialize_lp_core_queue();
         xTaskCreate(process_lp_queue_task, "ProcessLpQueueTask", 2048, NULL, 1, NULL);
     }
-
+    */
     //Laser Driver
     //-|- initialize_laser_drivers();
     
     //Temperature Sensor
+    /*
     initialize_temperature_sensor();
     initialize_alert_gpios();
     xTaskCreate(temperature_update_task, "Temperature Update Task", 2048, NULL, 1, NULL);
     xTaskCreate(monitor_alert_task, "Monitor Alert Task", 2048, NULL, 1, NULL);
-    
+    */
     //Proximity Sensor
+    /*
     initialize_proximity_int_gpio();
     bool hp_prox_sensor_exists = false;
     initialize_proximity_sensors(hp_prox_sensor_exists, lp_exists);
     xTaskCreate(monitor_proximity_int_task, "Monitor Proximity Int Task", 2048, NULL, 1, NULL);
-
+    */
     //Boot Button
     initialize_boot_button_gpio();
     xTaskCreate(monitor_boot_button_task, "Monitor Boot Botton Task", 2048, NULL, 1, NULL);
