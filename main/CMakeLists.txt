@@ -19,6 +19,7 @@ idf_component_register(SRCS "proximity_sensor_control.c" "temperature_sensor_con
                             "boot_button_control.c"
                             "ble_control.c"
                             "therapy_controller.c"
+                            "transaction_manager.c"
                             "lp_core_main.c"
                             "lp_core/main.c"
                     INCLUDE_DIRS "." 

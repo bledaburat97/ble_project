@@ -39,9 +39,11 @@ static void init_lasers_status_mutex() {
 }
 
 bool can_therapy_start() {
+    /*TODO
     if(!get_helmet_status() || !get_temperature_status()) {
         return false;
     }
+        */
     return true;
 }
 

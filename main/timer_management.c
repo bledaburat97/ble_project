@@ -11,7 +11,6 @@
 #include "storage_management.h"
 
 static const char *TAG = "TimerManagement";
-static const char *LAST_THERAPY_END_TIME = "last_ther_end";
 static const char *LAST_THERAPY_APPLIED_DURATION = "last_ther_dur";
 
 static time_t therapy_start_time = 0;
@@ -26,10 +25,7 @@ static void save_current_time_and_applied_therapy_duration(){
     time_t current_time;
     time(&current_time);
 
-    uint32_t current_time_32 = (uint32_t) current_time;
-    save_parameter(LAST_THERAPY_END_TIME, &current_time_32, sizeof(current_time_32));
-
-    uint32_t elapsed_time_32 = (uint32_t)(current_time - therapy_start_time);
+    uint16_t elapsed_time_32 = (uint16_t)(current_time - therapy_start_time);
     save_parameter(LAST_THERAPY_APPLIED_DURATION, &elapsed_time_32, sizeof(elapsed_time_32));
 }
 
@@ -55,21 +51,10 @@ static void periodic_saving_task(void *param) {
     vTaskDelete(NULL);
 }
 
-static uint32_t get_last_therapy_end_time() {
-    uint32_t last_therapy_end_time; 
-    if (read_parameter(LAST_THERAPY_END_TIME, &last_therapy_end_time, sizeof(last_therapy_end_time)) == ESP_OK) {
-        ESP_LOGI(TAG, "Last therapy end time: %lu", last_therapy_end_time);
-    }
-    else{
-        ESP_LOGI(TAG, "Last therapy end time can not be found.");
-    }
-    return last_therapy_end_time;
-}
-
-static uint32_t get_last_therapy_applied_duration() {
-    uint32_t last_therapy_applied_duration; 
+uint16_t get_last_therapy_applied_duration() {
+    uint16_t last_therapy_applied_duration; 
     if (read_parameter(LAST_THERAPY_APPLIED_DURATION, &last_therapy_applied_duration, sizeof(last_therapy_applied_duration)) == ESP_OK) {
-        ESP_LOGI(TAG, "Last therapy applied duration: %lu", last_therapy_applied_duration);
+        ESP_LOGI(TAG, "Last therapy applied duration: %u", last_therapy_applied_duration);
     }
     else{
         ESP_LOGI(TAG, "Last therapy applied duration can not be found.");
@@ -127,8 +112,17 @@ void restart_inactivity_timer() {
     start_inactivity_timer();
 }
 
-void start_therapy_timer(uint32_t duration) {
+static uint16_t convert_bit_string_to_duration_in_seconds(uint16_t duration_bits) {
+    if(duration_bits > 480) {
+        ESP_LOGE(TAG, "Wrong therapy duration is got.");
+        duration_bits = 480;
+    }
+    return duration_bits * 5;
+}
+
+void start_therapy_timer(uint16_t duration_bits) {
     stop_inactivity_timer();
+    uint16_t duration = convert_bit_string_to_duration_in_seconds(duration_bits);
     if (therapy_timer == NULL) {
         // Create the timer if it does not exist
         therapy_timer = xTimerCreate(
@@ -155,7 +149,7 @@ void start_therapy_timer(uint32_t duration) {
 
     // Start or reset the timer
     if (xTimerStart(therapy_timer, 0) == pdPASS) {
-        ESP_LOGI(TAG, "Therapy timer started for %lu s.", duration);
+        ESP_LOGI(TAG, "Therapy timer started for %u s.", duration);
     } else {
         ESP_LOGE(TAG, "Failed to start activation timer.");
     }
@@ -184,24 +178,5 @@ void stop_therapy_timer()
     start_inactivity_timer();
 }
 
-void get_last_therapy_data(uint8_t *buffer) {
-    if (buffer == NULL) return;
 
-    uint32_t end_time = get_last_therapy_end_time();
-    uint32_t applied_duration = get_last_therapy_applied_duration();
-    uint16_t therapy_id = 0x0000; //TODO:get last_therapy_id from storage.
-
-    buffer[0] = (end_time >> 24) & 0xFF;
-    buffer[1] = (end_time >> 16) & 0xFF;
-    buffer[2] = (end_time >> 8) & 0xFF;
-    buffer[3] = end_time & 0xFF;
-
-    buffer[4] = (applied_duration >> 24) & 0xFF;
-    buffer[5] = (applied_duration >> 16) & 0xFF;
-    buffer[6] = (applied_duration >> 8) & 0xFF;
-    buffer[7] = applied_duration & 0xFF;
-
-    buffer[8] = (therapy_id >> 8) & 0xFF;
-    buffer[9] = therapy_id & 0xFF;
-}
 

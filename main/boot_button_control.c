@@ -7,7 +7,7 @@
 #include "freertos/semphr.h"
 #include "esp_log.h"
 #include "timer_management.h"
-#include "ble_control.h"
+#include "transaction_manager.h"
 
 const int BOOT_BUTTON_GPIO = GPIO_NUM_9;
 static QueueHandle_t button_queue;
@@ -32,7 +32,7 @@ void monitor_boot_button_task(void *arg) {
             uint8_t last_therapy_data[2];
             last_therapy_data[0] = 0x45;
             last_therapy_data[1] = 0x74;
-            send_aperiodic_info(get_last_therapy_handle(), last_therapy_data, sizeof(last_therapy_data));
+            //send_aperiodic_info(get_notification_handle(), last_therapy_data, sizeof(last_therapy_data));
             //
             if(timer_test)
             {
@@ -40,7 +40,7 @@ void monitor_boot_button_task(void *arg) {
                     ESP_LOGI(TAG, "Start therapy timer!");
 
                     uint8_t last_therapy_data[10];
-                    get_last_therapy_data(last_therapy_data);
+                    //get_last_therapy_data(last_therapy_data);
 
                     start_therapy_timer(20);
                 }

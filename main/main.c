@@ -42,7 +42,7 @@
 #include "proximity_sensor_config.h"
 #include "proximity_int_control.h"
 #include "boot_button_control.h"
-#include "ble_control.h"
+#include "transaction_manager.h"
 #include "therapy_controller.h"
 
 static const char *TAG = "Main";
@@ -103,7 +103,7 @@ void app_main() {
     }
     */
     //Laser Driver
-    //-|- initialize_laser_drivers();
+    //initialize_laser_drivers();
     
     //Temperature Sensor
     /*
