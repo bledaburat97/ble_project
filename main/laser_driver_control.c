@@ -125,7 +125,19 @@ static const RegionPiece* get_region_piece_of_driver_by_id(uint8_t region_id, co
     return NULL;
 }
 
-static void set_brightness_of_region(uint8_t region_id, uint8_t brightness){
+static uint8_t convert_brightness_percentage_to_brightness(uint8_t brightness_percentage)
+{
+    if (brightness_percentage > 20)
+    {
+        brightness_percentage = 20;
+    }
+    return (uint8_t)(((uint16_t)brightness_percentage * 255) / 20);
+}
+
+void set_brightness_of_region(uint8_t region_id, uint8_t brightness_percentage)
+{
+    uint8_t brightness = convert_brightness_percentage_to_brightness(brightness_percentage);
+    
     if (region_id < 1 || region_id > TOTAL_REGION_COUNT) {
         ESP_LOGE(LASER_TAG, "Invalid region ID: %d", region_id);
         return;
@@ -138,10 +150,11 @@ static void set_brightness_of_region(uint8_t region_id, uint8_t brightness){
         const RegionPiece *region_piece = get_region_piece_of_driver_by_id(region_id, info);
 
         if (region_piece == NULL) {
-            ESP_LOGE(LASER_TAG, "DriverRegion with ID %d not found", region_id);
+            ESP_LOGI(LASER_TAG, "DriverRegion with ID %d not found", region_id);
             continue;
         }
 
+        /*TODO: 
         if(region_piece->is_bank)
         {
             if (write_register(info->address, BANK_A_COLOR_REG, &brightness, 1, info->i2c_master_num) != ESP_OK) {
@@ -158,6 +171,7 @@ static void set_brightness_of_region(uint8_t region_id, uint8_t brightness){
                 }
             }
         }
+        */
     }
 }
 
@@ -227,12 +241,14 @@ void update_device_config1(bool status, DeviceConfig1UpdateType type) {
     }
 }
 
+/*
 void set_brightness(RegionStatusChangedInfo *region_status_changed_infos, uint8_t num_of_changed_regions)
 {
     for(uint8_t i = 0; i < num_of_changed_regions; i++){
         set_brightness_of_region(region_status_changed_infos[i].region_id, region_status_changed_infos[i].brightness);
     }
 }
+*/
 
 void initialize_laser_drivers() 
 {

@@ -18,11 +18,14 @@
 #include "therapy_controller.h"
 #include "ble_control.h"
 #include "transaction_manager.h"
+#include "activation_command_manager.h"
+#include "transaction_message_encoder.h"
 
 
 static const char *TAG = "BLEManager";
 SemaphoreHandle_t ble_mutex = NULL;
 static bool ble_connection_status = false;
+static TaskHandle_t ble_task_handle = NULL;
 
 static void set_ble_connection_status(bool status) {
     if (xSemaphoreTake(ble_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
@@ -44,9 +47,10 @@ bool get_ble_connection_status() {
     }
     return status;
 }
+
 static void fill_periodic_info(PeriodicInfo* info){
     if (info == NULL) {
-        ESP_LOGE("BLE", "Invalid PeriodicInfo");
+        ESP_LOGE(TAG, "Invalid PeriodicInfo");
         return;
     }
 
@@ -56,11 +60,21 @@ static void fill_periodic_info(PeriodicInfo* info){
     info->humidity = 0x14;
 }
 
+static void fill_notification_info(NotificationInfo* info, NotificationType notification_type) {
+    if (info == NULL) {
+        ESP_LOGE(TAG, "Invalid NotificationInfo");
+        return;
+    }
+
+    info->therapy_id = 0xFFFF;
+    info->type = (uint8_t) notification_type;
+}
+
 static void ble_notify_task(void *param) {
     while (true) {
         if(get_ble_connection_status()){
             if (xSemaphoreTake(ble_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
-                uint8_t periodic_data[5];
+                uint8_t periodic_data[SIZE_OF_PERIODIC_INFO];
                 PeriodicInfo periodic_info;
                 fill_periodic_info(&periodic_info);
                 encode_periodic_info(&periodic_info, periodic_data);
@@ -119,70 +133,40 @@ static void send_aperiodic_info(uint8_t* data, size_t data_length)
     ESP_LOGE(TAG, "Failed to acquire BLE mutex after %d attempts. Data not sent.", max_retries);
 }
 
-
-
-static void on_write_of_activation_info(const uint8_t *data, size_t len) {
-    restart_inactivity_timer();
-    // Validate input data
-    if (len == 0) {
-        ESP_LOGE(TAG, "No data received for Laser Control");
-        return;
-    }
-
-    // Parse incoming data
-    char *data_copy = (char *)malloc(len + 1);
-    if (data_copy == NULL) {
-        ESP_LOGE(TAG, "Memory allocation failed");
-        return;
-    }
-    memcpy(data_copy, data, len);
-    data_copy[len] = '\0';
-    
-    ESP_LOGI(TAG, "Received data (length: %d):", len);
-
+static void on_write_of_activation_command(const uint8_t *data, size_t len) {
     for (int i = 0; i < len; i++) {
         ESP_LOGI(TAG, "Byte %d: 0x%02X ('%c')", i, data[i], data[i]);
     }
 
-    if (len >= 3 && len <= 9) {
-        ESP_LOGI(TAG, "Write len: %u", len);
-        ActivationInfo activation_info;
-        parse_activation_info(data, len, &activation_info);
+    ActivationCommand activation_command;
+    if(!decode_activation_command(data, len, &activation_command)) {
+        return;
+    }
 
-        if (activation_info.received_command == 0x00) {
-            stop_therapy_timer();
-            // TODO: Lazeri kapat
+    if (activation_command.received_command == 0x00) {
+        stop_therapy_timer();
+        // TODO: Lazeri kapat
+    }
+    else {
+        ESP_LOGI(TAG, "Therapy ID: %u, Duration: %u",activation_command.therapy_id, activation_command.therapy_duration);
+        
+        if(can_therapy_start() && activation_command.therapy_duration > 0) {
+
+            for(uint8_t i = 0; i < 6; i++)
+            {
+                set_brightness_of_region(i + 1, activation_command.region_brightness[i]);
+            }
+
+            start_therapy_timer(activation_command.therapy_duration);
+            //TODO: turn lasers on
         }
         else {
-            ESP_LOGI(TAG, "Parsed Therapy ID: %u, Duration: %u",activation_info.therapy_id, activation_info.therapy_duration);
-                
-            if(can_therapy_start()) {
-                /*
-                if (therapy_activation_info->region_infos != NULL && therapy_activation_info->num_of_changed_regions > 0) {
-                    set_brightness(therapy_activation_info->region_infos, therapy_activation_info->num_of_changed_regions);
-                    ESP_LOGI(TAG, "Brightness updated successfully.");
-                }
-
-                else
-                {
-                    ESP_LOGW(TAG, "No regions to update.");
-                }
-                    */
-                start_therapy_timer(activation_info.therapy_duration);
-                //TODO: turn lasers on
-            }
-            else{
-                ESP_LOGE(TAG, "Therapy couldn't start.");
-            }
+            ESP_LOGE(TAG, "Therapy couldn't start.");
         }
+    }
 
-        for(int i = 0; i < 6; i++) {
-            ESP_LOGI(TAG, "Laser Data received: %d", activation_info.region_brightness[i]);
-        }
-
-
-    } else {
-        ESP_LOGE(TAG, "Invalid data received, length: %d", len);
+    for(int i = 0; i < 6; i++) {
+        ESP_LOGI(TAG, "Laser Data received: %d", activation_command.region_brightness[i]);
     }
 }
 
@@ -191,21 +175,29 @@ static void on_connect_ble() {
     NotificationType helmet_status = get_helmet_status() ? HELMET_ON : HELMET_OFF;
     send_notification(helmet_status);
 
-    xTaskCreate(ble_notify_task, "Ble Notify Task", 8192, NULL, 5, NULL);
+    if (ble_task_handle == NULL) {
+        xTaskCreate(ble_notify_task, "Ble Notify Task", 8192, NULL, 5, &ble_task_handle);
+    }
 }
 
 static void on_disconnect_ble() {
     set_ble_connection_status(false);
+    if (ble_task_handle != NULL) {
+        vTaskDelete(ble_task_handle);
+        ble_task_handle = NULL;
+    }
 }
 
 void send_notification(NotificationType notification_type) {
-    uint8_t notification_data = (uint8_t)notification_type;
+    uint8_t notification_data[SIZE_OF_NOTIFICATION_INFO];
+    NotificationInfo notification_info;
+    fill_notification_info(&notification_info, notification_type);
+    encode_notification_info(&notification_info, notification_data);
     send_aperiodic_info(
-        &notification_data,
+        notification_data,
         sizeof(notification_data)
     );
 
-    ESP_LOGI("Main", "Notification sent: 0x%02X", notification_data);
 }
 
 void init_ble(){
@@ -218,7 +210,7 @@ void init_ble(){
     
     start_registering_and_advertising();
     register_on_connect_callback(on_connect_ble);
-    register_on_write_activation_callback(on_write_of_activation_info);
+    register_on_write_activation_callback(on_write_of_activation_command);
     register_on_disconnect_callback(on_disconnect_ble);
     register_timer_notification_callback(send_notification);
 }

@@ -32,6 +32,7 @@ void monitor_boot_button_task(void *arg) {
             uint8_t last_therapy_data[2];
             last_therapy_data[0] = 0x45;
             last_therapy_data[1] = 0x74;
+            send_notification(HELMET_ON);
             //send_aperiodic_info(get_notification_handle(), last_therapy_data, sizeof(last_therapy_data));
             //
             if(timer_test)

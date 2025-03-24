@@ -19,9 +19,10 @@ static TimerHandle_t inactivity_timer = NULL;
 static TaskHandle_t periodic_saving_task_handle = NULL;
 static void (*timer_notification_callback)(NotificationType) = NULL;
 
-static bool is_therapy_active = false; // remove it  
+static void save_applied_therapy_duration(){
 
-static void save_current_time_and_applied_therapy_duration(){
+    ESP_LOGI(TAG, "save applied therapy duration!");
+
     time_t current_time;
     time(&current_time);
 
@@ -29,23 +30,60 @@ static void save_current_time_and_applied_therapy_duration(){
     save_parameter(LAST_THERAPY_APPLIED_DURATION, &elapsed_time_32, sizeof(elapsed_time_32));
 }
 
+static bool is_inactivity_timer_running()
+{
+    if (inactivity_timer == NULL)
+    {
+        ESP_LOGI(TAG, "Inactivity timer is null!");
+        return false;
+    }
+    /*
+    if(xTimerIsTimerActive(inactivity_timer) != pdTRUE)
+    {
+        ESP_LOGI(TAG, "Inactivity timer is not active!");
+        return false;
+    }
+    */
+    return true;
+}
+
+static bool is_therapy_timer_running()
+{
+    if (therapy_timer == NULL)
+    {
+        ESP_LOGI(TAG, "Therapy timer is null!");
+        return false;
+    }
+    /*
+    if(xTimerIsTimerActive(therapy_timer) != pdTRUE)
+    {
+        ESP_LOGI(TAG, "Therapy timer is not active!");
+        return false;
+    }
+    */
+    return true;
+}
+
 static void therapy_timer_expiry_callback(TimerHandle_t xTimer) {
     ESP_LOGI(TAG, "Therapy timer expired!");
     stop_therapy_timer();
     if (timer_notification_callback) {
-        timer_notification_callback(TIMER_ENDED);
+        timer_notification_callback(THERAPY_COMPLETED);
     }
 }
 
 static void inactivity_timer_expiry_callback(TimerHandle_t xTimer) {
     ESP_LOGI(TAG, "Inactivity timer expired!");
-
+    if (timer_notification_callback) {
+        timer_notification_callback(INACIVITY_TIMER_COMPLETED);
+    }
     //TODO: turn off the device. 
 }
 
 static void periodic_saving_task(void *param) {
-    while (is_therapy_active) {
-        save_current_time_and_applied_therapy_duration();
+    while (is_therapy_timer_running()) {
+        ESP_LOGI(TAG, "periodic_saving_task!");
+        save_applied_therapy_duration();
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
     vTaskDelete(NULL);
@@ -59,6 +97,9 @@ uint16_t get_last_therapy_applied_duration() {
     else{
         ESP_LOGI(TAG, "Last therapy applied duration can not be found.");
     }
+    if(last_therapy_applied_duration > MAX_THERAPY_APPLIED_DURATION){
+        last_therapy_applied_duration = MAX_THERAPY_APPLIED_DURATION;
+    }
     return last_therapy_applied_duration;
 }
 
@@ -67,11 +108,12 @@ void register_timer_notification_callback(void (*callback)(NotificationType)) {
 }
 
 void start_inactivity_timer() {
-    if(is_therapy_active) {
-        return;    
+    ESP_LOGI(TAG, "Start inactivity timer.");
+    if(is_therapy_timer_running()) {
+        return;
     }
 
-    if(inactivity_timer == NULL) {
+    if(!is_inactivity_timer_running()) {
         inactivity_timer = xTimerCreate(
             "InactivityTimer",
             pdMS_TO_TICKS(INACTIVITY_THRESHOLD_SECONDS * 1000),  
@@ -94,7 +136,10 @@ void start_inactivity_timer() {
 }
 
 static void stop_inactivity_timer() {
-    if (inactivity_timer == NULL) {
+
+    ESP_LOGI(TAG, "Stop inactivity timer.");
+
+    if (!is_inactivity_timer_running()) {
         ESP_LOGW(TAG, "Inactivity timer has not been created.");
         return;
     }
@@ -107,11 +152,6 @@ static void stop_inactivity_timer() {
     inactivity_timer = NULL;
 }
 
-void restart_inactivity_timer() {
-    stop_inactivity_timer();
-    start_inactivity_timer();
-}
-
 static uint16_t convert_bit_string_to_duration_in_seconds(uint16_t duration_bits) {
     if(duration_bits > 480) {
         ESP_LOGE(TAG, "Wrong therapy duration is got.");
@@ -121,12 +161,13 @@ static uint16_t convert_bit_string_to_duration_in_seconds(uint16_t duration_bits
 }
 
 void start_therapy_timer(uint16_t duration_bits) {
+    ESP_LOGI(TAG, "Start therapy timer with duration bits: %u", duration_bits);
+
     stop_inactivity_timer();
     uint16_t duration = convert_bit_string_to_duration_in_seconds(duration_bits);
-    if (therapy_timer == NULL) {
-        // Create the timer if it does not exist
+    if (!is_therapy_timer_running()) {
         therapy_timer = xTimerCreate(
-            "TherapyTimer",           // Timer name
+            "TherapyTimer",                 // Timer name
             pdMS_TO_TICKS(duration * 1000),  // Timer period in ticks
             pdFALSE,                     // One-shot timer
             NULL,                        // Timer ID (not used)
@@ -140,7 +181,6 @@ void start_therapy_timer(uint16_t duration_bits) {
     }
 
     therapy_start_time = time(NULL);    
-    is_therapy_active = true;
 
     // Start periodic saving task
     if (periodic_saving_task_handle == NULL) {
@@ -157,12 +197,12 @@ void start_therapy_timer(uint16_t duration_bits) {
 
 void stop_therapy_timer()
 {
-    if (therapy_timer == NULL) {
+    ESP_LOGI(TAG, "Stop therapy timer.");
+
+    if (!is_therapy_timer_running()) {
         ESP_LOGW(TAG, "Therapy timer has not been created.");
         return;
     }
-
-    is_therapy_active = false;
 
     if (periodic_saving_task_handle != NULL) {
         vTaskDelete(periodic_saving_task_handle);
@@ -174,9 +214,8 @@ void stop_therapy_timer()
     } else {
         ESP_LOGE(TAG, "Failed to stop therapy timer.");
     }
+    ESP_LOGI(TAG, "Reset therapy timer.");
+
     therapy_timer = NULL;
     start_inactivity_timer();
 }
-
-
-

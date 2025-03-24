@@ -121,6 +121,7 @@ void app_main() {
     */
     //Boot Button
     initialize_boot_button_gpio();
+    start_inactivity_timer();
     xTaskCreate(monitor_boot_button_task, "Monitor Boot Botton Task", 2048, NULL, 1, NULL);
 
     ESP_LOGI(TAG, "System Ready.");

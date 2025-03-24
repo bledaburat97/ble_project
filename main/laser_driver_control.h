@@ -6,7 +6,7 @@
 #define LASER_DRIVER_CONTROL_H
 
 
-#define TOTAL_REGION_COUNT 4 
+#define TOTAL_REGION_COUNT 6 
 #define MAX_NUM_OF_LED_OF_LP5036 36
 #define NUM_OF_LASER_DRIVERS 3
 
@@ -37,7 +37,7 @@ typedef enum {
     LOG_SCALE_EN = 0x05
 } DeviceConfig1UpdateType;
 
-void set_brightness(RegionStatusChangedInfo *region_status_changed_infos, uint8_t num_of_changed_regions);
+void set_brightness_of_region(uint8_t region_id, uint8_t brightness_percentage);
 void initialize_laser_drivers();
 void stop_laser_drivers();
 void update_device_config1(bool status, DeviceConfig1UpdateType type);
