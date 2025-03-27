@@ -273,6 +273,9 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
     
     case ESP_GATTS_CONNECT_EVT:
         ESP_LOGI(TAG, "Device connected");
+        gl_profile_tab[PROFILE_A_APP_ID].conn_id = param->connect.conn_id;
+        ESP_LOGI(TAG, "Connection id: %d", gl_profile_tab[PROFILE_A_APP_ID].conn_id);
+
         if (on_connect_callback) {
             on_connect_callback();
         }

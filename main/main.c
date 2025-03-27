@@ -44,6 +44,9 @@
 #include "boot_button_control.h"
 #include "transaction_manager.h"
 #include "therapy_controller.h"
+#include "driver/rtc_io.h" 
+
+#define BUTTON_PIN_BITMASK (1ULL << GPIO_NUM_0)  // Sadece GPIO0
 
 static const char *TAG = "Main";
 
@@ -60,9 +63,98 @@ void stop_lasers() {
     stop_laser_drivers();
 }
 
-void app_main() {
-    esp_err_t ret;
+void enter_deep_sleep() {
+    ESP_LOGI(TAG, "Derin uykuya geçiliyor...");
     
+    // GPIO'yu INPUT + PULLUP yap (buton LOW'da tetiklesin)
+    gpio_config_t io_conf = {
+        .pin_bit_mask = BUTTON_PIN_BITMASK,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    gpio_config(&io_conf);
+
+    // Buton LOW olduğunda uyansın (ext1 wakeup)
+    esp_sleep_enable_ext1_wakeup(BUTTON_PIN_BITMASK, ESP_EXT1_WAKEUP_ANY_LOW);
+
+    esp_deep_sleep_start();  // Sonsuz deep sleep
+}
+
+void wait_until_button_released() {
+    gpio_config_t io_conf = {
+        .pin_bit_mask = BUTTON_PIN_BITMASK,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    gpio_config(&io_conf);
+
+
+    while (gpio_get_level(GPIO_NUM_0) == 0) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        ESP_LOGI(TAG, "Still low");
+    }
+    ESP_LOGI(TAG, "Buton bırakıldı (HIGH).");
+}
+
+void app_main() {
+
+    esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
+    if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT1) {
+        ESP_LOGI(TAG, "Butona basılarak uyanıldı.");
+        uint64_t wakeup_pins = esp_sleep_get_ext1_wakeup_status();
+        if (wakeup_pins & BUTTON_PIN_BITMASK) {
+            ESP_LOGI(TAG, "GPIO%d ile uyandı!", GPIO_NUM_0);
+
+            ESP_LOGI(TAG, "Kod burada.");
+            esp_err_t ret;
+        
+            ret = nvs_flash_init();
+            if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+                ESP_ERROR_CHECK(nvs_flash_erase());
+                ret = nvs_flash_init();
+            }
+            ESP_ERROR_CHECK(ret);
+        
+            ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
+        
+            esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
+            ret = esp_bt_controller_init(&bt_cfg);
+            ESP_ERROR_CHECK(ret);
+        
+            ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
+            ESP_ERROR_CHECK(ret);
+        
+            ret = esp_bluedroid_init();
+            ESP_ERROR_CHECK(ret);
+        
+            ret = esp_bluedroid_enable();
+            ESP_ERROR_CHECK(ret);
+        
+            init_ble();
+            init_device_param_status();
+        
+
+            initialize_boot_button_gpio();
+            start_inactivity_timer();
+            xTaskCreate(monitor_boot_button_task, "Monitor Boot Botton Task", 2048, NULL, 1, NULL);
+        
+            ESP_LOGI(TAG, "System Ready.");
+
+            wait_until_button_released();
+            enter_deep_sleep();
+        }
+    } else {
+        ESP_LOGI(TAG, "İlk açılış veya farklı sebep, deep sleep'e geçilecek.");
+        enter_deep_sleep();
+    }
+
+    ESP_LOGI(TAG, "Kod burada.");
+    esp_err_t ret;
+
     ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
