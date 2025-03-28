@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "stdbool.h"
 
 #ifndef TEMPERATURE_ALARM_CONTROL_H
 #define TEMPERATURE_ALARM_CONTROL_H

@@ -9,6 +9,7 @@
 #include "time.h"
 
 #include "storage_management.h"
+#include "deep_sleep_manager.h"
 
 static const char *TAG = "TimerManagement";
 static const char *LAST_THERAPY_APPLIED_DURATION = "last_ther_dur";
@@ -37,13 +38,6 @@ static bool is_inactivity_timer_running()
         ESP_LOGI(TAG, "Inactivity timer is null!");
         return false;
     }
-    /*
-    if(xTimerIsTimerActive(inactivity_timer) != pdTRUE)
-    {
-        ESP_LOGI(TAG, "Inactivity timer is not active!");
-        return false;
-    }
-    */
     return true;
 }
 
@@ -54,13 +48,6 @@ static bool is_therapy_timer_running()
         ESP_LOGI(TAG, "Therapy timer is null!");
         return false;
     }
-    /*
-    if(xTimerIsTimerActive(therapy_timer) != pdTRUE)
-    {
-        ESP_LOGI(TAG, "Therapy timer is not active!");
-        return false;
-    }
-    */
     return true;
 }
 
@@ -77,7 +64,7 @@ static void inactivity_timer_expiry_callback(TimerHandle_t xTimer) {
     if (timer_notification_callback) {
         timer_notification_callback(INACIVITY_TIMER_COMPLETED);
     }
-    //TODO: turn off the device. 
+    enter_deep_sleep();
 }
 
 static void periodic_saving_task(void *param) {

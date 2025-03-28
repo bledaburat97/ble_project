@@ -1,9 +1,9 @@
-#include "constants.h"
 #include "temperature_alarm_control.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "string.h"
+#include "driver/gpio.h"
 
 static const char *TAG = "TemperatureAlarm";
 
