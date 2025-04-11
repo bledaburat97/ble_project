@@ -15,7 +15,7 @@
 #include "proximity_sensor_control.h"
 #include "timer_management.h"
 #include "json_parser.h"
-#include "therapy_controller.h"
+#include "state_manager.h"
 #include "ble_control.h"
 #include "transaction_manager.h"
 #include "activation_command_manager.h"
@@ -144,24 +144,34 @@ static void on_write_of_activation_command(const uint8_t *data, size_t len) {
     }
 
     if (activation_command.received_command == 0x00) {
-        stop_therapy_timer();
+        if (get_device_state() == STATE_ACTIVE) {
+            start_inactivity_timer();
+        }
         // TODO: Lazeri kapat
     }
     else {
         ESP_LOGI(TAG, "Therapy ID: %u, Duration: %u",activation_command.therapy_id, activation_command.therapy_duration);
         
-        if(can_therapy_start() && activation_command.therapy_duration > 0) {
-
-            for(uint8_t i = 0; i < 6; i++)
-            {
-                set_brightness_of_region(i + 1, activation_command.region_brightness[i]);
+        if(activation_command.therapy_duration > 0)
+        {
+            if (get_device_state() == STATE_INACTIVITY || get_device_state() == STATE_ACTIVE) {
+                if (get_helmet_state() == true) {
+                    for(uint8_t i = 0; i < 6; i++)
+                    {
+                        set_brightness_of_region(i + 1, activation_command.region_brightness[i]);
+                    }
+        
+                    set_and_start_therapy_timer(activation_command.therapy_duration);
+                }
+                else {
+                    ESP_LOGE(TAG, "Therapy couldn't start.");
+                    //TODO: error notification
+                }
             }
-
-            start_therapy_timer(activation_command.therapy_duration);
-            //TODO: turn lasers on
-        }
-        else {
-            ESP_LOGE(TAG, "Therapy couldn't start.");
+            else {
+                ESP_LOGE(TAG, "Therapy couldn't start.");
+                //TODO: error notification
+            }
         }
     }
 
@@ -172,7 +182,8 @@ static void on_write_of_activation_command(const uint8_t *data, size_t len) {
 
 static void on_connect_ble() {
     set_ble_connection_status(true);
-    NotificationType helmet_status = get_helmet_status() ? HELMET_ON : HELMET_OFF;
+
+    NotificationType helmet_status = get_helmet_state() ? HELMET_ON : HELMET_OFF;     //TODO: tam doğru değil.
     send_notification(helmet_status);
 
     if (ble_task_handle == NULL) {
@@ -208,6 +219,7 @@ void init_ble(){
         return;
     }
     
+    ESP_ERROR_CHECK(init_bluetooth());
     start_registering_and_advertising();
     register_on_connect_callback(on_connect_ble);
     register_on_write_activation_callback(on_write_of_activation_command);

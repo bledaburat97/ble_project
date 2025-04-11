@@ -3,6 +3,7 @@
 #include "esp_log.h"
 #include "string.h"
 #include "driver/gpio.h"
+#include "state_manager.h"
 
 #define LP5036_ADDRESS_1 0x30   // I2C address for the first LP5036
 #define LP5036_ADDRESS_2 0x31   // I2C address for the second LP5036
@@ -250,6 +251,31 @@ void set_brightness(RegionStatusChangedInfo *region_status_changed_infos, uint8_
 }
 */
 
+static void on_state_changed(DeviceState new_state){
+    if (new_state == STATE_TEMPERATURE_ALARM) {
+        set_laser_drivers_status(false);
+    }
+    else if (new_state == STATE_INACTIVITY) {
+        if (get_helmet_state()) {
+            set_laser_drivers_status(true); //lazeri çalıştırmak demek değil. lazerin çalışabilir durumda olması.
+        }
+    }
+}
+
+static void on_helmet_state_changed(bool helmet_state){
+    if (helmet_state) {
+        if (get_device_state() == STATE_INACTIVITY) {
+            set_laser_drivers_status(true);
+        }
+    }
+    else {
+        if (get_device_state == STATE_ACTIVE) {
+            set_laser_drivers_status(false);
+        }
+    }
+}
+
+
 void initialize_laser_drivers() 
 {
     initialize_laser_driver_gpio();
@@ -257,10 +283,6 @@ void initialize_laser_drivers()
     set_laser_drivers_status(true);
     vTaskDelay(pdMS_TO_TICKS(100));
     set_banked_leds();
-}
-
-
-void stop_laser_drivers() 
-{
-    set_laser_drivers_status(false);
+    register_state_change_callback(on_state_changed);
+    register_helmet_state_change_callback(on_helmet_state_changed);
 }

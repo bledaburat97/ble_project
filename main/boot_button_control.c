@@ -43,11 +43,11 @@ void monitor_boot_button_task(void *arg) {
                     uint8_t last_therapy_data[10];
                     //get_last_therapy_data(last_therapy_data);
 
-                    start_therapy_timer(20);
+                    set_and_start_therapy_timer(20);
                 }
                 else if(current_index == 1) {
                     ESP_LOGI(TAG, "Stop therapy timer!");
-                    stop_therapy_timer();
+                    //stop_therapy_timer();
                 }
 
                 current_index = (current_index + 1) % 2;
@@ -74,9 +74,11 @@ void initialize_boot_button_gpio() {
     gpio_install_isr_service(0);
     gpio_isr_handler_add(BOOT_BUTTON_GPIO, button_isr_handler, NULL);
 
+    /*
     if(timer_test)
     {
         ESP_LOGI(TAG, "Start inactivity timer!");
         start_inactivity_timer();
     }
+    */
 }

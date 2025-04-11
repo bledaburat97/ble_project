@@ -1,8 +1,33 @@
 #include "esp_log.h"
+#include "nvs_flash.h"
+#include "nvs.h"
 #include "storage_management.h"
 
 static const char *NVS_NAMESPACE = "storage";
 static const char *TAG = "StorageManager";
+
+static void check_nvs_stats() {
+    nvs_stats_t stats;
+    esp_err_t err = nvs_get_stats(NULL, &stats);
+    if (err == ESP_OK) {
+        ESP_LOGI("NVS", "Toplam giriş sayısı: %d", stats.total_entries);
+        ESP_LOGI("NVS", "Kullanılan giriş sayısı: %d", stats.used_entries);
+        ESP_LOGI("NVS", "Müsait giriş sayısı: %d", stats.available_entries);
+    } else {
+        ESP_LOGE("NVS", "nvs_get_stats başarısız: %s", esp_err_to_name(err));
+    }
+}
+
+esp_err_t init_nvs() {
+    esp_err_t ret;
+    ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    check_nvs_stats();
+    return ret;
+}
 
 esp_err_t save_parameter(const char *key, void *value, size_t value_size) {
     nvs_handle_t nvs_handle;

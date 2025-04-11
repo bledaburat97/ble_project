@@ -4,6 +4,8 @@
 #include "freertos/task.h"
 #include "string.h"
 #include "driver/gpio.h"
+#include "state_manager.h"
+#include "timer_management.h"
 
 static const char *TAG = "TemperatureAlarm";
 
@@ -42,6 +44,9 @@ void monitor_alert_task(void *param) {
             if (current_level[i] != prev_level[i]) {
                 if(current_level[i] != normal_pin_status)
                 {
+                    if (get_device_state() != STATE_TEMPERATURE_ALARM){
+                        start_alarm_timer();
+                    }
                     ESP_LOGI(TAG, "Temperature ALERT is triggered");
                 }
                 else
@@ -67,4 +72,16 @@ void initialize_alert_gpios() {
         gpio_config(&io_conf);
         ESP_LOGI(TAG, "Temperature sensor %d ALERT pin monitoring started on GPIO %d", i, alarm_gpio_list[i]);
     }
+}
+
+bool check_alert_status() {
+    int sensor_level[active_temp_sensor_count];
+    for(int i = 0; i < active_temp_sensor_count; i++){
+        sensor_level[i] = gpio_get_level(alarm_gpio_list[i]);
+        ESP_LOGI(TAG, "Current ALERT PIN %d: %s", i, sensor_level[i] ? "HIGH (NORMAL)" : "LOW");
+        if(!sensor_level[i]){
+            return true;
+        }
+    }
+    return false;
 }

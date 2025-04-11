@@ -5,6 +5,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "deep_sleep_manager.h"
+#include "state_manager.h"
+#include "timer_management.h"
 
 static const char *TAG = "DeepSleepManager";
 
@@ -27,13 +29,3 @@ void enter_deep_sleep() {
 }
 
 
-void wait_for_button_and_sleep_task(void *pvParameters) {
-    while (1) {
-        if (gpio_get_level(BUTTON_GPIO) == 0) {
-            ESP_LOGI(TAG, "Butona basıldı, sleep'e geçiliyor...");
-            vTaskDelay(pdMS_TO_TICKS(300)); // debounce
-            enter_deep_sleep();
-        }
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
-}

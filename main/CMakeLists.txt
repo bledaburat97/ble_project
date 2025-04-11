@@ -4,7 +4,7 @@ set(app_sources "lp_core_main.c")
 #set(CMAKE_C_COMPILER "C:/Users/bleda.burat/.espressif/tools/riscv32-esp-elf/esp-13.2.0_20240530/riscv32-esp-elf/bin/riscv32-esp-elf-gcc.exe" CACHE STRING "C Compiler" FORCE)
 #set(CMAKE_ASM_COMPILER "C:/Users/bleda.burat/.espressif/tools/riscv32-esp-elf/esp-13.2.0_20240530/riscv32-esp-elf/bin/riscv32-esp-elf-as.exe" CACHE STRING "ASM Compiler" FORCE)
 
-idf_component_register(SRCS "proximity_sensor_control.c" "temperature_sensor_control.c" 
+idf_component_register(SRCS "timer_utils.c" "proximity_sensor_control.c" "temperature_sensor_control.c" 
                             "temperature_sensor.c" 
                             "i2c_control.c" 
                             "json_parser.c" 
@@ -18,11 +18,14 @@ idf_component_register(SRCS "proximity_sensor_control.c" "temperature_sensor_con
                             "proximity_sensor_control.c"
                             "boot_button_control.c"
                             "ble_control.c"
-                            "therapy_controller.c"
+                            "state_manager.c"
+                            "timer_utils.c"
                             "transaction_manager.c"
                             "activation_command_manager.c"
                             "transaction_message_encoder.c"
                             "deep_sleep_manager.c"
+                            "main_button_controller.c"
+                            "device_initializer.c"
                             "lp_core_main.c"
                             "lp_core/main.c"
                     INCLUDE_DIRS "." 

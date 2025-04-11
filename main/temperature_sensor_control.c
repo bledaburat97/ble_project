@@ -15,7 +15,7 @@
 #define THIRD_ALERT_GPIO GPIO_NUM_22
 
 #define NVS_KEY_TEMPERATURE "last_temp"
-#define TEMPERATURE_SENSOR_COUNT 1 //Değiştir.
+#define TEMPERATURE_SENSOR_COUNT 1 //TODO: Değiştir.
 #define LOW_THRESHOLD 25.5
 #define HIGH_THRESHOLD 27
 

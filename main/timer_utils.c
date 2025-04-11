@@ -1,0 +1,53 @@
+#include "timer_utils.h"
+#include "esp_log.h"
+#include "freertos/task.h"
+#include "freertos/FreeRTOS.h"
+#include "time.h"
+#include "esp_mac.h"
+#include "stdint.h"
+
+static const char* TAG = "TimerUtils";
+
+TimerHandle_t create_and_start_timer(DeviceState state, uint32_t duration_ms, TimerCallbackFunction_t callback) {
+    const char* name = get_device_state_str(state);
+
+    TimerHandle_t timer = xTimerCreate(name, pdMS_TO_TICKS(duration_ms), pdFALSE, NULL, callback);
+    if (timer == NULL) {
+        ESP_LOGE(TAG, "Failed to create timer: %s", name);
+        return NULL;
+    }
+
+    if (xTimerStart(timer, 0) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to start timer: %s", name);
+        xTimerDelete(timer, 0);
+        return NULL;
+    }
+
+    ESP_LOGI(TAG, "Timer %s started (%ld ms)", name, duration_ms);
+    return timer;
+}
+
+bool stop_and_delete_timer(TimerHandle_t* timer) {
+    if (timer && *timer != NULL) {
+        if (xTimerStop(*timer, 0) == pdPASS) {
+            ESP_LOGI(TAG, "Timer stopped");
+        }
+        else {
+            ESP_LOGE(TAG, "Failed to stop timer.");
+            return false;
+        }
+        if (xTimerDelete(*timer, 0) == pdPASS) {
+            ESP_LOGI(TAG, "Timer deleted");
+            *timer = NULL;
+        }
+        else{
+            ESP_LOGE(TAG, "Failed to delete timer.");
+            return false;
+        }
+        return true;
+    }
+    else{
+        ESP_LOGE(TAG, "Timer is not found");
+        return false;
+    }
+}

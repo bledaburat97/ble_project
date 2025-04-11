@@ -39,7 +39,6 @@ typedef enum {
 
 void set_brightness_of_region(uint8_t region_id, uint8_t brightness_percentage);
 void initialize_laser_drivers();
-void stop_laser_drivers();
 void update_device_config1(bool status, DeviceConfig1UpdateType type);
 
 #endif 

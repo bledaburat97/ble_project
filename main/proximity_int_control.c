@@ -4,6 +4,7 @@
 #include "freertos/task.h"
 #include "driver/gpio.h"
 #include "proximity_sensor_control.h"
+#include "state_manager.h"
 
 #define MAX_NUM_OF_SENSORS 2
 #define NORMAL_PIN_STATUS 1  // Default hali HIGH
@@ -12,11 +13,9 @@ static const char *TAG = "ProximityInt";
 const int PROX_SENSOR_INT_GPIO[MAX_NUM_OF_SENSORS] = {18, 19};
 
 static void checkProximitySensor(uint8_t asserted_sensor_index){
-    /*TODO: add therapy controller.
-    if(get_helmet_status()) {
+    if(get_device_state() == STATE_ACTIVE) {
         //TODO: STOP LASERS
     }
-    */
     request_excess_status(asserted_sensor_index == 1);
 }
 
