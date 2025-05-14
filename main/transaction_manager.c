@@ -20,7 +20,7 @@
 #include "transaction_manager.h"
 #include "activation_command_manager.h"
 #include "transaction_message_encoder.h"
-
+#include "json_encoder.h"
 
 static const char *TAG = "BLEManager";
 SemaphoreHandle_t ble_mutex = NULL;
@@ -68,6 +68,17 @@ static void fill_notification_info(NotificationInfo* info, NotificationType noti
 
     info->therapy_id = 0xFFFF;
     info->type = (uint8_t) notification_type;
+}
+
+static void fill_notification_message(NotificationMessage* message, NotificationType notification_type) {
+    if (message == NULL) {
+        ESP_LOGE(TAG, "Invalid NotificationMessage");
+        return;
+    }
+
+    esp_read_mac(message->device_id, ESP_MAC_WIFI_STA);
+    message->therapy_id = 0xFF0F;
+    message->type = notification_type;
 }
 
 static void ble_notify_task(void *param) {
@@ -208,6 +219,22 @@ void send_notification(NotificationType notification_type) {
         notification_data,
         sizeof(notification_data)
     );
+}
+
+void send_notification_in_json(NotificationType notification_type) {
+    NotificationMessage notification_message;
+    fill_notification_message(&notification_message, notification_type);
+
+    char *json_str = encode_notification_message_json(&notification_message);
+    if (json_str == NULL) {
+        ESP_LOGE(TAG, "JSON encode failed");
+        return;
+    }
+
+    size_t len = strlen(json_str);
+    send_aperiodic_info((uint8_t*)json_str, len);
+
+    free(json_str);  // cJSON_PrintUnformatted ile heap'e alındığı için temizlenmeli
 
 }
 

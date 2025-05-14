@@ -8,10 +8,11 @@
 #include "esp_log.h"
 #include "timer_management.h"
 #include "transaction_manager.h"
+#include "json_encoder.h"
 
 const int BOOT_BUTTON_GPIO = GPIO_NUM_9;
 static QueueHandle_t button_queue;
-static bool timer_test = false;
+static bool timer_test = true;
 static const char *TAG = "BootButton";
 
 
@@ -32,7 +33,7 @@ void monitor_boot_button_task(void *arg) {
             uint8_t last_therapy_data[2];
             last_therapy_data[0] = 0x45;
             last_therapy_data[1] = 0x74;
-            send_notification(HELMET_ON);
+            send_notification_in_json(HELMET_ON);
             //send_aperiodic_info(get_notification_handle(), last_therapy_data, sizeof(last_therapy_data));
             //
             if(timer_test)

@@ -95,6 +95,11 @@
 #include "main_button_controller.h"
 #include "device_initializer.h"
 
+#include "log_types.h"
+#include "log_writer.h"
+#include "log_utils.h"
+#include "therapy_counter.h"
+
 static const char *TAG = "Main";
 
 // to test use set_brightness
@@ -126,7 +131,7 @@ void app_main() {
             
             //LP
             
-            bool lp_exists = true;
+            bool lp_exists = false;
             if(lp_exists)
             {
                 init_lp_i2c_master();
@@ -134,7 +139,16 @@ void app_main() {
                 initialize_lp_core_queue();
                 xTaskCreate(process_lp_queue_task, "ProcessLpQueueTask", 2048, NULL, 1, NULL);
             }
-            
+            init_therapy_counter();
+            uint16_t therapy_count = read_therapy_count();
+            ESP_LOGI(TAG, "therapy_count: %u", therapy_count);
+
+            init_log_writer();
+
+            test_add_log_flow();
+            read_therapy_count();
+
+            /*
             //Laser Driver
             initialize_laser_drivers();
             
@@ -153,7 +167,7 @@ void app_main() {
             xTaskCreate(monitor_proximity_int_task, "Monitor Proximity Int Task", 2048, NULL, 1, NULL);
             
             //Boot Button
-
+            */
             initialize_boot_button_gpio();
             xTaskCreate(monitor_boot_button_task, "Monitor Boot Botton Task", 2048, NULL, 1, NULL);
         

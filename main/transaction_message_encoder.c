@@ -10,6 +10,7 @@
 static const char *TAG = "PeriodicInfoManager";
 
 void encode_periodic_info(const PeriodicInfo *info, uint8_t *output) {
+    ESP_LOGI(TAG, "therapy_id: %u, remaining_dur: %u, temp: %u, hum: %u", info->therapy_id, info->remaining_duration, info->temperature, info->humidity);
     output[0] = (info->therapy_id >> 8) & 0xFF;
     output[1] = info->therapy_id & 0xFF;
 
@@ -21,6 +22,7 @@ void encode_periodic_info(const PeriodicInfo *info, uint8_t *output) {
 }
 
 void encode_notification_info(const NotificationInfo *info, uint8_t *output) {
+        ESP_LOGI(TAG, "therapy_id: %u", info->therapy_id);
         output[0] = (info->therapy_id >> 8) & 0xFF;
         output[1] = info->therapy_id & 0xFF;
         output[2] = ((info->type & 0x0F) << 4) | 0x00; // Notification (4-bit)
