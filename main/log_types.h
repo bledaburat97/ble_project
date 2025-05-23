@@ -1,13 +1,15 @@
 #pragma once
 #include <stdint.h>
+#include <stdbool.h>
 
 #define MAX_MEASUREMENT_LOGS 676
 #define MAX_NOTIFICATION_LOGS 1018
 #define MAX_BRIGHTNESS_LOGS 406
+#define MAX_LOG_ENTRY_SIZE 10
 
 typedef enum {
     // General session events
-    WAKE_FROM_DEEP_SLEEP = 0x01,
+    DEVICE_AWAKED = 0x01,
     BLE_CONNECTED,
     BLE_DISCONNECTED,
 
@@ -15,7 +17,7 @@ typedef enum {
     THERAPY_STARTED_BY_BUTTON,
     THERAPY_PAUSED_BY_BUTTON,
     THERAPY_CONTINUED_BY_BUTTON,
-    THERAPY_COMPLETED_LOG,
+    THERAPY_COMPLETED,
 
     // Temperature alerts
     LOW_TEMP_ALERT_1,
@@ -39,18 +41,19 @@ typedef enum {
     LOW_PROX_DETECTED_2,
 
     // Helmet events
-    HELMET_OFF_LOG,
-    HELMET_ON_LOG,
+    HELMET_OFF,
+    HELMET_ON,
 
     // Timers
     THERAPY_TIMER_STOPPED,
     INACTIVITY_TIMER_STARTED,
     INACTIVITY_TIMER_EXPIRED,
     ALERT_TIMER_STARTED,
-    ALERT_TIMER_CLEARED,
+    ALERT_TIMER_EXPIRED,
 
     // Errors and app events
-    WRONG_TEMP_THRESHOLD,
+    WRONG_PROX_MEASUREMENT,
+    
     THERAPY_START_REQUEST,
     THERAPY_STARTED_BY_APP,
     THERAPY_CONTINUED_BY_APP,
@@ -61,11 +64,12 @@ typedef enum {
 
     // Time
     RTC_TIME_SAVED,
-    TIME_UPDATED,
+    PASSED_DURATION_UPDATED,
     POWER_IS_OFF,
 
-    SLOT_IS_FULL
-} change_type_t;
+    FLASH_SLOT_IS_FULL,
+    TEST
+} NotificationType;
 
 // RTC time save event
 typedef struct {
@@ -110,26 +114,20 @@ typedef struct {
 } __attribute__((packed)) Notification_t;
 
 typedef struct {
-    uint8_t temperature;
-    uint8_t humidity;
-    uint16_t time;
-} MeasurementChangeLog;
-
-typedef struct {
-    uint8_t humidity;
-    uint16_t time;
-} HumidityChangeLog;
-
-typedef struct {
     uint8_t type;
-    uint16_t time;
-} NotificationLog;
+    uint8_t data[MAX_LOG_ENTRY_SIZE - 4];
+    uint16_t passed_seconds;
+    uint8_t crc;
+    uint8_t entry_size;
+    bool can_be_cached;
+    bool can_be_flashed;
+    bool can_start_cache;
+    bool can_flush_cache;
+} BaseLogEntry;
 
-typedef struct {
-    uint8_t brightness[6];
-    uint16_t time;
-} BrightnessChangeLog;
 
+
+/*
 typedef struct {
     uint16_t therapy_id;
     uint8_t device_id[6];
@@ -144,4 +142,4 @@ typedef struct {
     int brightness_log_count;
 } TherapySession;
 
-
+*/

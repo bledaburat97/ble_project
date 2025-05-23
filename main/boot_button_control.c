@@ -33,7 +33,7 @@ void monitor_boot_button_task(void *arg) {
             uint8_t last_therapy_data[2];
             last_therapy_data[0] = 0x45;
             last_therapy_data[1] = 0x74;
-            send_notification_in_json(HELMET_ON);
+            add_and_send_notification(HELMET_ON);
             //send_aperiodic_info(get_notification_handle(), last_therapy_data, sizeof(last_therapy_data));
             //
             if(timer_test)
@@ -44,7 +44,7 @@ void monitor_boot_button_task(void *arg) {
                     uint8_t last_therapy_data[10];
                     //get_last_therapy_data(last_therapy_data);
 
-                    set_and_start_therapy_timer(20);
+                    //start_new_therapy(20);
                 }
                 else if(current_index == 1) {
                     ESP_LOGI(TAG, "Stop therapy timer!");

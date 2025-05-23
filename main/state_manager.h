@@ -13,7 +13,7 @@ typedef enum {
     STATE_ACTIVE,
     STATE_INACTIVITY,
     STATE_START,
-    STATE_UNKNOWN
+    STATE_IDLE
 } DeviceState;
 
 typedef void (*state_change_callback)(DeviceState device_state);

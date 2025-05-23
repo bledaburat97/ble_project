@@ -12,7 +12,7 @@
 
 static const esp_partition_t* counter_partition = NULL;
 
-esp_err_t init_therapy_counter() {
+esp_err_t init_therapy_counter_partition() {
     counter_partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, THERAPY_COUNTER_SUBTYPE, COUNTER_PARTITION_NAME);
 
     if (!counter_partition) {
@@ -76,6 +76,8 @@ uint16_t read_therapy_count() {
         ESP_LOGE(TAG, "Therapy log limit reached (%d)", therapy_count);
         therapy_count = MAX_THERAPY_COUNT;
     }
+    ESP_LOGI(TAG, "therapy_count: %u", therapy_count);
+
     return therapy_count;
 
 }

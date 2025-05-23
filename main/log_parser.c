@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define TAG "LogParser"
-
+/*
 esp_err_t parse_therapy_session(uint16_t therapy_id, TherapySession* session) {
     memset(session, 0, sizeof(TherapySession));
     session->therapy_id = therapy_id;
@@ -153,3 +153,4 @@ esp_err_t parse_therapy_session(uint16_t therapy_id, TherapySession* session) {
 
     return ESP_OK;
 }
+    */

@@ -5,7 +5,7 @@
 
 static const char* TAG = "StatusController";
 
-static DeviceState current_state = STATE_UNKNOWN;
+static DeviceState current_state = STATE_IDLE;
 static bool helmet_state = false;
 static SemaphoreHandle_t state_mutex = NULL;
 static state_change_callback state_listeners[MAX_STATE_LISTENERS];
@@ -21,7 +21,7 @@ const char* get_device_state_str(DeviceState state) {
         case STATE_ACTIVE: return "Active";
         case STATE_INACTIVITY: return "Inactivity";
         case STATE_START: return "Start";
-        case STATE_UNKNOWN: return "Unknown";
+        case STATE_IDLE: return "Idle";
         default: return "Invalid";
     }
 }
@@ -31,7 +31,7 @@ void init_state_manager() {
     if (state_mutex == NULL) {
         ESP_LOGE(TAG, "Failed to create mutex for device state");
     } else {
-        current_state = STATE_UNKNOWN;
+        current_state = STATE_IDLE;
     }
 }
 
@@ -49,7 +49,7 @@ void set_helmet_state(bool state) {
 }
 
 void set_device_state(DeviceState new_state) {
-    if (new_state >= STATE_UNKNOWN) {
+    if (new_state >= STATE_IDLE) {
         ESP_LOGW("DeviceState", "Trying to set invalid state");
         return;
     }
@@ -76,7 +76,7 @@ void set_device_state(DeviceState new_state) {
 }
 
 DeviceState get_device_state() {
-    DeviceState state_copy = STATE_UNKNOWN;
+    DeviceState state_copy = STATE_IDLE;
     if (xSemaphoreTake(state_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
         state_copy = current_state;
         xSemaphoreGive(state_mutex);

@@ -275,7 +275,6 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
         ESP_LOGI(TAG, "Device connected");
         gl_profile_tab[PROFILE_A_APP_ID].conn_id = param->connect.conn_id;
         ESP_LOGI(TAG, "Connection id: %d", gl_profile_tab[PROFILE_A_APP_ID].conn_id);
-
         if (on_connect_callback) {
             on_connect_callback();
         }
@@ -345,7 +344,7 @@ esp_err_t send_periodic_data(uint8_t* data, size_t data_length)
     return ble_send_message(gl_profile_tab[PROFILE_A_APP_ID].periodic_handle, data, data_length);
 }
 
-esp_err_t send_notification_data(uint8_t* data, size_t data_length)
+esp_err_t send_data_with_ble(uint8_t* data, size_t data_length)
 {
     return ble_send_message(gl_profile_tab[PROFILE_A_APP_ID].notification_handle, data, data_length);
 }

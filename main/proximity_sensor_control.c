@@ -4,7 +4,8 @@
 #include "proximity_sensor_config.h"
 #include "lp_core_queue_manager.h"
 #include "state_manager.h"
-
+#include "log_types.h"
+#include "transaction_manager.h"
 
 #define DEFAULT_LED_CURRENT 20
 #define DEFAULT_INTERRUPT_CONTROL_BIT_COUNT 2
@@ -286,13 +287,13 @@ void check_interrupt_status(uint8_t status, bool is_lp)
             if(get_sensor_detection_status(!is_lp)) {
                 set_helmet_state(true);
                 ESP_LOGI(TAG, "HELMET_ON.");
-                //TODO: send_notification(HELMET_ON);
+                add_and_send_notification(HELMET_ON);
             }
         }
         else {
             reset_interrupt(is_lp, HIGH);
             ESP_LOGE(TAG, "WRONG_THRESHOLD_VALUES.");
-            //TODO: send_notification(WRONG_THRESHOLD_VALUES);
+            add_and_send_notification(WRONG_PROX_MEASUREMENT);
         }
     }
 
@@ -314,12 +315,12 @@ void check_interrupt_status(uint8_t status, bool is_lp)
             reset_interrupt(is_lp, LOW);
             set_helmet_state(false);
             ESP_LOGI(TAG, "HELMET_OFF.");
-            //TODO: send_notification(HELMET_OFF);
+            add_and_send_notification(HELMET_OFF);
         }
         else{
             reset_interrupt(is_lp, LOW);
             ESP_LOGE(TAG, "WRONG_THRESHOLD_VALUES.");
-            //TODO: send_notification(WRONG_THRESHOLD_VALUES);
+            add_and_send_notification(WRONG_PROX_MEASUREMENT);
         }
     }
 

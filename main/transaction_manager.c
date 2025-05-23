@@ -21,8 +21,9 @@
 #include "activation_command_manager.h"
 #include "transaction_message_encoder.h"
 #include "json_encoder.h"
+#include "log_writer.h"
 
-static const char *TAG = "BLEManager";
+static const char *TAG = "TransactionManager";
 SemaphoreHandle_t ble_mutex = NULL;
 static bool ble_connection_status = false;
 static TaskHandle_t ble_task_handle = NULL;
@@ -48,68 +49,7 @@ bool get_ble_connection_status() {
     return status;
 }
 
-static void fill_periodic_info(PeriodicInfo* info){
-    if (info == NULL) {
-        ESP_LOGE(TAG, "Invalid PeriodicInfo");
-        return;
-    }
-
-    info->therapy_id = 0xFFFF;
-    info->remaining_duration = get_last_therapy_applied_duration();
-    info->temperature = 0x53;
-    info->humidity = 0x14;
-}
-
-static void fill_notification_info(NotificationInfo* info, NotificationType notification_type) {
-    if (info == NULL) {
-        ESP_LOGE(TAG, "Invalid NotificationInfo");
-        return;
-    }
-
-    info->therapy_id = 0xFFFF;
-    info->type = (uint8_t) notification_type;
-}
-
-static void fill_notification_message(NotificationMessage* message, NotificationType notification_type) {
-    if (message == NULL) {
-        ESP_LOGE(TAG, "Invalid NotificationMessage");
-        return;
-    }
-
-    esp_read_mac(message->device_id, ESP_MAC_WIFI_STA);
-    message->therapy_id = 0xFF0F;
-    message->type = notification_type;
-}
-
-static void ble_notify_task(void *param) {
-    while (true) {
-        if(get_ble_connection_status()){
-            if (xSemaphoreTake(ble_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
-                uint8_t periodic_data[SIZE_OF_PERIODIC_INFO];
-                PeriodicInfo periodic_info;
-                fill_periodic_info(&periodic_info);
-                encode_periodic_info(&periodic_info, periodic_data);
-                send_periodic_data(periodic_data, sizeof(periodic_data));
-
-                // Release the mutex for other tasks
-                xSemaphoreGive(ble_mutex);
-            } 
-            else {
-                ESP_LOGW(TAG, "Failed to obtain BLE mutex within 1 second");
-            }
-        }
-        else 
-        {
-            ESP_LOGW(TAG, "BLE disconnected, stopping notify task...");
-            vTaskDelay(pdMS_TO_TICKS(100));
-            vTaskDelete(NULL);
-        }
-
-        vTaskDelay(pdMS_TO_TICKS(2000));
-    }
-}
-
-static void send_aperiodic_info(uint8_t* data, size_t data_length)
+static void send_info_message(uint8_t* data, size_t data_length)
 {
     if (!get_ble_connection_status()) {
         ESP_LOGW(TAG, "No active BLE connection, cannot send aperiodic info.");
@@ -122,8 +62,7 @@ static void send_aperiodic_info(uint8_t* data, size_t data_length)
 
     while (retry_count < max_retries) {
         if (xSemaphoreTake(ble_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
-            // Successfully acquired the mutex
-            esp_err_t ret = send_notification_data(data, data_length);
+            esp_err_t ret = send_data_with_ble(data, data_length);
 
             if (ret == ESP_OK) {
                 ESP_LOGI(TAG, "Successfully sent aperiodic info.");
@@ -144,6 +83,169 @@ static void send_aperiodic_info(uint8_t* data, size_t data_length)
     ESP_LOGE(TAG, "Failed to acquire BLE mutex after %d attempts. Data not sent.", max_retries);
 }
 
+static void send_device_info_message() {
+    DeviceInfoMessage message;
+    //message.current_time; //TODO: set current time when RTC integrated.
+
+    message.type = BLE_CONNECTED;
+    esp_read_mac(message.device_id, ESP_MAC_WIFI_STA);
+    message.passed_seconds = get_passed_duration();
+    
+    char *json_str = encode_device_info_message(&message);
+    if (json_str == NULL) {
+        ESP_LOGE(TAG, "JSON encode failed");
+        return;
+    }
+
+    size_t len = strlen(json_str);
+    send_info_message((uint8_t*)json_str, len);
+
+    free(json_str);
+}
+
+static void send_therapy_start_info_message(NotificationType type, uint16_t therapy_duration, uint16_t therapy_id, uint16_t passed_seconds) {
+    TherapyStartInfoMessage message;
+    message.type = type;
+    message.therapy_dur = therapy_duration;
+    message.therapy_id = therapy_id;
+    message.passed_seconds = passed_seconds;
+    
+    char *json_str = encode_therapy_start_info_message(&message);
+    if (json_str == NULL) {
+        ESP_LOGE(TAG, "JSON encode failed");
+        return;
+    }
+
+    size_t len = strlen(json_str);
+    send_info_message((uint8_t*)json_str, len);
+
+    free(json_str);
+}
+
+static void send_measurement_info_message(uint8_t temperature, uint8_t humidity) {
+    MeasurementInfoMessage message;
+    message.type = MEASUREMENT_CHANGED;
+    message.temperature = temperature;
+    message.humidity = humidity;
+    message.passed_seconds = get_passed_duration();
+    
+    char *json_str = encode_measurement_info_message(&message);
+    if (json_str == NULL) {
+        ESP_LOGE(TAG, "JSON encode failed");
+        return;
+    }
+
+    size_t len = strlen(json_str);
+    send_info_message((uint8_t*)json_str, len);
+
+    free(json_str);
+}
+
+static void send_notification_message(NotificationType type) {
+    NotificationMessage message;
+    message.type = type;
+    message.passed_seconds = get_passed_duration();
+    
+    char *json_str = encode_notification_message(&message);
+    if (json_str == NULL) {
+        ESP_LOGE(TAG, "JSON encode failed");
+        return;
+    }
+
+    size_t len = strlen(json_str);
+    send_info_message((uint8_t*)json_str, len);
+
+    free(json_str);  // cJSON_PrintUnformatted ile heap'e alındığı için temizlenmeli
+}
+
+static void add_and_send_therapy_start(NotificationType notification_type) {
+    uint16_t therapy_id = 0; //URGENT
+    uint16_t therapy_duration = 0; //URGENT
+    uint16_t passed_seconds = get_passed_duration();
+    uint8_t data[] = {therapy_id >> 8, therapy_id & 0xFF, therapy_duration >> 8, therapy_duration & 0xFF, passed_seconds >> 8, passed_seconds & 0xFF};
+    add_log(notification_type, data, sizeof(data), passed_seconds);
+    send_therapy_start_info_message(notification_type, therapy_id, therapy_duration, passed_seconds);
+}
+
+static void add_and_send_measurement_info() {
+    uint8_t temperature = 0; //URGENT
+    uint8_t humidity = 0; //URGENT
+    uint8_t data[] = {temperature, humidity}; //URGENT eğer temp veya hum değişmişse.
+    uint16_t passed_seconds = get_passed_duration();
+    add_log(MEASUREMENT_CHANGED, data, sizeof(data), passed_seconds);
+    send_measurement_info_message(temperature, humidity);
+}
+
+void add_and_send_notification(NotificationType notification_type) {
+
+    if(notification_type == THERAPY_STARTED_BY_BUTTON || notification_type == THERAPY_STARTED_BY_APP
+         || notification_type == THERAPY_CONTINUED_BY_BUTTON || notification_type == THERAPY_CONTINUED_BY_APP) {
+            add_and_send_therapy_start(notification_type);
+    }
+    else if (notification_type == BLE_CONNECTED) {
+        uint16_t passed_seconds = get_passed_duration();
+        add_notification_log(BLE_CONNECTED, passed_seconds);
+        send_device_info_message();
+    }
+    else{
+        uint16_t passed_seconds = get_passed_duration();
+        add_notification_log(notification_type, passed_seconds);
+        send_notification_message(notification_type);
+    }
+
+}
+
+static void ble_notify_task(void *param) {
+    while (true) {
+        if(get_ble_connection_status()){
+            if (xSemaphoreTake(ble_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
+                add_and_send_measurement_info();
+                // Release the mutex for other tasks
+                xSemaphoreGive(ble_mutex);
+            } 
+            else {
+                ESP_LOGW(TAG, "Failed to obtain BLE mutex within 1 second");
+            }
+        }
+        else 
+        {
+            ESP_LOGW(TAG, "BLE disconnected, stopping notify task...");
+            vTaskDelay(pdMS_TO_TICKS(100));
+            vTaskDelete(NULL);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(2000));
+    }
+}
+
+static void on_connect_ble() {
+    set_ble_connection_status(true);
+    add_and_send_notification(BLE_CONNECTED);
+    NotificationType helmet_status = get_helmet_state() ? HELMET_ON : HELMET_OFF;     //TODO: tam doğru değil.
+    add_and_send_notification(helmet_status);
+
+    if (ble_task_handle == NULL) {
+        xTaskCreate(ble_notify_task, "Ble Notify Task", 8192, NULL, 5, &ble_task_handle);
+    }
+}
+
+static void on_disconnect_ble() {
+    set_ble_connection_status(false);
+    add_and_send_notification(BLE_DISCONNECTED);
+    if (ble_task_handle != NULL) {
+        vTaskDelete(ble_task_handle);
+        ble_task_handle = NULL;
+    }
+}
+
+static uint16_t convert_bit_string_to_duration_in_seconds(uint16_t duration_bits) {
+    if(duration_bits > 480) {
+        ESP_LOGE(TAG, "Wrong therapy duration is got.");
+        duration_bits = 480;
+    }
+    return duration_bits * 5;
+}
+
 static void on_write_of_activation_command(const uint8_t *data, size_t len) {
     for (int i = 0; i < len; i++) {
         ESP_LOGI(TAG, "Byte %d: 0x%02X ('%c')", i, data[i], data[i]);
@@ -156,6 +258,7 @@ static void on_write_of_activation_command(const uint8_t *data, size_t len) {
 
     if (activation_command.received_command == 0x00) {
         if (get_device_state() == STATE_ACTIVE) {
+            add_and_send_measurement_info(THERAPY_STOPPED_BY_APP);
             start_inactivity_timer();
         }
         // TODO: Lazeri kapat
@@ -171,8 +274,8 @@ static void on_write_of_activation_command(const uint8_t *data, size_t len) {
                     {
                         set_brightness_of_region(i + 1, activation_command.region_brightness[i]);
                     }
-        
-                    set_and_start_therapy_timer(activation_command.therapy_duration);
+                    uint16_t duration = convert_bit_string_to_duration_in_seconds(activation_command.therapy_duration);
+                    start_new_therapy(duration);
                 }
                 else {
                     ESP_LOGE(TAG, "Therapy couldn't start.");
@@ -191,53 +294,6 @@ static void on_write_of_activation_command(const uint8_t *data, size_t len) {
     }
 }
 
-static void on_connect_ble() {
-    set_ble_connection_status(true);
-
-    NotificationType helmet_status = get_helmet_state() ? HELMET_ON : HELMET_OFF;     //TODO: tam doğru değil.
-    send_notification(helmet_status);
-
-    if (ble_task_handle == NULL) {
-        xTaskCreate(ble_notify_task, "Ble Notify Task", 8192, NULL, 5, &ble_task_handle);
-    }
-}
-
-static void on_disconnect_ble() {
-    set_ble_connection_status(false);
-    if (ble_task_handle != NULL) {
-        vTaskDelete(ble_task_handle);
-        ble_task_handle = NULL;
-    }
-}
-
-void send_notification(NotificationType notification_type) {
-    uint8_t notification_data[SIZE_OF_NOTIFICATION_INFO];
-    NotificationInfo notification_info;
-    fill_notification_info(&notification_info, notification_type);
-    encode_notification_info(&notification_info, notification_data);
-    send_aperiodic_info(
-        notification_data,
-        sizeof(notification_data)
-    );
-}
-
-void send_notification_in_json(NotificationType notification_type) {
-    NotificationMessage notification_message;
-    fill_notification_message(&notification_message, notification_type);
-
-    char *json_str = encode_notification_message_json(&notification_message);
-    if (json_str == NULL) {
-        ESP_LOGE(TAG, "JSON encode failed");
-        return;
-    }
-
-    size_t len = strlen(json_str);
-    send_aperiodic_info((uint8_t*)json_str, len);
-
-    free(json_str);  // cJSON_PrintUnformatted ile heap'e alındığı için temizlenmeli
-
-}
-
 void init_ble(){
 
     ble_mutex = xSemaphoreCreateMutex();
@@ -251,5 +307,5 @@ void init_ble(){
     register_on_connect_callback(on_connect_ble);
     register_on_write_activation_callback(on_write_of_activation_command);
     register_on_disconnect_callback(on_disconnect_ble);
-    register_timer_notification_callback(send_notification);
+    register_timer_notification_callback(add_and_send_notification);
 }

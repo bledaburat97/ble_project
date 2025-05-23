@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-esp_err_t init_therapy_counter();
+esp_err_t init_therapy_counter_partition();
 uint16_t read_therapy_count();
 esp_err_t write_therapy_count(uint16_t new_count);
 void erase_therapy_counter_partition();

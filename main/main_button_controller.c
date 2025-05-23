@@ -6,7 +6,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "timer_management.h"
-
+#include "transaction_manager.h"
 static const char *TAG = "MainButtonController";
 
 void wait_for_button_to_sleep(void *pvParameters) {
@@ -37,10 +37,11 @@ void wait_for_button_to_sleep(void *pvParameters) {
                     enter_deep_sleep();
                 } else {
                     if(get_device_state() == STATE_INACTIVITY) {
-                        set_and_start_default_therapy_timer();
+                        start_default_therapy();
                     }
                     else if(get_device_state() == STATE_ACTIVE) {
                         start_inactivity_timer();
+                        add_and_send_notification(THERAPY_PAUSED_BY_BUTTON);
                     }
                 }
             }

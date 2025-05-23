@@ -128,6 +128,7 @@ static const RegionPiece* get_region_piece_of_driver_by_id(uint8_t region_id, co
 
 static uint8_t convert_brightness_percentage_to_brightness(uint8_t brightness_percentage)
 {
+    ESP_LOGI(LASER_TAG, "Brightness percentage: %u", brightness_percentage);
     if (brightness_percentage > 20)
     {
         brightness_percentage = 20;
@@ -269,7 +270,7 @@ static void on_helmet_state_changed(bool helmet_state){
         }
     }
     else {
-        if (get_device_state == STATE_ACTIVE) {
+        if (get_device_state() == STATE_ACTIVE) {
             set_laser_drivers_status(false);
         }
     }

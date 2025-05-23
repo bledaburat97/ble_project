@@ -1,6 +1,5 @@
 #include <stdint.h>
 #include "freertos/semphr.h"
-#include "notification.h"
 
 #ifndef BLE_CONTROL_H
 #define BLE_CONTROL_H
@@ -13,7 +12,7 @@
 
 esp_err_t init_bluetooth();
 esp_err_t send_periodic_data(uint8_t* data, size_t data_length);
-esp_err_t send_notification_data(uint8_t* data, size_t data_length);
+esp_err_t send_data_with_ble(uint8_t* data, size_t data_length);
 void register_on_connect_callback(void (*callback)());
 void register_on_disconnect_callback(void (*callback)());
 void register_on_write_activation_callback(void (*callback)(const uint8_t*, size_t));

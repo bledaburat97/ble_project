@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-esp_err_t parse_therapy_session(uint16_t therapy_id, TherapySession* session);
+//esp_err_t parse_therapy_session(uint16_t therapy_id, TherapySession* session);
 
 #ifdef __cplusplus
 }

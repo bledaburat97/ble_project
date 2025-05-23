@@ -120,7 +120,6 @@ void app_main() {
         if (wakeup_pins & BUTTON_PIN_BITMASK) {
             ESP_LOGI(TAG, "Awakes by GPIO!");
         
-            ESP_ERROR_CHECK(init_nvs());   
             init_ble();
             init_state_manager();
             init_timer_manager();
@@ -139,14 +138,16 @@ void app_main() {
                 initialize_lp_core_queue();
                 xTaskCreate(process_lp_queue_task, "ProcessLpQueueTask", 2048, NULL, 1, NULL);
             }
-            init_therapy_counter();
-            uint16_t therapy_count = read_therapy_count();
-            ESP_LOGI(TAG, "therapy_count: %u", therapy_count);
+            init_therapy_counter_partition();
 
             init_log_writer();
-
-            test_add_log_flow();
             read_therapy_count();
+            ESP_LOGI(TAG, "aaaa.");
+
+            read_logs_and_encode(0);
+            read_logs_and_encode(1);
+            read_logs_and_encode(2);
+            read_logs_and_encode(3);
 
             /*
             //Laser Driver
@@ -185,6 +186,7 @@ void app_main() {
             // Buton kontrol task'ı
             xTaskCreate(wait_for_button_to_sleep, "button_task", 2048, NULL, 1, NULL);
             set_device_state(STATE_START);
+            add_and_send_notification(DEVICE_AWAKED);
             ESP_LOGI(TAG, "Device awakes.");
         }
     } else {

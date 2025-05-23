@@ -13,6 +13,8 @@
 #include "state_manager.h"
 #include "temperature_alarm_control.h"
 #include "timer_utils.h"
+#include "log_writer.h"
+#include "log_utils.h"
 
 static const char *TAG = "TimerManagement";
 static const char *LAST_THERAPY_APPLIED_DURATION = "last_ther_dur";
@@ -26,17 +28,40 @@ static uint16_t passed_duration = 0;
 static TaskHandle_t periodic_saving_task_handle = NULL;
 static void (*timer_notification_callback)(NotificationType) = NULL;
 
-static void save_applied_therapy_duration(){
+static void try_save_updated_therapy_duration() {
+    /*
+    if(passed_duration >= get_last_saved_passed_duration()){
 
-    ESP_LOGI(TAG, "save applied therapy duration!");
+        BaseLogEntry log;
+        uint8_t* data = NULL;
+        fill_base_log(&log, PASSED_DURATION_UPDATED, data, 0, passed_duration);
+        add_log(&log);
+    }
+        */
+}
+
+static void update_passed_therapy_duration() {
+    ESP_LOGI(TAG, "Update passed therapy duration!");
+
+    time_t current_time;
+    time(&current_time);
+    passed_duration = (uint16_t)(current_time - therapy_start_time);
+    try_save_updated_therapy_duration();
+}
+
+/*delete
+static void save_applied_therapy_duration() {
+
+    ESP_LOGI(TAG, "Update passed therapy duration!");
 
     time_t current_time;
     time(&current_time);
 
     passed_duration = (uint16_t)(current_time - therapy_start_time);
+
     save_parameter(LAST_THERAPY_APPLIED_DURATION, &passed_duration, sizeof(passed_duration));
 }
-
+*/
 static bool is_inactivity_timer_running()
 {
     if (inactivity_timer == NULL)
@@ -78,32 +103,98 @@ static void therapy_timer_expiry_callback(TimerHandle_t xTimer) {
 static void stop_inactivity_timer() {
     if(stop_and_delete_timer(&inactivity_timer)){
         ESP_LOGI(TAG, "Inactivity timer is stopped.");
-        set_device_state(STATE_UNKNOWN);
+        set_device_state(STATE_IDLE);
     }
     else{
         ESP_LOGI(TAG, "Inactivity timer can not be stopped.");
     }
 }
+
+static void stop_therapy_timer()
+{
+    if(stop_and_delete_timer(&therapy_timer)){
+        ESP_LOGI(TAG, "Therapy timer is stopped.");
+        set_device_state(STATE_IDLE);
+    }
+    else{
+        ESP_LOGI(TAG, "Therapy timer can not be stopped.");
+    }
+
+    if (periodic_saving_task_handle != NULL) {
+        vTaskDelete(periodic_saving_task_handle);
+        periodic_saving_task_handle = NULL;
+    }
+}
+
+static void periodic_saving_task(void *param) {
+    while (is_therapy_timer_running()) {
+        ESP_LOGI(TAG, "periodic_saving_task!");
+        update_passed_therapy_duration();
+        vTaskDelay(pdMS_TO_TICKS(PERIODIC_SAVING_INTERVAL));
+    }
+    vTaskDelete(NULL);
+}
+
+static void start_therapy_timer(uint16_t duration) {
+    if(is_alarm_timer_running()) {
+        ESP_LOGE(TAG, "Alarm timer wasn't stopped.");
+        return;
+    }
+
+    if(is_inactivity_timer_running()) {
+        stop_inactivity_timer();
+    }
+
+    therapy_timer = create_and_start_timer(STATE_ACTIVE, duration * 1000, therapy_timer_expiry_callback);
+    
+    set_device_state(STATE_ACTIVE);
+
+    therapy_start_time = time(NULL);    
+
+    // Start periodic saving task
+    if (periodic_saving_task_handle == NULL) {
+        xTaskCreate(periodic_saving_task, "PeriodicSavingTask", 4096, NULL, 5, &periodic_saving_task_handle);
+    }
+}
+
+void start_new_therapy(uint16_t duration) {
+    if(is_therapy_timer_running()) {
+        stop_therapy_timer();
+    }
+    start_therapy_timer(duration);
+}
+
+void start_default_therapy() {
+    if(is_therapy_timer_running()) {
+        ESP_LOGE(TAG, "There shouldn't have been an active therapy.");
+        return;
+    }
+    uint16_t duration = DEFAULT_THERAPY_DURATION - passed_duration; //TODO: passed_duration'ın 5 dk cihaz çalıştıtılmazsa sıfırlanması lazım.
+    start_therapy_timer(duration);
+    if(passed_duration == 0) {
+        if (timer_notification_callback) {
+            timer_notification_callback(THERAPY_STARTED_BY_BUTTON);
+        }
+    }
+    else {
+        if (timer_notification_callback) {
+            timer_notification_callback(THERAPY_CONTINUED_BY_BUTTON);
+        }
+    }
+
+}
+
 static void inactivity_timer_expiry_callback(TimerHandle_t xTimer) {
     ESP_LOGI(TAG, "Inactivity timer expired!");
     stop_inactivity_timer();
     if (timer_notification_callback) {
-        timer_notification_callback(INACIVITY_TIMER_COMPLETED);
+        timer_notification_callback(INACTIVITY_TIMER_EXPIRED);
     }
     enter_deep_sleep();
 }
 
 static void alarm_timer_expiry_callback(TimerHandle_t xTimer) {
     set_device_state(STATE_START);
-}
-
-static void periodic_saving_task(void *param) {
-    while (is_therapy_timer_running()) {
-        ESP_LOGI(TAG, "periodic_saving_task!");
-        save_applied_therapy_duration();
-        vTaskDelay(pdMS_TO_TICKS(PERIODIC_SAVING_INTERVAL));
-    }
-    vTaskDelete(NULL);
 }
 
 uint16_t get_last_therapy_applied_duration() {
@@ -124,34 +215,21 @@ void register_timer_notification_callback(void (*callback)(NotificationType)) {
     timer_notification_callback = callback;
 }
 
-static uint16_t convert_bit_string_to_duration_in_seconds(uint16_t duration_bits) {
-    if(duration_bits > 480) {
-        ESP_LOGE(TAG, "Wrong therapy duration is got.");
-        duration_bits = 480;
-    }
-    return duration_bits * 5;
-}
-
-void start_alarm_timer() {
+void start_alert_timer(int sensor_index) {
     if (!alarm_timer) {
         alarm_timer = create_and_start_timer(STATE_TEMPERATURE_ALARM, ALARM_THRESHOLD_SECONDS * 1000, alarm_timer_expiry_callback);
     }
     set_device_state(STATE_TEMPERATURE_ALARM);
-}
-
-static void stop_therapy_timer()
-{
-    if(stop_and_delete_timer(&therapy_timer)){
-        ESP_LOGI(TAG, "Therapy timer is stopped.");
-        set_device_state(STATE_UNKNOWN);
-    }
-    else{
-        ESP_LOGI(TAG, "Therapy timer can not be stopped.");
-    }
-
-    if (periodic_saving_task_handle != NULL) {
-        vTaskDelete(periodic_saving_task_handle);
-        periodic_saving_task_handle = NULL;
+    if (timer_notification_callback) {
+        if(sensor_index == 0){
+            timer_notification_callback(HIGH_TEMP_ALERT_1);
+        }
+        else if(sensor_index == 1){
+            timer_notification_callback(HIGH_TEMP_ALERT_2);
+        }
+        else if(sensor_index == 2){
+            timer_notification_callback(HIGH_TEMP_ALERT_3);
+        }
     }
 }
 
@@ -172,65 +250,9 @@ void start_inactivity_timer() {
 }
     
 
-
-static void start_therapy_timer(uint16_t duration) {
-    
-    therapy_timer = create_and_start_timer(STATE_ACTIVE, duration * 1000, therapy_timer_expiry_callback);
-    
-    set_device_state(STATE_ACTIVE);
-
-    therapy_start_time = time(NULL);    
-
-    // Start periodic saving task
-    if (periodic_saving_task_handle == NULL) {
-        xTaskCreate(periodic_saving_task, "PeriodicSavingTask", 4096, NULL, 5, &periodic_saving_task_handle);
-    }
-}
-
-void set_and_start_therapy_timer(uint16_t duration_bits) {
-    if(is_alarm_timer_running()) {
-        ESP_LOGE(TAG, "Alarm timer wasn't stopped.");
-        return;
-    }
-
-    if(is_inactivity_timer_running()) {
-        stop_inactivity_timer();
-    }
-
-    if(is_therapy_timer_running()) {
-        stop_therapy_timer();
-    }
-
-    ESP_LOGI(TAG, "Start therapy timer with duration bits: %u", duration_bits);
-
-    uint16_t duration = convert_bit_string_to_duration_in_seconds(duration_bits);
-    start_therapy_timer(duration);
-}
-
-void set_and_start_default_therapy_timer() {
-    if(is_alarm_timer_running()) {
-        ESP_LOGE(TAG, "Alarm timer wasn't stopped.");
-        return;
-    }
-
-    if(is_therapy_timer_running()) {
-        ESP_LOGE(TAG, "Therapy timer wasn't stopped.");
-        return;
-    }
-
-    if(is_inactivity_timer_running()) {
-        stop_inactivity_timer();
-    }
-
-    uint16_t duration = DEFAULT_THERAPY_DURATION - passed_duration;
-    start_therapy_timer(duration);
-}
-
-
-
 static void on_helmet_state_changed(bool helmet_state) {
     if (!helmet_state) {
-        if (get_device_state == STATE_ACTIVE) {
+        if (get_device_state() == STATE_ACTIVE) {
             start_inactivity_timer();
         }
     }
@@ -240,4 +262,8 @@ void init_timer_manager()
 {
     passed_duration = 0;
     register_helmet_state_change_callback(on_helmet_state_changed);
+}
+
+uint16_t get_passed_duration(){
+    return passed_duration;
 }

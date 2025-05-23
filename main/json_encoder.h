@@ -1,15 +1,38 @@
 #include <stdint.h>
-#include "notification.h"
+#include "log_types.h"
 
 #ifndef JSON_ENCODER_H
 #define JSON_ENCODER_H
 
 typedef struct {
-    uint8_t device_id[6];      // 6 byte
-    uint16_t therapy_id;       // 2 byte
-    NotificationType type;     // 1 byte
+    uint8_t type;
+    uint8_t device_id[6];
+    uint8_t current_time[5];
+    uint16_t passed_seconds;
+} DeviceInfoMessage;
+
+typedef struct {
+    uint8_t type;
+    uint16_t therapy_id;
+    uint16_t therapy_dur;
+    uint16_t passed_seconds;
+} TherapyStartInfoMessage;
+
+typedef struct {
+    uint8_t type;
+    uint8_t temperature;
+    uint8_t humidity;
+    uint16_t passed_seconds;
+} MeasurementInfoMessage;
+
+typedef struct {
+    uint8_t type;
+    uint16_t passed_seconds;
 } NotificationMessage;
 
-char* encode_notification_message_json(const NotificationMessage *message);
+char* encode_device_info_message(const DeviceInfoMessage *message);
+char* encode_therapy_start_info_message(const TherapyStartInfoMessage *message);
+char* encode_measurement_info_message(const MeasurementInfoMessage *message);
+char* encode_notification_message(const NotificationMessage *message);
 
 #endif

@@ -30,6 +30,8 @@ esp_err_t init_nvs() {
 }
 
 esp_err_t save_parameter(const char *key, void *value, size_t value_size) {
+    /*
+
     nvs_handle_t nvs_handle;
     esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
     if (err != ESP_OK) {
@@ -61,10 +63,13 @@ esp_err_t save_parameter(const char *key, void *value, size_t value_size) {
 
     nvs_close(nvs_handle);
     return err;
+    */
+   return ESP_OK;
 }
 
 
 esp_err_t read_parameter(const char *key, void *value, size_t value_size) {
+    /*
     nvs_handle_t nvs_handle;
     esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &nvs_handle);
     if (err != ESP_OK) {
@@ -100,4 +105,6 @@ esp_err_t read_parameter(const char *key, void *value, size_t value_size) {
 
     nvs_close(nvs_handle);
     return err;
+    */
+   return ESP_OK;
 }

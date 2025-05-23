@@ -2,11 +2,9 @@
 #include "json_encoder.h"
 #include <stdio.h>
 
-char* encode_notification_message_json(const NotificationMessage *message) {
+char* encode_device_info_message(const DeviceInfoMessage *message) {
     if (message == NULL) return NULL;
-
     cJSON *root = cJSON_CreateObject();
-
     if (root == NULL) return NULL;
 
     char device_id_str[13];  // 6 byte * 2 + 1 null terminator
@@ -15,14 +13,61 @@ char* encode_notification_message_json(const NotificationMessage *message) {
         message->device_id[0], message->device_id[1], message->device_id[2],
         message->device_id[3], message->device_id[4], message->device_id[5]);
 
-    cJSON_AddStringToObject(root, "device_id", device_id_str);
-    cJSON_AddNumberToObject(root, "therapy_id", message->therapy_id);
+    char current_time_str[11];
+    snprintf(current_time_str, sizeof(current_time_str),
+        "%02X%02X%02X%02X%02X",
+        message->current_time[0], message->current_time[1], message->current_time[2],
+        message->current_time[3], message->current_time[4]);
+
     cJSON_AddNumberToObject(root, "type", message->type);
+    cJSON_AddStringToObject(root, "device_id", device_id_str);
+    cJSON_AddStringToObject(root, "current_time", current_time_str);
+    cJSON_AddNumberToObject(root, "passed_seconds", message->passed_seconds);
 
     char *json_str = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
     return json_str;  // Dikkat: bu string heap'te, iş bitince free() etmeyi unutma
 }
 
+char* encode_therapy_start_info_message(const TherapyStartInfoMessage *message) {
+    if (message == NULL) return NULL;
+    cJSON *root = cJSON_CreateObject();
+    if (root == NULL) return NULL;
 
-    
+    cJSON_AddNumberToObject(root, "type", message->type);
+    cJSON_AddNumberToObject(root, "therapy_id", message->therapy_id);
+    cJSON_AddNumberToObject(root, "therapy_dur", message->therapy_dur);
+    cJSON_AddNumberToObject(root, "passed_seconds", message->passed_seconds);
+
+    char *json_str = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    return json_str;
+}
+
+char* encode_measurement_info_message(const MeasurementInfoMessage *message) {
+    if (message == NULL) return NULL;
+    cJSON *root = cJSON_CreateObject();
+    if (root == NULL) return NULL;
+
+    cJSON_AddNumberToObject(root, "type", message->type);
+    cJSON_AddNumberToObject(root, "temperature", message->temperature);
+    cJSON_AddNumberToObject(root, "humidity", message->humidity);
+    cJSON_AddNumberToObject(root, "passed_seconds", message->passed_seconds);
+
+    char *json_str = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    return json_str;
+}
+
+char* encode_notification_message(const NotificationMessage *message) {
+    if (message == NULL) return NULL;
+    cJSON *root = cJSON_CreateObject();
+    if (root == NULL) return NULL;
+
+    cJSON_AddNumberToObject(root, "type", message->type);
+    cJSON_AddNumberToObject(root, "passed_seconds", message->passed_seconds);
+
+    char *json_str = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    return json_str;
+}
