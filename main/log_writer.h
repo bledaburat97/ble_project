@@ -18,7 +18,7 @@ void test_slot_fill();
 void test_add_log_flow();
 void erase_therapy_partition(uint32_t offset);
 uint16_t get_last_saved_passed_duration();
-esp_err_t read_logs_and_encode(uint16_t therapy_id);
+esp_err_t read_and_set_records(uint16_t therapy_id);
 
 #ifdef __cplusplus
 }

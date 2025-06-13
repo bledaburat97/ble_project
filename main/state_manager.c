@@ -16,8 +16,8 @@ static int helmet_state_listener_count = 0;
 
 const char* get_device_state_str(DeviceState state) {
     switch (state) {
-        case STATE_TEMPERATURE_ALARM: return "TemperatureAlarm";
-        case STATE_HUMIDITY_ALARM: return "HumidityAlarm";
+        case STATE_TEMPERATURE_ALERT: return "TemperatureAlert";
+        case STATE_HUMIDITY_ALERT: return "HumidityAlert";
         case STATE_ACTIVE: return "Active";
         case STATE_INACTIVITY: return "Inactivity";
         case STATE_START: return "Start";

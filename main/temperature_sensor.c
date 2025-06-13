@@ -28,7 +28,7 @@ static void convert_threshold_to_bytes(float thresholdInDegree, uint8_t *high_by
     *low_byte = (fraction_bits & 0x0F) << 4;  
 }
 
-static float convert_bytes_to_threshold(uint8_t high_byte, uint8_t low_byte) {
+static float convert_bytes_to_float(uint8_t high_byte, uint8_t low_byte) {
     float integer_part = (float)high_byte;
 
     uint8_t fraction_bits = (low_byte >> 4) & 0x0F;
@@ -105,7 +105,7 @@ float read_temperature_of_sensor(uint8_t device_address) {
     uint8_t temperatureBytes[2];
     read_register(device_address, TEMPERATURE_REG, temperatureBytes, 2, i2c_master_num);
     //-LP-//add_lp_read_command_to_queue(device_address, TEMPERATURE_REG, 2);
-    float temperature = convert_bytes_to_threshold(temperatureBytes[0], temperatureBytes[1]);
+    float temperature = convert_bytes_to_float(temperatureBytes[0], temperatureBytes[1]);
     //ESP_LOGI(TAG, "Temperature: %.2f°C", temperature);
     return temperature;
 }

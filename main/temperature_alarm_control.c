@@ -44,7 +44,7 @@ void monitor_alert_task(void *param) {
             if (current_level[i] != prev_level[i]) {
                 if(current_level[i] != normal_pin_status)
                 {
-                    if (get_device_state() != STATE_TEMPERATURE_ALARM){
+                    if (get_device_state() != STATE_TEMPERATURE_ALERT){
                         start_alert_timer(i);
                     }
                     ESP_LOGI(TAG, "Temperature ALERT is triggered");

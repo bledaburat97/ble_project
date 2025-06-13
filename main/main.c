@@ -99,6 +99,7 @@
 #include "log_writer.h"
 #include "log_utils.h"
 #include "therapy_counter.h"
+#include "matching_message_encoder.h"
 
 static const char *TAG = "Main";
 
@@ -144,10 +145,11 @@ void app_main() {
             read_therapy_count();
             ESP_LOGI(TAG, "aaaa.");
 
-            read_logs_and_encode(0);
-            read_logs_and_encode(1);
-            read_logs_and_encode(2);
-            read_logs_and_encode(3);
+            read_and_set_records(0);
+            read_and_set_records(1);
+            read_and_set_records(2);
+            read_and_set_records(3);
+            ESP_LOGI(TAG, "fragment count: %u", get_fragment_count());
 
             /*
             //Laser Driver
@@ -157,7 +159,7 @@ void app_main() {
             
             initialize_temperature_sensor();
             initialize_alert_gpios();
-            xTaskCreate(temperature_update_task, "Temperature Update Task", 2048, NULL, 1, NULL);
+            xTaskCreate(temperature_read_task, "Temperature Update Task", 2048, NULL, 1, NULL);
             xTaskCreate(monitor_alert_task, "Monitor Alert Task", 2048, NULL, 1, NULL);
             
             //Proximity Sensor
@@ -186,7 +188,7 @@ void app_main() {
             // Buton kontrol task'ı
             xTaskCreate(wait_for_button_to_sleep, "button_task", 2048, NULL, 1, NULL);
             set_device_state(STATE_START);
-            add_and_send_notification(DEVICE_AWAKED);
+            add_and_send_notification_info(DEVICE_AWAKED);
             ESP_LOGI(TAG, "Device awakes.");
         }
     } else {

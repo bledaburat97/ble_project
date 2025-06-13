@@ -287,13 +287,13 @@ void check_interrupt_status(uint8_t status, bool is_lp)
             if(get_sensor_detection_status(!is_lp)) {
                 set_helmet_state(true);
                 ESP_LOGI(TAG, "HELMET_ON.");
-                add_and_send_notification(HELMET_ON);
+                add_and_send_notification_info(HELMET_ON);
             }
         }
         else {
             reset_interrupt(is_lp, HIGH);
             ESP_LOGE(TAG, "WRONG_THRESHOLD_VALUES.");
-            add_and_send_notification(WRONG_PROX_MEASUREMENT);
+            add_and_send_notification_info(WRONG_PROX_MEASUREMENT);
         }
     }
 
@@ -315,12 +315,12 @@ void check_interrupt_status(uint8_t status, bool is_lp)
             reset_interrupt(is_lp, LOW);
             set_helmet_state(false);
             ESP_LOGI(TAG, "HELMET_OFF.");
-            add_and_send_notification(HELMET_OFF);
+            add_and_send_notification_info(HELMET_OFF);
         }
         else{
             reset_interrupt(is_lp, LOW);
             ESP_LOGE(TAG, "WRONG_THRESHOLD_VALUES.");
-            add_and_send_notification(WRONG_PROX_MEASUREMENT);
+            add_and_send_notification_info(WRONG_PROX_MEASUREMENT);
         }
     }
 

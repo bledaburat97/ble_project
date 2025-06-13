@@ -4,6 +4,7 @@
 #include "string.h"
 #include "driver/gpio.h"
 #include "state_manager.h"
+#include "timer_management.h"
 
 #define LP5036_ADDRESS_1 0x30   // I2C address for the first LP5036
 #define LP5036_ADDRESS_2 0x31   // I2C address for the second LP5036
@@ -252,8 +253,8 @@ void set_brightness(RegionStatusChangedInfo *region_status_changed_infos, uint8_
 }
 */
 
-static void on_state_changed(DeviceState new_state){
-    if (new_state == STATE_TEMPERATURE_ALARM) {
+static void on_state_changed(DeviceState new_state) {
+    if (new_state == STATE_TEMPERATURE_ALERT) {
         set_laser_drivers_status(false);
     }
     else if (new_state == STATE_INACTIVITY) {
@@ -286,4 +287,11 @@ void initialize_laser_drivers()
     set_banked_leds();
     register_state_change_callback(on_state_changed);
     register_helmet_state_change_callback(on_helmet_state_changed);
+}
+
+void stop_lasers()
+{
+    set_laser_drivers_status(false);
+    set_laser_drivers_gpio_pin_status(false);
+    start_inactivity_timer();
 }

@@ -137,13 +137,13 @@ static bool find_next_log_offset(size_t entry_size, uint8_t entry_type, bool* is
         uint8_t existing_type = therapy_slot_buffer[local_offset];
 
         if (existing_type == FLASH_SLOT_IS_FULL) {
-            if (entry_type != THERAPY_COMPLETED) {
+            if (entry_type != THERAPY_COMPLETED && entry_type != THERAPY_STOPPED_BY_APP) {
                 ESP_LOGI(TAG, "There is no space left at slot.");
                 return false;
             }
         }
 
-        else if(existing_type == THERAPY_COMPLETED) {
+        else if(existing_type == THERAPY_COMPLETED || existing_type == THERAPY_STOPPED_BY_APP) {
             ESP_LOGE(TAG, "This slot was completed.");
             return false;
         }
@@ -322,7 +322,8 @@ esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t p
             if (therapy_count > 0) {
                 base_offset = ((therapy_count - 1) % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
                 ESP_LOGI(TAG, "Base Offset of Slot: %lu", base_offset);
-                slot_is_finished = does_slot_contain_entry(base_offset, THERAPY_COMPLETED);
+                slot_is_finished = does_slot_contain_entry(base_offset, THERAPY_COMPLETED)
+                     || does_slot_contain_entry(base_offset, THERAPY_STOPPED_BY_APP);
                 
                 if(!slot_is_finished) { //TODO: ve son logdan itibaren 5 dk geçmişse.
                     BaseLogEntry complete_log = fill_base_log(THERAPY_COMPLETED, NULL, 0, 0); //THERAPY_COMPLETED log with zero passed duration indicates that therapy terminated wrong.
@@ -413,7 +414,7 @@ esp_err_t add_notification_log(uint8_t type, uint16_t passed_seconds) {
     return add_log(type, data, 0, passed_seconds);
 }
 
-esp_err_t read_logs_and_encode(uint16_t therapy_id) {
+esp_err_t read_and_set_records(uint16_t therapy_id) {
     uint32_t base_offset = (therapy_id % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
     ESP_LOGI(TAG, "Start to read log of therapy_id: %u", therapy_id);
 
@@ -443,7 +444,6 @@ esp_err_t read_logs_and_encode(uint16_t therapy_id) {
     size_t count_brightness = 0;
 
     uint16_t therapy_duration = 0;
-    uint16_t remaining_duration;
 
     uint32_t local_offset = 0;
     while (local_offset < THERAPY_SLOT_SIZE) {

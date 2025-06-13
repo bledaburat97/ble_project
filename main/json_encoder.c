@@ -19,17 +19,17 @@ char* encode_device_info_message(const DeviceInfoMessage *message) {
         message->current_time[0], message->current_time[1], message->current_time[2],
         message->current_time[3], message->current_time[4]);
 
-    cJSON_AddNumberToObject(root, "type", message->type);
     cJSON_AddStringToObject(root, "device_id", device_id_str);
-    cJSON_AddStringToObject(root, "current_time", current_time_str);
-    cJSON_AddNumberToObject(root, "passed_seconds", message->passed_seconds);
+    cJSON_AddStringToObject(root, "time", current_time_str);
+    cJSON_AddNumberToObject(root, "passed_sec", message->passed_seconds);
+    cJSON_AddNumberToObject(root, "last_therapy_id", message->last_saved_therapy_id);
 
     char *json_str = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
     return json_str;  // Dikkat: bu string heap'te, iş bitince free() etmeyi unutma
 }
 
-char* encode_therapy_start_info_message(const TherapyStartInfoMessage *message) {
+char* encode_therapy_activation_info_message(const TherapyActivationInfoMessage *message) {
     if (message == NULL) return NULL;
     cJSON *root = cJSON_CreateObject();
     if (root == NULL) return NULL;
@@ -37,7 +37,7 @@ char* encode_therapy_start_info_message(const TherapyStartInfoMessage *message) 
     cJSON_AddNumberToObject(root, "type", message->type);
     cJSON_AddNumberToObject(root, "therapy_id", message->therapy_id);
     cJSON_AddNumberToObject(root, "therapy_dur", message->therapy_dur);
-    cJSON_AddNumberToObject(root, "passed_seconds", message->passed_seconds);
+    cJSON_AddNumberToObject(root, "passed_sec", message->passed_seconds);
 
     char *json_str = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
@@ -49,10 +49,9 @@ char* encode_measurement_info_message(const MeasurementInfoMessage *message) {
     cJSON *root = cJSON_CreateObject();
     if (root == NULL) return NULL;
 
-    cJSON_AddNumberToObject(root, "type", message->type);
-    cJSON_AddNumberToObject(root, "temperature", message->temperature);
-    cJSON_AddNumberToObject(root, "humidity", message->humidity);
-    cJSON_AddNumberToObject(root, "passed_seconds", message->passed_seconds);
+    cJSON_AddNumberToObject(root, "temp", message->temperature);
+    cJSON_AddNumberToObject(root, "humid", message->humidity);
+    cJSON_AddNumberToObject(root, "passed_sec", message->passed_seconds);
 
     char *json_str = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
@@ -65,7 +64,7 @@ char* encode_notification_message(const NotificationMessage *message) {
     if (root == NULL) return NULL;
 
     cJSON_AddNumberToObject(root, "type", message->type);
-    cJSON_AddNumberToObject(root, "passed_seconds", message->passed_seconds);
+    cJSON_AddNumberToObject(root, "passed_sec", message->passed_seconds);
 
     char *json_str = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);

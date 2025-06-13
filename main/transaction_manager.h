@@ -5,7 +5,7 @@
 #ifndef TRANSACTION_MANAGER_H
 #define TRANSACTION_MANAGER_H
 
-void add_and_send_notification(NotificationType notification_type);
+void add_and_send_notification_info(NotificationType notification_type);
 void init_ble();
 
 #endif 

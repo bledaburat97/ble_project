@@ -5,13 +5,26 @@
 #define JSON_PARSER_H
 
 typedef struct {
-    uint8_t received_command;
+    uint16_t therapy_duration;
+    uint8_t brightness[6];
+} ActivationMessage;
+
+typedef struct {
+    char type[10]; // "PAUSE", "STOP", "CONTINUE"
     uint16_t therapy_id;
-    uint32_t therapy_duration;
-    int num_of_changed_regions;
-    RegionStatusChangedInfo *region_infos;
-} TherapyActivationInfo;
+} StatusChangeMessage;
 
-TherapyActivationInfo* parse_therapy_activation_info(const char *json_data);
+typedef struct {
+    uint16_t last_therapy_id;
+} UpdateRecordRequestMessage;
 
+typedef struct {
+    uint8_t type;
+} FeedbackMessage;
+
+
+bool decode_activation_message(const char* json_str, ActivationMessage* out_msg);
+bool decode_status_change_message(const char* json_str, StatusChangeMessage* out_msg);
+bool decode_update_record_request_message(const char* json_str, UpdateRecordRequestMessage* out_msg);
+bool decode_feedback_message(const char* json_str, FeedbackMessage* out_msg);
 #endif

@@ -5,10 +5,10 @@
 #define JSON_ENCODER_H
 
 typedef struct {
-    uint8_t type;
     uint8_t device_id[6];
     uint8_t current_time[5];
     uint16_t passed_seconds;
+    uint16_t last_saved_therapy_id;
 } DeviceInfoMessage;
 
 typedef struct {
@@ -16,10 +16,9 @@ typedef struct {
     uint16_t therapy_id;
     uint16_t therapy_dur;
     uint16_t passed_seconds;
-} TherapyStartInfoMessage;
+} TherapyActivationInfoMessage;
 
 typedef struct {
-    uint8_t type;
     uint8_t temperature;
     uint8_t humidity;
     uint16_t passed_seconds;
@@ -31,7 +30,7 @@ typedef struct {
 } NotificationMessage;
 
 char* encode_device_info_message(const DeviceInfoMessage *message);
-char* encode_therapy_start_info_message(const TherapyStartInfoMessage *message);
+char* encode_therapy_activation_info_message(const TherapyActivationInfoMessage *message);
 char* encode_measurement_info_message(const MeasurementInfoMessage *message);
 char* encode_notification_message(const NotificationMessage *message);
 

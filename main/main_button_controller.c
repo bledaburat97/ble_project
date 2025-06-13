@@ -37,11 +37,12 @@ void wait_for_button_to_sleep(void *pvParameters) {
                     enter_deep_sleep();
                 } else {
                     if(get_device_state() == STATE_INACTIVITY) {
-                        start_default_therapy();
+                        start_therapy(false);
                     }
                     else if(get_device_state() == STATE_ACTIVE) {
+                        add_and_send_notification_info(THERAPY_PAUSED_BY_BUTTON);
                         start_inactivity_timer();
-                        add_and_send_notification(THERAPY_PAUSED_BY_BUTTON);
+                        update_passed_therapy_duration();
                     }
                 }
             }

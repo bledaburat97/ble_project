@@ -18,10 +18,13 @@
 #define TEMPERATURE_SENSOR_COUNT 1 //TODO: Değiştir.
 #define LOW_THRESHOLD 25.5
 #define HIGH_THRESHOLD 27
+#define TEMPERATURE_DIFF_OFFSET 1
 
 static const char *TAG = "TemperatureControl";
 static const uint8_t sensor_addresses[] = {FIRST_PJ85775_ADDRESS, SECOND_PJ85775_ADDRESS, THIRD_PJ85775_ADDRESS};
 static const uint8_t alarm_gpios[] = {FIRST_ALERT_GPIO, SECOND_ALERT_GPIO, THIRD_ALERT_GPIO};
+static float current_temperature;
+static void (*temp_update_callback)(uint8_t) = NULL;
 
 void initialize_temperature_sensor() {
     ESP_LOGI(TAG, "Initialize temperature sensors.");
@@ -50,22 +53,71 @@ void initialize_temperature_sensor() {
     }
 }
 
+static uint8_t convert_float_to_byte(float temperature) {
+    //6 bit tam sayı (0 - 63)
+    //son iki bit (0, 0.25, 0.5, 0.75) ifade eder.
+    if (temperature < 0.0f || temperature > 64) {
+        return 0xFF;
+    }
+
+    uint8_t integer_part = (uint8_t)temperature;
+    float fractional_part = temperature - integer_part;
+
+    uint8_t frac_bits;
+    if (fractional_part < 0.25f) {
+        frac_bits = 0b00;
+    } else if (fractional_part < 0.5f) {
+        frac_bits = 0b01;
+    } else if (fractional_part < 0.75f) {
+        frac_bits = 0b10;
+    } else {
+        frac_bits = 0b11;
+    }
+
+    uint8_t temperature_in_byte = (integer_part << 2) | frac_bits;
+    return temperature_in_byte;
+}
+
 uint8_t log_temperature() {
     ESP_LOGI(TAG, "Log temperature.");
     float temperatureInDegree = read_temperature_of_sensor(sensor_addresses[0]);
     return (uint8_t)temperatureInDegree;
 }
 
-void temperature_update_task(void *param) {
-    while (1) {
-        float sum_of_temperatures = 0;
-        for(int i = 0; i < TEMPERATURE_SENSOR_COUNT; i++) {
-            float temperatureInDegree = read_temperature_of_sensor(sensor_addresses[i]);
-            sum_of_temperatures += temperatureInDegree;
-        }
+void register_temperature_update(void (*callback)(uint8_t)) {
+    temp_update_callback = callback;
+}
+
+static float measure_average_temperature() {
+    float sum_of_temperatures = 0;
+    for(int i = 0; i < TEMPERATURE_SENSOR_COUNT; i++) {
+        float temperatureInDegree = read_temperature_of_sensor(sensor_addresses[i]);
+        sum_of_temperatures += temperatureInDegree;
+    }
         
-        float average_temperature = sum_of_temperatures / TEMPERATURE_SENSOR_COUNT;
-        save_parameter(NVS_KEY_TEMPERATURE, &average_temperature, sizeof(float));
+    return sum_of_temperatures / TEMPERATURE_SENSOR_COUNT;
+}
+
+uint8_t get_temperature() {
+    float average_temperature = measure_average_temperature();
+    current_temperature = average_temperature;
+    return convert_float_to_byte(average_temperature);
+}
+
+void temperature_read_task(void *param) {
+    while (1) {
+        float average_temperature = measure_average_temperature();
+        if (current_temperature - average_temperature >= 0.5f || average_temperature - current_temperature >= 0.5f) {
+            if(temp_update_callback) {
+                temp_update_callback(convert_float_to_byte(average_temperature));
+            }
+            else {
+                ESP_LOGE(TAG, "Temperature update can not be sent.");
+
+            }
+        }
+        current_temperature = average_temperature;
+        //save_parameter(NVS_KEY_TEMPERATURE, &average_temperature, sizeof(float)); TODO:delete
 
         //ESP_LOGI(TAG, "Saved temperature: %.2f°C", average_temperature);
         

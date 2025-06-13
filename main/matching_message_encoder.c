@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include "esp_log.h"
+#include "matching_message_encoder.h"
 
 #define RECORD_TYPE_THERAPY_DURATION 0x01
 #define RECORD_TYPE_REMAINING_TIME  0x02
@@ -106,6 +107,18 @@ void encode_records_of_therapy(uint16_t therapy_id, uint8_t record_type, size_t 
     }
     
     ESP_LOGI(TAG, "All records are appended.");
+}
 
+const uint8_t* get_fragment(uint16_t fragment_id) {
+    if (fragment_id >= MAX_FRAGMENT_COUNT) return NULL;
+    return fragments[fragment_id];
+}
 
+size_t get_fragment_length(uint16_t fragment_id) {
+    if (fragment_id >= MAX_FRAGMENT_COUNT) return 0;
+    return fragment_lengths[fragment_id];
+}
+
+uint16_t get_fragment_count() {
+    return current_fragment_id + 1;
 }
