@@ -6,24 +6,11 @@
 // Minimal Unity subset
 #define TEST_ASSERT_EQUAL_INT(expected, actual) if((expected)!=(actual)) { printf("Assertion failed: %d != %d\n", (expected),(actual)); return 1; }
 
-typedef enum {
-    STATE_TEMPERATURE_ALERT,
-    STATE_HUMIDITY_ALERT,
-    STATE_ACTIVE,
-    STATE_INACTIVITY,
-    STATE_START,
-    STATE_IDLE
-} DeviceState;
-
-typedef enum {
-    THERAPY_STARTED_BY_APP,
-    REGIONS_BRIGHTNESS_UPDATED
-} NotificationType;
-
-typedef struct {
-    uint16_t therapy_duration;
-    uint8_t brightness[6];
-} ActivationMessage;
+#include "../main/transaction_logic.h"
+#include "../main/laser_driver_control.h"
+#include "../main/timer_management.h"
+#include "../main/state_manager.h"
+#include "../main/transaction_manager.h"
 
 static DeviceState current_state;
 static bool helmet_on = true;
@@ -32,25 +19,14 @@ static NotificationType last_notification;
 DeviceState get_device_state() { return current_state; }
 bool get_helmet_state() { return helmet_on; }
 void start_new_therapy(uint16_t duration) { (void)duration; }
-void set_brightness_of_region(int region, uint8_t level) { (void)region; (void)level; }
+void set_brightness_of_region(uint8_t region, uint8_t level) { (void)region; (void)level; }
 void add_and_send_notification_info(NotificationType type) { last_notification = type; }
-
-static void handle_activation_message(const ActivationMessage* msg) {
-    for(int i=0;i<6;i++) {
-        set_brightness_of_region(i+1, msg->brightness[i]);
-    }
-
-    if(msg->therapy_duration > 0) {
-        if(get_device_state() == STATE_INACTIVITY || get_device_state() == STATE_ACTIVE) {
-            if(get_helmet_state()) {
-                start_new_therapy(msg->therapy_duration);
-                add_and_send_notification_info(THERAPY_STARTED_BY_APP);
-            }
-        }
-    } else if(get_device_state() == STATE_ACTIVE) {
-        add_and_send_notification_info(REGIONS_BRIGHTNESS_UPDATED);
-    }
-}
+void stop_lasers(){}
+void reset_passed_therapy_duration(){}
+void update_passed_therapy_duration(){}
+void start_therapy(bool cont) {(void)cont;}
+uint8_t get_temperature(){ return 25; }
+void send_info_message(MessageType t, uint8_t* d, size_t l){ (void)t;(void)d;(void)l; }
 
 int main() {
     ActivationMessage msg = {0};
