@@ -45,11 +45,13 @@ void set_helmet_state(bool state) {
                 helmet_state_listeners[i](helmet_state);
             }
         }
+
+        xSemaphoreGive(state_mutex);
     }
 }
 
 void set_device_state(DeviceState new_state) {
-    if (new_state >= STATE_IDLE) {
+    if (new_state > STATE_IDLE) {
         ESP_LOGW("DeviceState", "Trying to set invalid state");
         return;
     }

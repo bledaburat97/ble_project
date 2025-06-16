@@ -24,31 +24,9 @@
 #include "log_writer.h"
 #include "therapy_counter.h"
 #include "matching_message_encoder.h"
+#include "ble/ble_state_manager.h"
 
 static const char *TAG = "TransactionManager";
-SemaphoreHandle_t ble_mutex = NULL;
-static bool ble_connection_status = false;
-
-static void set_ble_connection_status(bool status) {
-    if (xSemaphoreTake(ble_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
-        ble_connection_status = status;
-        ESP_LOGI(TAG, "ble_connection_status updated to: %s", status ? "true" : "false");
-        xSemaphoreGive(ble_mutex);
-    } else {
-        ESP_LOGE(TAG, "Failed to acquire BLE mutex for ble_connection_status update");
-    }
-}
-
-bool get_ble_connection_status() {
-    bool status = false;
-    if (xSemaphoreTake(ble_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
-        status = ble_connection_status;
-        xSemaphoreGive(ble_mutex);
-    } else {
-        ESP_LOGE(TAG, "Failed to acquire BLE mutex for ble_connection_status read");
-    }
-    return status;
-}
 
 static void send_info_message(MessageType message_type, uint8_t* data, size_t data_length)
 {
@@ -60,6 +38,7 @@ static void send_info_message(MessageType message_type, uint8_t* data, size_t da
     int retry_count = 0;
     const int max_retries = 2;  // Set the maximum number of retries
     const int retry_delay_ms = 100;  // Delay between retries in milliseconds
+    SemaphoreHandle_t ble_mutex = get_ble_mutex_handle();
 
     while (retry_count < max_retries) {
         if (xSemaphoreTake(ble_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
@@ -207,6 +186,7 @@ static void on_disconnect_ble() {
     add_and_send_notification_info(BLE_DISCONNECTED);
 }
 
+/*
 static uint16_t convert_bit_string_to_duration_in_seconds(uint16_t duration_bits) {
     if(duration_bits > 480) {
         ESP_LOGE(TAG, "Wrong therapy duration is got.");
@@ -214,7 +194,7 @@ static uint16_t convert_bit_string_to_duration_in_seconds(uint16_t duration_bits
     }
     return duration_bits * 5;
 }
-
+*/
 static void on_write_of_therapy_state(const char *data) {
     StatusChangeMessage status_change_message;
     if(!decode_status_change_message(data, &status_change_message)) {
@@ -381,59 +361,11 @@ static void on_write_of_activation_message(const char *data) {
     for(int i = 0; i < 6; i++) {
         ESP_LOGI(TAG, "Laser Data received: %d", activation_message.brightness[i]);
     }
-
-/*
-    ActivationCommand activation_command;
-    if(!decode_activation_command(data, len, &activation_command)) {
-        return;
-    }
-
-    if (activation_command.received_command == 0x00) {
-        if (get_device_state() == STATE_ACTIVE) {
-            add_and_send_measurement_info(THERAPY_STOPPED_BY_APP);
-            start_inactivity_timer();
-        }
-        // TODO: Lazeri kapat
-    }
-    else {
-        ESP_LOGI(TAG, "Therapy ID: %u, Duration: %u",activation_command.therapy_id, activation_command.therapy_duration);
-        
-        if(activation_command.therapy_duration > 0)
-        {
-            if (get_device_state() == STATE_INACTIVITY || get_device_state() == STATE_ACTIVE) {
-                if (get_helmet_state() == true) {
-                    for(uint8_t i = 0; i < 6; i++)
-                    {
-                        set_brightness_of_region(i + 1, activation_command.region_brightness[i]);
-                    }
-                    uint16_t duration = convert_bit_string_to_duration_in_seconds(activation_command.therapy_duration);
-                    start_new_therapy(duration);
-                }
-                else {
-                    ESP_LOGE(TAG, "Therapy couldn't start.");
-                    //TODO: error notification
-                }
-            }
-            else {
-                ESP_LOGE(TAG, "Therapy couldn't start.");
-                //TODO: error notification
-            }
-        }
-    }
-
-    for(int i = 0; i < 6; i++) {
-        ESP_LOGI(TAG, "Laser Data received: %d", activation_command.region_brightness[i]);
-    }
-*/
 }
 
 void init_ble(){
 
-    ble_mutex = xSemaphoreCreateMutex();
-    if (!ble_mutex) {
-        ESP_LOGE(TAG, "Failed to create BLE mutex");
-        return;
-    }
+    init_ble_state_manager();
     
     ESP_ERROR_CHECK(init_bluetooth());
     start_registering_and_advertising();

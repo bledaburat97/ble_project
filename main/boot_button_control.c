@@ -30,6 +30,7 @@ void monitor_boot_button_task(void *arg) {
             ESP_LOGI(TAG, "Button Pressed!");
     
             //to test
+            /*
             uint8_t last_therapy_data[2];
             last_therapy_data[0] = 0x45;
             last_therapy_data[1] = 0x74;
@@ -53,6 +54,7 @@ void monitor_boot_button_task(void *arg) {
 
                 current_index = (current_index + 1) % 2;
             }
+            */
         }
     }
 }
