@@ -1,5 +1,6 @@
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifndef JSON_PARSER_H
 #define JSON_PARSER_H
