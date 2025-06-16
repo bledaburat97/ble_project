@@ -356,6 +356,8 @@ static void on_write_of_activation_message(const char *data) {
             ESP_LOGE(TAG, "Therapy couldn't start.");
             //TODO: error notification
         }
+    } else if(get_device_state() == STATE_ACTIVE) {
+        add_and_send_notification_info(REGIONS_BRIGHTNESS_UPDATED);
     }
 
     for(int i = 0; i < 6; i++) {
