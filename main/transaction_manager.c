@@ -25,6 +25,7 @@
 #include "therapy_counter.h"
 #include "matching_message_encoder.h"
 #include "ble/ble_state_manager.h"
+#include "transaction_logic.h"
 
 static const char *TAG = "TransactionManager";
 
@@ -205,35 +206,7 @@ static void on_write_of_therapy_state(const char *data) {
     ESP_LOGI(TAG, "Therapy status change received: type=%s, therapy_id=%u",
          status_change_message.type, status_change_message.therapy_id);
 
-    if (strcmp(status_change_message.type, "STOP") == 0) {
-        if(get_device_state() == STATE_ACTIVE) {
-            add_and_send_notification_info(THERAPY_STOPPED_BY_APP);
-            stop_lasers();
-            reset_passed_therapy_duration();
-        }
-        else{
-            ESP_LOGE(TAG, "Device is not active thus can not be stopped.");
-        }
-    } else if (strcmp(status_change_message.type, "PAUSE") == 0) {
-        if(get_device_state() == STATE_ACTIVE) {
-            add_and_send_notification_info(THERAPY_PAUSED_BY_APP);
-            stop_lasers();
-            update_passed_therapy_duration();
-        }
-        else {
-            ESP_LOGE(TAG, "Device is not active thus can not be paused.");
-        }
-    } else if (strcmp(status_change_message.type, "CONTINUE") == 0) {
-        if(get_device_state() == STATE_INACTIVITY) {
-            start_therapy(true);            
-        }
-        else {
-            ESP_LOGE(TAG, "Device is not inactive thus can not be continued.");
-        }
-
-    } else {
-        ESP_LOGW(TAG, "Unknown therapy state change type: %s", status_change_message.type);
-    }
+    handle_status_change_message(&status_change_message);
 }
 
 static void on_write_of_record_request_message(const char *data) {
@@ -269,45 +242,7 @@ static void on_write_of_feedback_message(const char *data) {
         return;
     }
 
-    if(feedback_message.type == DEVICE_INFO_MESSAGE_ACK) {
-        uint8_t notification_type;
-        if(get_device_state() == STATE_ACTIVE) {
-            notification_type = CURRENT_STATE_THERAPY;
-        }
-        else if(get_device_state() == STATE_INACTIVITY) {
-            notification_type = CURRENT_STATE_INACTIVITY;
-        }
-        else if(get_device_state() == STATE_TEMPERATURE_ALERT) {
-            notification_type = CURRENT_STATE_TEMP_ALERT;
-        }
-        else if(get_device_state() == STATE_HUMIDITY_ALERT) {
-            notification_type = CURRENT_STATE_HUM_ALERT;
-        }
-        else{
-            //TODO: is error?
-            return;
-        }
-        send_notification_info(notification_type);
-    }
-    else if(feedback_message.type == DEVICE_STATE_INFO_MESSAGE_ACK) {
-        uint8_t notification_type;
-        if(get_helmet_state()) {
-            notification_type = HELMET_ON;
-        }
-        else {
-            notification_type = HELMET_OFF;
-        }
-        send_notification_info(notification_type);
-    }
-    else if(feedback_message.type == HELMET_STATE_INFO_MESSAGE_ACK) {
-        if(get_device_state() == STATE_ACTIVE) {
-            add_and_send_active_therapy_info(ONGOING_THERAPY);
-        }
-        else {
-            add_and_send_measurement_info(get_temperature());
-        }
-    }
-    else if(feedback_message.type == ACTIVE_THERAPY_INFO_MESSAGE_ACK) {
+    if(feedback_message.type == ACTIVE_THERAPY_INFO_MESSAGE_ACK) {
         if(get_device_state() != STATE_ACTIVE) {
             ESP_LOGE(TAG, "Therapy must have been active.");
         }
@@ -328,6 +263,9 @@ static void on_write_of_feedback_message(const char *data) {
     else if(feedback_message.type == RECORDS_INFO_FOR_ACTIVE_THERAPY_ACK) {
         add_and_send_measurement_info(get_temperature());
     }
+    else {
+        handle_feedback_message(&feedback_message);
+    }
 }
 
 static void on_write_of_activation_message(const char *data) {
@@ -336,29 +274,7 @@ static void on_write_of_activation_message(const char *data) {
         return;
     }
 
-    for(uint8_t i = 0; i < 6; i++)
-    {
-        set_brightness_of_region(i + 1, activation_message.brightness[i]);
-    }
-
-    if(activation_message.therapy_duration > 0) {
-        if (get_device_state() == STATE_INACTIVITY || get_device_state() == STATE_ACTIVE) {
-            if (get_helmet_state()) {
-                start_new_therapy(activation_message.therapy_duration);
-                add_and_send_notification_info(THERAPY_STARTED_BY_APP);
-            }
-            else {
-                ESP_LOGE(TAG, "Therapy couldn't start.");
-                //TODO: error notification
-            }
-        }
-        else {
-            ESP_LOGE(TAG, "Therapy couldn't start.");
-            //TODO: error notification
-        }
-    } else if(get_device_state() == STATE_ACTIVE) {
-        add_and_send_notification_info(REGIONS_BRIGHTNESS_UPDATED);
-    }
+    handle_activation_message(&activation_message);
 
     for(int i = 0; i < 6; i++) {
         ESP_LOGI(TAG, "Laser Data received: %d", activation_message.brightness[i]);
