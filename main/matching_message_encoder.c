@@ -1,8 +1,13 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
-#include "esp_log.h"
 #include "matching_message_encoder.h"
+
+#ifndef UNIT_TESTING
+#include "esp_log.h"
+#else
+#include "fake_esp_log.h"
+#endif
 
 #define RECORD_TYPE_THERAPY_DURATION 0x01
 #define RECORD_TYPE_REMAINING_TIME  0x02
@@ -121,4 +126,14 @@ size_t get_fragment_length(uint16_t fragment_id) {
 
 uint16_t get_fragment_count() {
     return current_fragment_id + 1;
+}
+
+void init_fragments()
+{
+    current_fragment_id = UINT16_MAX;
+
+    for (int i = 0; i < MAX_FRAGMENT_COUNT; i++) {
+        fragment_lengths[i] = 0;
+        memset(fragments[i], 0, MAX_FRAGMENT_SIZE);
+    }
 }

@@ -9,4 +9,5 @@ void encode_records_of_therapy(uint16_t therapy_id, uint8_t record_type, size_t 
 uint16_t get_fragment_count();
 const uint8_t* get_fragment(uint16_t fragment_id);
 size_t get_fragment_length(uint16_t fragment_id);
+void init_fragments();
 #endif 

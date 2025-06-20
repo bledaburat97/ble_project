@@ -1,7 +1,11 @@
 #pragma once
 
-#include "esp_err.h"
 #include "log_types.h"
+#ifndef UNIT_TESTING
+#include "esp_err.h"
+#else
+#include "fake_esp_err.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {

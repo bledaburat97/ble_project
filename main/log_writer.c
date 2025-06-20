@@ -423,6 +423,7 @@ esp_err_t read_and_set_records(uint16_t therapy_id) {
         ESP_LOGE(TAG, "Failed to read slot at index %u: %s", therapy_id, esp_err_to_name(err));
         return err;
     }
+    init_fragments();
 
     // Her kayıt tipi için bufferlar
     uint8_t* measurements = malloc(THERAPY_SLOT_SIZE);
@@ -492,8 +493,8 @@ esp_err_t read_and_set_records(uint16_t therapy_id) {
 
                 if (count_notifications >= max_logs_per_type_notification) break;
                 notifications[count_notifications * 3] = type;
-                notifications[count_notifications * 3 + 1] = entry_ptr[entry_size - 2]; // passed_seconds
-                notifications[count_notifications * 3 + 2] = entry_ptr[entry_size - 1]; // crc
+                notifications[count_notifications * 3 + 1] = entry_ptr[entry_size - 3]; // passed_seconds (1st byte)
+                notifications[count_notifications * 3 + 2] = entry_ptr[entry_size - 2]; // passed_seconds (2nd byte)
                 count_notifications++;
                 break;
             }
@@ -501,8 +502,8 @@ esp_err_t read_and_set_records(uint16_t therapy_id) {
                 if (data_len != 0) break;
                 if (count_notifications >= max_logs_per_type_notification) break;
                 notifications[count_notifications * 3] = type; // hata var mı 
-                notifications[count_notifications * 3 + 1] = entry_ptr[entry_size - 2]; // passed_seconds
-                notifications[count_notifications * 3 + 2] = entry_ptr[entry_size - 1]; // crc
+                notifications[count_notifications * 3 + 1] = entry_ptr[entry_size - 3]; // passed_seconds
+                notifications[count_notifications * 3 + 2] = entry_ptr[entry_size - 2]; // passed_seconds
                 count_notifications++;
                 break;
         }
@@ -520,15 +521,15 @@ esp_err_t read_and_set_records(uint16_t therapy_id) {
 
     if (count_measurements > 0) {
         ESP_LOGI(TAG, "aaaa, count_measurements: %u", count_measurements);
-        encode_records_of_therapy(therapy_id, 0x02, 4, count_measurements, measurements);
+        encode_records_of_therapy(therapy_id, 0x03, 4, count_measurements, measurements);
     }
     if (count_notifications > 0) {
         ESP_LOGI(TAG, "bbbb, count_notifications: %u", count_notifications);
-        encode_records_of_therapy(therapy_id, 0x03, 3, count_notifications, notifications);
+        encode_records_of_therapy(therapy_id, 0x04, 3, count_notifications, notifications);
     }
     if (count_brightness > 0) {
         ESP_LOGI(TAG, "cccc, count_brightness: %u", count_brightness);
-        encode_records_of_therapy(therapy_id, 0x04, 8, count_brightness, brightness_updates);
+        encode_records_of_therapy(therapy_id, 0x05, 8, count_brightness, brightness_updates);
     }
     ESP_LOGI(TAG, "Finish to read log of therapy_id: %u", therapy_id);
 
@@ -587,59 +588,64 @@ void test_flush_to_slot() {
 
     read_logs(0);
 }
-
+*/
 //for test
 void test_add_log_flow() {
 
-    ESP_LOGI(TAG, "DEVICE_AWAKED");
-    BaseLogEntry test_log_1;
     uint8_t* data_1 = NULL;
-    fill_base_log(&test_log_1, DEVICE_AWAKED, data_1, 0, 9);
-    add_log(&test_log_1);
+    add_log(DEVICE_AWAKED, data_1, 0, 2);
 
-    ESP_LOGI(TAG, "HELMET_ON");
-
-    BaseLogEntry test_log_2;
     uint8_t* data_2 = NULL;
-    fill_base_log(&test_log_2, HELMET_ON, data_2, 0, 14);
-    add_log(&test_log_2);
+    add_log(HELMET_ON, data_2, 0, 4);
 
-    ESP_LOGI(TAG, "THERAPY_STARTED_BY_APP");
+    uint8_t data_3[] = {0x64, 0x50};
+    add_log(MEASUREMENT_CHANGED, data_3, sizeof(data_3), 6);
 
-    BaseLogEntry start;
-    uint8_t data_3[] = {0x01, 0x2C, 0x01, 0x22};
-    fill_base_log(&start, THERAPY_STARTED_BY_APP, data_3, sizeof(data_3), 20);
-    add_log(&start);
+    uint8_t* data_4 = NULL;
+    add_log(DEVICE_INFO_MESSAGE_ACK, data_4, 0, 9);
 
-    ESP_LOGI(TAG, "MEASUREMENT_CHANGED");
+    uint8_t data_5[] = {0x00, 0x03, 0x04, 0xB0};
+    add_log(THERAPY_STARTED_BY_APP, data_5, sizeof(data_5), 20);
 
-    BaseLogEntry measure;
-    uint8_t data_4[] = {0x01, 0x2C};
-    fill_base_log(&measure, MEASUREMENT_CHANGED, data_4, sizeof(data_4), 25);
-    add_log(&measure);
+    uint8_t data_6[] = {0x80, 0x80, 0x80, 0x80, 0x80, 0xFF};
+    add_log(REGIONS_BRIGHTNESS_UPDATED, data_6, sizeof(data_6), 24);
 
-    ESP_LOGI(TAG, "THERAPY_COMPLETED");
+    uint8_t data_7[] = {0x68, 0x4B};
+    add_log(MEASUREMENT_CHANGED, data_7, sizeof(data_7), 26);
 
+    uint8_t* data_8 = NULL;
+    add_log(HELMET_ON, data_8, 0, 28);
+
+    uint8_t* data_9 = NULL;
+    add_log(HELMET_ON, data_9, 0, 34);
+
+    uint8_t* data_10 = NULL;
+    add_log(HELMET_ON, data_10, 0, 260);
+
+    uint8_t data_11[] = {0x6C, 0x46};
+    add_log(MEASUREMENT_CHANGED, data_11, sizeof(data_11), 268);
+
+    uint8_t data_12[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0xFF};
+    add_log(REGIONS_BRIGHTNESS_UPDATED, data_12, sizeof(data_12), 270);
+
+    uint8_t* data_13 = NULL;
+    add_log(THERAPY_COMPLETED, data_13, 0, 280);
+
+    /*
     BaseLogEntry complete;
     uint8_t* data_5 = NULL;
     fill_base_log(&complete, THERAPY_COMPLETED, data_5, 0, 30);
     add_log(&complete);
-
-    ESP_LOGI(TAG, "DEVICE_AWAKED");
 
     BaseLogEntry test_log_3;
     uint8_t* data_6 = NULL;
     fill_base_log(&test_log_3, DEVICE_AWAKED, data_6, 0, 40);
     add_log(&test_log_3);
 
-    ESP_LOGI(TAG, "THERAPY_STARTED_BY_APP");
-
     BaseLogEntry start2;
     uint8_t data_8[] = {0x01, 0x2C, 0x01, 0x22};
     fill_base_log(&start2, THERAPY_STARTED_BY_APP, data_8, sizeof(data_8), 20);
     add_log(&start2);
-
-    ESP_LOGI(TAG, "MEASUREMENT_CHANGED");
 
     for(int i = 0; i < 1000; i++) {
         ESP_LOGI(TAG, "test_meas:%u", i);
@@ -671,6 +677,8 @@ void test_add_log_flow() {
     fill_base_log(&measure3, MEASUREMENT_CHANGED, data_11, sizeof(data_11), 25);
     add_log(&measure3);
 
+
+
     ESP_LOGI(TAG, "read_logs(0)");
     read_logs(0);
     ESP_LOGI(TAG, "read_logs(THERAPY_SLOT_SIZE)");
@@ -685,8 +693,9 @@ void test_add_log_flow() {
     read_logs(5 * THERAPY_SLOT_SIZE);
     ESP_LOGI(TAG, "read_logs(6 * THERAPY_SLOT_SIZE)");
     read_logs(6 * THERAPY_SLOT_SIZE);
+    */
 }
-*/
+
 //for test
 void erase_therapy_partition(uint32_t offset) {
     esp_err_t erase_err = esp_partition_erase_range(get_log_partition(), offset, THERAPY_SLOT_SIZE);

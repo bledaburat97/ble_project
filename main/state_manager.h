@@ -1,6 +1,4 @@
 #include <stdbool.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
 
 #define MAX_STATE_LISTENERS 5
 

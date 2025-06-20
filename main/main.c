@@ -142,15 +142,16 @@ void app_main() {
             init_therapy_counter_partition();
 
             init_log_writer();
-            read_therapy_count();
-            ESP_LOGI(TAG, "aaaa.");
+            /*
+            uint16_t therapy_count = read_therapy_count();
+            ESP_LOGI(TAG, "Therapy count: %u", therapy_count);
 
             read_and_set_records(0);
             read_and_set_records(1);
             read_and_set_records(2);
             read_and_set_records(3);
             ESP_LOGI(TAG, "fragment count: %u", get_fragment_count());
-
+            */
             /*
             //Laser Driver
             initialize_laser_drivers();

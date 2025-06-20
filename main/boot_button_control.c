@@ -28,7 +28,8 @@ void monitor_boot_button_task(void *arg) {
     while (1) {
         if (xQueueReceive(button_queue, &button_pressed, portMAX_DELAY)) {
             ESP_LOGI(TAG, "Button Pressed!");
-    
+            const char* test_json = "{\"last_therapy_id\": 2}";
+            on_write_of_record_request_message(test_json);
             //to test
             /*
             uint8_t last_therapy_data[2];

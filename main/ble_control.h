@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "freertos/semphr.h"
+#include "log_types.h"
 
 #ifndef BLE_CONTROL_H
 #define BLE_CONTROL_H
@@ -17,13 +17,6 @@
 
 #define GATTS_SERVICE_UUID16           0x5555
 
-typedef enum {
-    RECORDS_INFO_MESSAGE,
-    ACTIVE_THERAPY_INFO_MESSAGE,
-    MEASUREMENT_INFO_MESSAGE,
-    NOTIFICATION_INFO_MESSAGE,
-    DEVICE_INFO_MESSAGE
-} MessageType;
 
 esp_err_t init_bluetooth();
 esp_err_t ble_send_info_message_with_type(MessageType message_type, uint8_t* data, size_t data_length);

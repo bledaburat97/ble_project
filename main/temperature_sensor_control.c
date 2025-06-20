@@ -46,11 +46,13 @@ void initialize_temperature_sensor() {
     }
 
     float last_stored_temp;
+    /*
     if (read_parameter(NVS_KEY_TEMPERATURE, &last_stored_temp, sizeof(float)) == ESP_OK) {
         ESP_LOGI(TAG, "Last saved temperature: %.2f°C", last_stored_temp);
     } else {
         ESP_LOGE(TAG, "Last saved temperature can not be got.");
     }
+        */
 }
 
 static uint8_t convert_float_to_byte(float temperature) {

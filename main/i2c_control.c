@@ -4,6 +4,8 @@
 #include "lp_core_i2c.h"
 #include "lp_core_main.h"
 #include "lp_core_firmware.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #define I2C_MASTER_SCL_IO_1 GPIO_NUM_13
 #define I2C_MASTER_SDA_IO_1 GPIO_NUM_12

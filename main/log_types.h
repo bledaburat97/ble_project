@@ -137,7 +137,15 @@ typedef struct {
     bool can_flush_cache;
 } BaseLogEntry;
 
-
+/* MessageType is normally defined in ble_control.h but that header depends on FreeRTOS.
+ * Re-declare it here for host unit tests. */
+typedef enum {
+    RECORDS_INFO_MESSAGE,
+    ACTIVE_THERAPY_INFO_MESSAGE,
+    MEASUREMENT_INFO_MESSAGE,
+    NOTIFICATION_INFO_MESSAGE,
+    DEVICE_INFO_MESSAGE
+} MessageType;
 
 /*
 typedef struct {

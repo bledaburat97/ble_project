@@ -3,13 +3,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <inttypes.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/event_groups.h"
-#include "esp_system.h"
-#include "esp_log.h"
-#include "esp_bt.h"
-#include "esp_mac.h"
+
 
 #include "esp_gap_ble_api.h"
 #include "esp_gatts_api.h"
@@ -17,10 +11,30 @@
 #include "esp_bt_main.h"
 #include "esp_bt_device.h"
 #include "esp_gatt_common_api.h"
-
 #include "sdkconfig.h"
 
 #include "ble_control.h"
+
+#ifndef UNIT_TESTING
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
+#include "freertos/semphr.h"
+#include "esp_log.h"
+#include "esp_err.h"
+#include "esp_mac.h"
+#include "esp_system.h"
+#include "esp_bt.h"
+#else
+#include "fake_freertos.h"
+#include "fake_task.h"
+#include "fake_esp_log.h"
+#include "fake_esp_err.h"
+#include "fake_esp_mac.h"
+#include "fake_semphr.h"
+#include "fake_esp_system.h"
+#include "fake_esp_bt.h"
+#endif
 
 #define PROFILE_NUM 1
 #define adv_config_flag      (1 << 0)

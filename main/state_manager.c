@@ -3,6 +3,14 @@
 #include "esp_mac.h"
 #include "stdint.h"
 
+#ifndef UNIT_TESTING
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+#else
+#include "fake_freertos.h"
+#include "fake_semphr.h"
+#endif
+
 static const char* TAG = "StatusController";
 
 static DeviceState current_state = STATE_IDLE;
