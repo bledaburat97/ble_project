@@ -6,6 +6,7 @@
 #include "state_manager.h"
 #include "log_types.h"
 #include "transaction_manager.h"
+#include "notification_info_message_creator.h"
 
 #define DEFAULT_LED_CURRENT 20
 #define DEFAULT_INTERRUPT_CONTROL_BIT_COUNT 2
@@ -287,7 +288,7 @@ void check_interrupt_status(uint8_t status, bool is_lp)
             if(get_sensor_detection_status(!is_lp)) {
                 set_helmet_state(true);
                 ESP_LOGI(TAG, "HELMET_ON.");
-                add_and_send_notification_info(HELMET_ON);
+                add_and_send_notification_info(NOTIF_HELMET_ON);
             }
         }
         else {
@@ -315,7 +316,7 @@ void check_interrupt_status(uint8_t status, bool is_lp)
             reset_interrupt(is_lp, LOW);
             set_helmet_state(false);
             ESP_LOGI(TAG, "HELMET_OFF.");
-            add_and_send_notification_info(HELMET_OFF);
+            add_and_send_notification_info(NOTIF_HELMET_OFF);
         }
         else{
             reset_interrupt(is_lp, LOW);

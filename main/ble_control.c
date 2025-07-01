@@ -40,6 +40,18 @@
 #define adv_config_flag      (1 << 0)
 #define scan_rsp_config_flag (1 << 1)
 #define MAX_JSON_STRING_SIZE 128
+#define PROFILE_A_APP_ID 0
+#define GATTS_CHAR_UUID_RECORDS                 0x2A56
+#define GATTS_CHAR_UUID_TIMER_STATE             0x2A57
+#define GATTS_CHAR_UUID_MEASUREMENT             0x2A58
+#define GATTS_CHAR_UUID_NOTIFICATION            0x2A59
+#define GATTS_CHAR_UUID_DEVICE                  0x2A5A
+#define GATTS_CHAR_UUID_ACTIVATION              0x2A5B
+#define GATTS_CHAR_UUID_UPDATING_RECORDS        0x2A5C
+#define GATTS_CHAR_UUID_FEEDBACK                0x2A5D
+#define GATTS_CHAR_UUID_UPDATING_THERAPY_STATE  0x2A5E
+#define GATTS_CHAR_UUID_RECORDS_FEEDBACK        0x2A5F
+#define GATTS_SERVICE_UUID16                    0x5555
 
 static const char *TAG = "BLEControl";
 static uint8_t adv_config_done = 0;
@@ -82,7 +94,7 @@ struct gatts_profile_inst {
     uint16_t conn_id;
     uint16_t service_handle;
     uint16_t records_handle;
-    uint16_t starting_therapy_handle;
+    uint16_t timer_state_handle;
     uint16_t measurement_handle;
     uint16_t notification_handle;
     uint16_t device_handle;
@@ -215,8 +227,8 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
             gl_profile_tab[PROFILE_A_APP_ID].records_handle = param->add_char.attr_handle;
             ESP_LOGI(TAG, "Records Info Characteristic Handle: %d", param->add_char.attr_handle);
         } 
-        else if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_STARTING_THERAPY) {
-            gl_profile_tab[PROFILE_A_APP_ID].starting_therapy_handle = param->add_char.attr_handle;
+        else if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_TIMER_STATE) {
+            gl_profile_tab[PROFILE_A_APP_ID].timer_state_handle = param->add_char.attr_handle;
             ESP_LOGI(TAG, "Starting Therapy Info Characteristic Handle: %d", param->add_char.attr_handle);
         }
         else if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_MEASUREMENT) {
@@ -273,7 +285,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
 
         add_char_ret =
         esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
-            &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_STARTING_THERAPY},
+            &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_TIMER_STATE},
                                ESP_GATT_PERM_READ,
                                ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY,
                                NULL,
@@ -399,6 +411,8 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                 char json_str[MAX_JSON_STRING_SIZE];
                 memcpy(json_str, param->write.value, param->write.len);
                 json_str[param->write.len] = '\0';
+                ESP_LOGI(TAG, "Write therapy state as %s", json_str);
+
                 if (on_write_updating_therapy_state_callback) {
                     on_write_updating_therapy_state_callback(json_str);
                 }
@@ -489,7 +503,7 @@ esp_err_t init_bluetooth() {
 static const uint16_t get_char_handle_by_message_type(MessageType type) {
     switch (type) {
         case RECORDS_INFO_MESSAGE: return gl_profile_tab[PROFILE_A_APP_ID].records_handle;
-        case ACTIVE_THERAPY_INFO_MESSAGE: return gl_profile_tab[PROFILE_A_APP_ID].starting_therapy_handle;
+        case TIMER_STATE_INFO_MESSAGE: return gl_profile_tab[PROFILE_A_APP_ID].timer_state_handle;
         case MEASUREMENT_INFO_MESSAGE: return gl_profile_tab[PROFILE_A_APP_ID].measurement_handle;
         case NOTIFICATION_INFO_MESSAGE: return gl_profile_tab[PROFILE_A_APP_ID].notification_handle;
         case DEVICE_INFO_MESSAGE: return gl_profile_tab[PROFILE_A_APP_ID].device_handle;

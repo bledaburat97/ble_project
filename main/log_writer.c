@@ -137,19 +137,19 @@ static bool find_next_log_offset(size_t entry_size, uint8_t entry_type, bool* is
         uint8_t existing_type = therapy_slot_buffer[local_offset];
 
         if (existing_type == FLASH_SLOT_IS_FULL) {
-            if (entry_type != THERAPY_COMPLETED && entry_type != THERAPY_STOPPED_BY_APP) {
+            if (entry_type != NOTIF_THERAPY_COMPLETED && entry_type != NOTIF_THERAPY_STOPPED_BY_APP) {
                 ESP_LOGI(TAG, "There is no space left at slot.");
                 return false;
             }
         }
 
-        else if(existing_type == THERAPY_COMPLETED || existing_type == THERAPY_STOPPED_BY_APP) {
-            ESP_LOGE(TAG, "This slot was completed.");
+        else if(existing_type == NOTIF_THERAPY_COMPLETED || existing_type == NOTIF_THERAPY_STOPPED_BY_APP) {
+            ESP_LOGE(TAG, "This slot with local offset: %lu was completed.", local_offset);
             return false;
         }
 
         else if (existing_type == 0xFF) {
-            if(entry_type != THERAPY_COMPLETED && local_offset + entry_size > THERAPY_SLOT_SIZE - 2 * sizeof(Notification_t)){
+            if(entry_type != NOTIF_THERAPY_COMPLETED && local_offset + entry_size > THERAPY_SLOT_SIZE - 2 * sizeof(Notification_t)){
                 *is_slot_getting_full = true;
             }
             *out_local_offset = local_offset;
@@ -211,6 +211,7 @@ Tüm log yazma sürecini yöneten merkezi fonksiyon:
     Hatalı girişlere karşı boyut/CRC koruması sağlar
 */
 esp_err_t append_log_entry(uint32_t offset, const BaseLogEntry* log) {
+    ESP_LOGI(TAG, "Appending log entry to offset: %lu", offset);
     uint8_t entry[MAX_LOG_ENTRY_SIZE] = {0};
     if (!create_log_entry(log, entry)) {
         ESP_LOGE(TAG, "Failed to create log entry from BaseLogEntry");
@@ -301,6 +302,8 @@ Ek işlevler:
 */
 esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t passed_seconds) {
     BaseLogEntry log = fill_base_log(type, data, data_len, passed_seconds);
+    ESP_LOGI(TAG, "Adding log type: %u", log.type);
+
     if (log.entry_size == 0) {
         ESP_LOGE(TAG, "Failed to fill log, skipping add_log");
         return ESP_FAIL;
@@ -322,11 +325,11 @@ esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t p
             if (therapy_count > 0) {
                 base_offset = ((therapy_count - 1) % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
                 ESP_LOGI(TAG, "Base Offset of Slot: %lu", base_offset);
-                slot_is_finished = does_slot_contain_entry(base_offset, THERAPY_COMPLETED)
-                     || does_slot_contain_entry(base_offset, THERAPY_STOPPED_BY_APP);
+                slot_is_finished = does_slot_contain_entry(base_offset, NOTIF_THERAPY_COMPLETED)
+                     || does_slot_contain_entry(base_offset, NOTIF_THERAPY_STOPPED_BY_APP);
                 
                 if(!slot_is_finished) { //TODO: ve son logdan itibaren 5 dk geçmişse.
-                    BaseLogEntry complete_log = fill_base_log(THERAPY_COMPLETED, NULL, 0, 0); //THERAPY_COMPLETED log with zero passed duration indicates that therapy terminated wrong.
+                    BaseLogEntry complete_log = fill_base_log(NOTIF_THERAPY_COMPLETED, NULL, 0, 0); //THERAPY_COMPLETED log with zero passed duration indicates that therapy terminated wrong.
                     append_log_entry(base_offset, &complete_log);
                     slot_is_finished = true;
                 }
@@ -410,6 +413,7 @@ esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t p
 
 
 esp_err_t add_notification_log(uint8_t type, uint16_t passed_seconds) {
+    ESP_LOGI(TAG, "Log of notification type of %u is being added.", type);
     uint8_t* data = NULL;
     return add_log(type, data, 0, passed_seconds);
 }
@@ -437,7 +441,7 @@ esp_err_t read_and_set_records(uint16_t therapy_id) {
 
 
     uint16_t max_logs_per_type_measurement = THERAPY_SLOT_SIZE / (get_log_entry_size(MEASUREMENT_CHANGED) - 2);
-    uint16_t max_logs_per_type_brightness = THERAPY_SLOT_SIZE / (get_log_entry_size(REGIONS_BRIGHTNESS_UPDATED) - 2);
+    uint16_t max_logs_per_type_brightness = THERAPY_SLOT_SIZE / (get_log_entry_size(NOTIF_BRIGHTNESS_UPDATED) - 2);
     uint16_t max_logs_per_type_notification = THERAPY_SLOT_SIZE / (get_log_entry_size(DEVICE_AWAKED) - 1);
 
     size_t count_measurements = 0;
@@ -469,7 +473,7 @@ esp_err_t read_and_set_records(uint16_t therapy_id) {
                 count_measurements++;
                 break;
 
-            case REGIONS_BRIGHTNESS_UPDATED:
+            case NOTIF_BRIGHTNESS_UPDATED:
                 if (data_len != 6) break;
                 if (count_brightness >= max_logs_per_type_brightness) break;
                 memcpy(&brightness_updates[count_brightness * 8], data_ptr, 6);
@@ -477,8 +481,8 @@ esp_err_t read_and_set_records(uint16_t therapy_id) {
                 brightness_updates[count_brightness * 8 + 7] = entry_ptr[entry_size - 2];
                 count_brightness++;
                 break;
-            case THERAPY_STARTED_BY_BUTTON:
-            case THERAPY_STARTED_BY_APP:
+            case TIMER_STATE_NEW_THERAPY_BY_BUTTON:
+            case TIMER_STATE_NEW_THERAPY_BY_APP:
             {
                 if(therapy_duration > 0) {
                     ESP_LOGE(TAG, "Therapy with same therapy id is started more than once.");
@@ -596,40 +600,42 @@ void test_add_log_flow() {
     add_log(DEVICE_AWAKED, data_1, 0, 2);
 
     uint8_t* data_2 = NULL;
-    add_log(HELMET_ON, data_2, 0, 4);
+    add_log(NOTIF_HELMET_ON, data_2, 0, 4);
 
     uint8_t data_3[] = {0x64, 0x50};
     add_log(MEASUREMENT_CHANGED, data_3, sizeof(data_3), 6);
 
+    /*
     uint8_t* data_4 = NULL;
     add_log(DEVICE_INFO_MESSAGE_ACK, data_4, 0, 9);
+    */
 
-    uint8_t data_5[] = {0x00, 0x03, 0x04, 0xB0};
-    add_log(THERAPY_STARTED_BY_APP, data_5, sizeof(data_5), 20);
+    uint8_t data_5[] = {0x00, 0x05, 0x04, 0xB0};
+    add_log(TIMER_STATE_NEW_THERAPY_BY_APP, data_5, sizeof(data_5), 20);
 
     uint8_t data_6[] = {0x80, 0x80, 0x80, 0x80, 0x80, 0xFF};
-    add_log(REGIONS_BRIGHTNESS_UPDATED, data_6, sizeof(data_6), 24);
+    add_log(NOTIF_BRIGHTNESS_UPDATED, data_6, sizeof(data_6), 24);
 
     uint8_t data_7[] = {0x68, 0x4B};
     add_log(MEASUREMENT_CHANGED, data_7, sizeof(data_7), 26);
 
     uint8_t* data_8 = NULL;
-    add_log(HELMET_ON, data_8, 0, 28);
+    add_log(NOTIF_HELMET_ON, data_8, 0, 28);
 
     uint8_t* data_9 = NULL;
-    add_log(HELMET_ON, data_9, 0, 34);
+    add_log(NOTIF_HELMET_ON, data_9, 0, 34);
 
     uint8_t* data_10 = NULL;
-    add_log(HELMET_ON, data_10, 0, 260);
+    add_log(NOTIF_HELMET_ON, data_10, 0, 260);
 
     uint8_t data_11[] = {0x6C, 0x46};
     add_log(MEASUREMENT_CHANGED, data_11, sizeof(data_11), 268);
 
     uint8_t data_12[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0xFF};
-    add_log(REGIONS_BRIGHTNESS_UPDATED, data_12, sizeof(data_12), 270);
+    add_log(NOTIF_BRIGHTNESS_UPDATED, data_12, sizeof(data_12), 270);
 
     uint8_t* data_13 = NULL;
-    add_log(THERAPY_COMPLETED, data_13, 0, 280);
+    add_log(NOTIF_THERAPY_COMPLETED, data_13, 0, 280);
 
     /*
     BaseLogEntry complete;
@@ -715,7 +721,7 @@ void print_cached_log_sizes() {
         ESP_LOGI(TAG, "  Log[%d] size: %d", i, pending_logs[i].entry_size);
     }
 }
-
+*/
 uint16_t get_last_saved_passed_duration()
 {
     uint16_t therapy_count = read_therapy_count();
@@ -748,7 +754,7 @@ uint16_t get_last_saved_passed_duration()
 
     return UINT16_MAX;
 }
-*/
+
 
     /*
     if(type == PASSED_DURATION_UPDATED) {

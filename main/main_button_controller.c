@@ -7,6 +7,8 @@
 #include "freertos/task.h"
 #include "timer_management.h"
 #include "transaction_manager.h"
+#include "notification_info_message_creator.h"
+
 static const char *TAG = "MainButtonController";
 
 void wait_for_button_to_sleep(void *pvParameters) {
@@ -36,11 +38,11 @@ void wait_for_button_to_sleep(void *pvParameters) {
                     ESP_LOGI(TAG, "Entering deep sleep.");
                     enter_deep_sleep();
                 } else {
-                    if(get_device_state() == STATE_INACTIVITY) {
+                    if(get_device_state() == STATE_INACTIVE) {
                         start_therapy(false);
                     }
                     else if(get_device_state() == STATE_ACTIVE) {
-                        add_and_send_notification_info(THERAPY_PAUSED_BY_BUTTON);
+                        add_and_send_notification_info(NOTIF_THERAPY_PAUSED_BY_BUTTON);
                         start_inactivity_timer();
                         update_passed_therapy_duration();
                     }

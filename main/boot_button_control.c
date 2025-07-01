@@ -9,6 +9,7 @@
 #include "timer_management.h"
 #include "transaction_manager.h"
 #include "json_encoder.h"
+#include "notification_info_message_creator.h"
 
 const int BOOT_BUTTON_GPIO = GPIO_NUM_9;
 static QueueHandle_t button_queue;
@@ -28,7 +29,7 @@ void monitor_boot_button_task(void *arg) {
     while (1) {
         if (xQueueReceive(button_queue, &button_pressed, portMAX_DELAY)) {
             ESP_LOGI(TAG, "Button Pressed!");
-            const char* test_json = "{\"last_therapy_id\": 2}";
+            const char* test_json = "{\"last_therapy_id\": 4}";
             on_write_of_record_request_message(test_json);
             //to test
             /*

@@ -6,7 +6,7 @@
 #define JSON_PARSER_H
 
 typedef struct {
-    uint16_t therapy_duration;
+    uint16_t duration;
     uint8_t brightness[6];
 } ActivationMessage;
 
@@ -20,7 +20,7 @@ typedef struct {
 } UpdateRecordRequestMessage;
 
 typedef struct {
-    uint8_t type;
+    uint8_t message_id;
 } FeedbackMessage;
 
 

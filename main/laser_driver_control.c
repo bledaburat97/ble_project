@@ -257,7 +257,7 @@ static void on_state_changed(DeviceState new_state) {
     if (new_state == STATE_TEMPERATURE_ALERT) {
         set_laser_drivers_status(false);
     }
-    else if (new_state == STATE_INACTIVITY) {
+    else if (new_state == STATE_INACTIVE) {
         if (get_helmet_state()) {
             set_laser_drivers_status(true); //lazeri çalıştırmak demek değil. lazerin çalışabilir durumda olması.
         }
@@ -266,7 +266,7 @@ static void on_state_changed(DeviceState new_state) {
 
 static void on_helmet_state_changed(bool helmet_state){
     if (helmet_state) {
-        if (get_device_state() == STATE_INACTIVITY) {
+        if (get_device_state() == STATE_INACTIVE) {
             set_laser_drivers_status(true);
         }
     }

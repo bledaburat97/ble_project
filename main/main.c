@@ -100,6 +100,7 @@
 #include "log_utils.h"
 #include "therapy_counter.h"
 #include "matching_message_encoder.h"
+#include "notification_info_message_creator.h"
 
 static const char *TAG = "Main";
 
@@ -121,7 +122,7 @@ void app_main() {
         if (wakeup_pins & BUTTON_PIN_BITMASK) {
             ESP_LOGI(TAG, "Awakes by GPIO!");
         
-            init_ble();
+            init_transaction_manager();
             init_state_manager();
             init_timer_manager();
             init_device_initializer();
@@ -142,10 +143,11 @@ void app_main() {
             init_therapy_counter_partition();
 
             init_log_writer();
-            /*
+
+            
             uint16_t therapy_count = read_therapy_count();
             ESP_LOGI(TAG, "Therapy count: %u", therapy_count);
-
+            /*
             read_and_set_records(0);
             read_and_set_records(1);
             read_and_set_records(2);
@@ -172,6 +174,7 @@ void app_main() {
             
             //Boot Button
             */
+            
             initialize_boot_button_gpio();
             xTaskCreate(monitor_boot_button_task, "Monitor Boot Botton Task", 2048, NULL, 1, NULL);
         
@@ -188,9 +191,9 @@ void app_main() {
         
             // Buton kontrol task'ı
             xTaskCreate(wait_for_button_to_sleep, "button_task", 2048, NULL, 1, NULL);
-            set_device_state(STATE_START);
             add_and_send_notification_info(DEVICE_AWAKED);
             ESP_LOGI(TAG, "Device awakes.");
+            set_device_state(STATE_START);
         }
     } else {
         ESP_LOGI(TAG, "Deep sleep.");

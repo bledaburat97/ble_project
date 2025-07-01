@@ -61,7 +61,7 @@ static bool is_alarm_timer_running()
 static void therapy_timer_expiry_callback(TimerHandle_t xTimer) {
     ESP_LOGI(TAG, "Therapy timer expired!");
     if (timer_end_callback) {
-        timer_end_callback(THERAPY_COMPLETED);
+        timer_end_callback(NOTIF_THERAPY_COMPLETED);
     }
     start_inactivity_timer();
     reset_passed_therapy_duration();
@@ -128,7 +128,7 @@ void start_therapy(bool is_by_app) {
     if(passed_duration == 0) {
         if (timer_start_callback) {
             if(!is_by_app) {
-                timer_start_callback(THERAPY_STARTED_BY_BUTTON);
+                timer_start_callback(TIMER_STATE_NEW_THERAPY_BY_BUTTON);
             }
             else{
                 ESP_LOGE(TAG, "App does not start default therapy.");
@@ -138,10 +138,10 @@ void start_therapy(bool is_by_app) {
     else {
         if (timer_start_callback) {
             if(!is_by_app) {
-                timer_start_callback(THERAPY_CONTINUED_BY_BUTTON);
+                timer_start_callback(TIMER_STATE_CONTINUE_THERAPY_BY_BUTTON);
             }
             else{
-                timer_start_callback(THERAPY_CONTINUED_BY_APP);
+                timer_start_callback(TIMER_STATE_CONTINUE_THERAPY_BY_APP);
             }
         }
     }
@@ -151,7 +151,7 @@ static void inactivity_timer_expiry_callback(TimerHandle_t xTimer) {
     ESP_LOGI(TAG, "Inactivity timer expired!");
     stop_inactivity_timer();
     if (timer_end_callback) {
-        timer_end_callback(INACTIVITY_TIMER_EXPIRED);
+        timer_end_callback(NOTIF_INACTIVITY_TIMER_EXPIRED);
     }
     enter_deep_sleep();
 }
@@ -159,7 +159,7 @@ static void inactivity_timer_expiry_callback(TimerHandle_t xTimer) {
 static void alert_timer_expiry_callback(TimerHandle_t xTimer) {
     set_device_state(STATE_START);
     if (timer_end_callback) {
-        timer_end_callback(ALERT_TIMER_EXPIRED);
+        timer_end_callback(NOTIF_ALERT_TIMER_EXPIRED);
     }
 }
 
@@ -178,13 +178,13 @@ void start_alert_timer(int sensor_index) {
     set_device_state(STATE_TEMPERATURE_ALERT);
     if (timer_start_callback) {
         if(sensor_index == 0){
-            timer_start_callback(HIGH_TEMP_ALERT_1);
+            timer_start_callback(TIMER_STATE_HIGH_TEMP_ALERT_1);
         }
         else if(sensor_index == 1){
-            timer_start_callback(HIGH_TEMP_ALERT_2);
+            timer_start_callback(TIMER_STATE_HIGH_TEMP_ALERT_2);
         }
         else if(sensor_index == 2){
-            timer_start_callback(HIGH_TEMP_ALERT_3);
+            timer_start_callback(TIMER_STATE_HIGH_TEMP_ALERT_3);
         }
     }
 }
@@ -200,9 +200,10 @@ void start_inactivity_timer() {
     }
 
     if (!inactivity_timer) {
-        inactivity_timer = create_and_start_timer(STATE_INACTIVITY, INACTIVITY_THRESHOLD_SECONDS * 1000, inactivity_timer_expiry_callback);
+        inactivity_timer = create_and_start_timer(STATE_INACTIVE, INACTIVITY_THRESHOLD_SECONDS * 1000, inactivity_timer_expiry_callback);
     }
-    set_device_state(STATE_INACTIVITY);
+    ESP_LOGI(TAG, "Set state as inactive.");
+    set_device_state(STATE_INACTIVE);
     if (timer_start_callback) {
         timer_start_callback(INACTIVITY_TIMER_STARTED);
     }

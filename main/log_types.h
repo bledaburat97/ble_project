@@ -8,79 +8,47 @@
 #define MAX_LOG_ENTRY_SIZE 10
 
 typedef enum {
-    // General session events
-    DEVICE_AWAKED = 0x01,
+    TIMER_STATE_INACTIVE = 0x01, //Zamanlayıcı Durumu 
+    TIMER_STATE_ACTIVE_THERAPY, //Zamanlayıcı Durumu
+    TIMER_STATE_PAUSED_THERAPY, //Zamanlayıcı Durumu
+    TIMER_STATE_NEW_THERAPY_BY_BUTTON, //Zamanlayıcı Durumu
+    TIMER_STATE_NEW_THERAPY_BY_APP, //Zamanlayıcı Durumu
+    TIMER_STATE_CONTINUE_THERAPY_BY_BUTTON, //Zamanlayıcı Durumu
+    TIMER_STATE_CONTINUE_THERAPY_BY_APP, //Zamanlayıcı Durumu
+    TIMER_STATE_LOW_TEMP_ALERT_1, //Zamanlayıcı Durumu
+    TIMER_STATE_HIGH_TEMP_ALERT_1, //Zamanlayıcı Durumu
+    TIMER_STATE_LOW_TEMP_ALERT_2, //Zamanlayıcı Durumu
+    TIMER_STATE_HIGH_TEMP_ALERT_2, //Zamanlayıcı Durumu
+    TIMER_STATE_LOW_TEMP_ALERT_3, //Zamanlayıcı Durumu
+    TIMER_STATE_HIGH_TEMP_ALERT_3, //Zamanlayıcı Durumu
+    TIMER_STATE_LOW_HUM_ALERT, //Zamanlayıcı Durumu 
+    TIMER_STATE_HIGH_HUM_ALERT, //Zamanlayıcı Durumu 
+
+    NOTIF_THERAPY_PAUSED_BY_BUTTON,  //Bildirim
+    NOTIF_SHUT_DOWN_BY_BUTTON, //Bildirim
+    NOTIF_THERAPY_STOPPED_BY_APP, //Bildirim
+    NOTIF_THERAPY_PAUSED_BY_APP,  //Bildirim
+    NOTIF_HELMET_OFF, //Bildirim
+    NOTIF_HELMET_ON, //Bildirim
+    NOTIF_BRIGHTNESS_UPDATED, //Bildirim
+    NOTIF_THERAPY_COMPLETED,  //Bildirim
+    NOTIF_INACTIVITY_TIMER_EXPIRED, //Bildirim
+    NOTIF_ALERT_TIMER_EXPIRED, //Bildirim
+
+    DEVICE_AWAKED,
     BLE_CONNECTED,
     BLE_DISCONNECTED,
-
-    // Therapy control events
-    THERAPY_STARTED_BY_BUTTON,
-    THERAPY_PAUSED_BY_BUTTON,
-    THERAPY_CONTINUED_BY_BUTTON,
-    THERAPY_COMPLETED,
-    ONGOING_THERAPY,
-    
-    // Temperature alerts
-    LOW_TEMP_ALERT_1,
-    HIGH_TEMP_ALERT_1,
-    LOW_TEMP_ALERT_2,
-    HIGH_TEMP_ALERT_2,
-    LOW_TEMP_ALERT_3,
-    HIGH_TEMP_ALERT_3,
-
-    // Humidity alerts
-    LOW_HUM_ALERT,
-    HIGH_HUM_ALERT,
-
-    // Measurement changes
     MEASUREMENT_CHANGED,
-
-    // Proximity detection
+    INACTIVITY_TIMER_STARTED,
     HIGH_PROX_DETECTED_1,
     LOW_PROX_DETECTED_1,
     HIGH_PROX_DETECTED_2,
     LOW_PROX_DETECTED_2,
-
-    // Helmet events
-    HELMET_OFF,
-    HELMET_ON,
-
-    // Timers
-    THERAPY_TIMER_STOPPED,
-    INACTIVITY_TIMER_STARTED,
-    INACTIVITY_TIMER_EXPIRED,
-    ALERT_TIMER_EXPIRED,
-
-    // Errors and app events
     WRONG_PROX_MEASUREMENT,
-
-    THERAPY_START_REQUEST,
-    THERAPY_STARTED_BY_APP,
-    THERAPY_CONTINUED_BY_APP,
-    THERAPY_STOPPED_BY_APP,
-    THERAPY_PAUSED_BY_APP,
-
-    // Brightness
-    REGIONS_BRIGHTNESS_UPDATED,
-
-    // Time
-    RTC_TIME_SAVED,
-    PASSED_DURATION_UPDATED,
-    POWER_IS_OFF,
-
-    CURRENT_STATE_THERAPY,
-    CURRENT_STATE_INACTIVITY,
-    CURRENT_STATE_TEMP_ALERT,
-    CURRENT_STATE_HUM_ALERT,
-    
-    DEVICE_INFO_MESSAGE_ACK,
-    DEVICE_STATE_INFO_MESSAGE_ACK,
-    HELMET_STATE_INFO_MESSAGE_ACK,
-    ACTIVE_THERAPY_INFO_MESSAGE_ACK,
-    RECORDS_INFO_FOR_ACTIVE_THERAPY_ACK,
-
-    FLASH_SLOT_IS_FULL,
-    TEST
+    RTC_TIME_SAVED, //henüz implemente edilmedi
+    PASSED_DURATION_UPDATED, 
+    FLASH_SLOT_IS_FULL, 
+    TEST,
 } NotificationType;
 
 // RTC time save event
@@ -136,30 +104,3 @@ typedef struct {
     bool can_start_cache;
     bool can_flush_cache;
 } BaseLogEntry;
-
-/* MessageType is normally defined in ble_control.h but that header depends on FreeRTOS.
- * Re-declare it here for host unit tests. */
-typedef enum {
-    RECORDS_INFO_MESSAGE,
-    ACTIVE_THERAPY_INFO_MESSAGE,
-    MEASUREMENT_INFO_MESSAGE,
-    NOTIFICATION_INFO_MESSAGE,
-    DEVICE_INFO_MESSAGE
-} MessageType;
-
-/*
-typedef struct {
-    uint16_t therapy_id;
-    uint8_t device_id[6];
-    uint8_t start_time[5]; // null olabilir. 
-    uint16_t duration;
-    uint16_t remaining_dur;
-    MeasurementChangeLog measurement_logs[MAX_MEASUREMENT_LOGS];
-    int measurement_log_count;
-    NotificationLog notif_logs[MAX_NOTIFICATION_LOGS];
-    int notif_log_count;
-    BrightnessChangeLog brightness_logs[MAX_BRIGHTNESS_LOGS];
-    int brightness_log_count;
-} TherapySession;
-
-*/

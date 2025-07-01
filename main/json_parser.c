@@ -27,7 +27,7 @@ bool decode_activation_message(const char* json_str, ActivationMessage* out_msg)
         return false;
     }
 
-    out_msg->therapy_duration = (uint16_t) dur->valuedouble;
+    out_msg->duration = (uint16_t) dur->valuedouble;
 
     // Brightness string: should be 12 hex characters = 6 bytes
     const char *hex_str = brightness->valuestring;
@@ -62,7 +62,6 @@ bool decode_status_change_message(const char* json_str, StatusChangeMessage* out
     // Desteklenen string türleri ("PAUSE", "STOP", "CONTINUE")
     strncpy(out_msg->type, type->valuestring, sizeof(out_msg->type) - 1);
     out_msg->type[sizeof(out_msg->type) - 1] = '\0';  // null-terminate
-
     out_msg->therapy_id = (uint16_t) therapy_id->valuedouble;
 
     cJSON_Delete(root);
@@ -94,14 +93,14 @@ bool decode_feedback_message(const char* json_str, FeedbackMessage* out_msg) {
     cJSON *root = cJSON_Parse(json_str);
     if (root == NULL) return false;
 
-    cJSON *type = cJSON_GetObjectItem(root, "type");
+    cJSON *message_id = cJSON_GetObjectItem(root, "message_id");
 
-    if (!cJSON_IsNumber(type)) {
+    if (!cJSON_IsNumber(message_id)) {
         cJSON_Delete(root);
         return false;
     }
 
-    out_msg->type = (uint8_t)type->valuedouble;
+    out_msg->message_id = (uint8_t)message_id->valuedouble;
 
     cJSON_Delete(root);
     return true;

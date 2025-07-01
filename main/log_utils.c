@@ -45,14 +45,14 @@ BaseLogEntry fill_base_log(uint8_t type, const uint8_t* data, size_t data_len, u
             log.can_start_cache = true;
             log.can_flush_cache = false;
             break;
-        case THERAPY_COMPLETED:
+        case NOTIF_THERAPY_COMPLETED:
             log.can_be_cached = false;
             log.can_be_flashed = true;
             log.can_start_cache = true;
             log.can_flush_cache = false;
             break;
-        case THERAPY_STARTED_BY_BUTTON:
-        case THERAPY_STARTED_BY_APP:
+        case TIMER_STATE_NEW_THERAPY_BY_BUTTON:
+        case TIMER_STATE_NEW_THERAPY_BY_APP:
             log.can_be_cached = true;
             log.can_be_flashed = true;
             log.can_start_cache = false;
@@ -100,12 +100,12 @@ esp_err_t init_log_writer() {
 
 size_t get_log_entry_size(uint8_t type) {
     switch (type) {
-        case REGIONS_BRIGHTNESS_UPDATED:   return sizeof(Regions_updated_t);
+        case NOTIF_BRIGHTNESS_UPDATED:   return sizeof(Regions_updated_t);
         case MEASUREMENT_CHANGED:  return sizeof(Measurement_changed_t);
-        case THERAPY_STARTED_BY_BUTTON:
-        case THERAPY_CONTINUED_BY_BUTTON:
-        case THERAPY_STARTED_BY_APP:
-        case THERAPY_CONTINUED_BY_APP:{
+        case TIMER_STATE_NEW_THERAPY_BY_BUTTON:
+        case TIMER_STATE_NEW_THERAPY_BY_APP:
+        case TIMER_STATE_CONTINUE_THERAPY_BY_BUTTON:
+        case TIMER_STATE_CONTINUE_THERAPY_BY_APP:{
             return sizeof(Therapy_initialization_t);
         }
         case RTC_TIME_SAVED:  return sizeof(Time_saved_t);
