@@ -8,7 +8,6 @@
 #include "temperature_alarm_control.h"
 #include "proximity_int_control.h"
 #include "proximity_sensor_control.h"
-#include "timer_management.h"
 #include "deep_sleep_manager.h"
 #include "boot_button_control.h"
 
@@ -48,7 +47,6 @@
 
 #include "i2c_control.h"
 #include "laser_driver_control.h"
-#include "timer_management.h"
 #include "temperature_sensor_control.h"
 
 #include "freertos/semphr.h"
@@ -93,7 +91,6 @@
 #include "deep_sleep_manager.h"
 #include "storage_management.h"
 #include "main_button_controller.h"
-#include "device_initializer.h"
 
 #include "log_types.h"
 #include "log_writer.h"
@@ -101,6 +98,7 @@
 #include "therapy_counter.h"
 #include "matching_message_encoder.h"
 #include "notification_info_message_creator.h"
+#include "general_manager.h"
 
 static const char *TAG = "Main";
 
@@ -123,9 +121,7 @@ void app_main() {
             ESP_LOGI(TAG, "Awakes by GPIO!");
         
             init_transaction_manager();
-            init_state_manager();
-            init_timer_manager();
-            init_device_initializer();
+            init_general_manager();
 
             //I2C
             init_i2c_master();
@@ -193,7 +189,7 @@ void app_main() {
             xTaskCreate(wait_for_button_to_sleep, "button_task", 2048, NULL, 1, NULL);
             add_and_send_notification_info(DEVICE_AWAKED);
             ESP_LOGI(TAG, "Device awakes.");
-            set_device_state(STATE_START);
+            start_device();
         }
     } else {
         ESP_LOGI(TAG, "Deep sleep.");

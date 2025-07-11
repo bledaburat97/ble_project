@@ -61,6 +61,7 @@ static void (*on_write_activation_callback)(const char*) = NULL;
 static void (*on_write_updating_records_callback)(const char*) = NULL;
 static void (*on_write_feedback_callback)(const char*) = NULL;
 static void (*on_write_updating_therapy_state_callback)(const char*) = NULL;
+static void (*on_write_records_feedback_callback)(const char*) = NULL;
 
 
 /*
@@ -101,7 +102,8 @@ struct gatts_profile_inst {
     uint16_t activation_handle;
     uint16_t updating_records_handle;
     uint16_t feedback_handle;
-    uint16_t updating_therapy_state_handle;
+    uint16_t updating_therapy_state_handle;        
+    uint16_t records_feedback_handle;
     esp_bt_uuid_t char_uuid;
 };
 
@@ -259,6 +261,10 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
             gl_profile_tab[PROFILE_A_APP_ID].updating_therapy_state_handle = param->add_char.attr_handle;
             ESP_LOGI(TAG, "Updating Therapy State Info Characteristic Handle: %d", param->add_char.attr_handle);
         }
+        else if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_RECORDS_FEEDBACK) {
+            gl_profile_tab[PROFILE_A_APP_ID].records_feedback_handle = param->add_char.attr_handle;
+            ESP_LOGI(TAG, "Records Feedback Info Characteristic Handle: %d", param->add_char.attr_handle);
+        }
         break;
 
     case ESP_GATTS_CREATE_EVT:
@@ -351,6 +357,17 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
 
         add_char_ret =
         esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
+            &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_FEEDBACK},
+                               ESP_GATT_PERM_WRITE,
+                               ESP_GATT_CHAR_PROP_BIT_WRITE,
+                               NULL,
+                               NULL);
+        if (add_char_ret){
+            ESP_LOGE(TAG, "adding feedback info char failed, error code =%x",add_char_ret);
+        }
+
+        add_char_ret =
+        esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
             &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_UPDATING_THERAPY_STATE},
                                ESP_GATT_PERM_WRITE,
                                ESP_GATT_CHAR_PROP_BIT_WRITE,
@@ -358,6 +375,17 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                                NULL);
         if (add_char_ret){
             ESP_LOGE(TAG, "adding updating therapy state info char failed, error code =%x",add_char_ret);
+        }
+
+        add_char_ret =
+        esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
+            &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_RECORDS_FEEDBACK},
+                               ESP_GATT_PERM_WRITE,
+                               ESP_GATT_CHAR_PROP_BIT_WRITE,
+                               NULL,
+                               NULL);
+        if (add_char_ret){
+            ESP_LOGE(TAG, "adding records feedback info char failed, error code =%x",add_char_ret);
         }
         break;
 
@@ -415,6 +443,21 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
 
                 if (on_write_updating_therapy_state_callback) {
                     on_write_updating_therapy_state_callback(json_str);
+                }
+                esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
+            }
+            else {
+                esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_INVALID_PDU, NULL);
+            }
+        }
+        else if (param->write.handle == gl_profile_tab[PROFILE_A_APP_ID].records_feedback_handle) {
+            if(param->write.value != NULL && param->write.len > 0 && param->write.len < MAX_JSON_STRING_SIZE) {
+                char json_str[MAX_JSON_STRING_SIZE];
+                memcpy(json_str, param->write.value, param->write.len);
+                json_str[param->write.len] = '\0';
+                
+                if (on_write_records_feedback_callback) {
+                    on_write_records_feedback_callback(json_str);
                 }
                 esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
             }
@@ -539,7 +582,10 @@ void register_on_write_updating_therapy_state_callback(void (*callback)(const ch
 {
     on_write_updating_therapy_state_callback = callback;
 }
-
+void register_on_write_records_feedback_callback(void (*callback)(const char*))
+{
+    on_write_records_feedback_callback = callback;
+}
 esp_err_t start_registering_and_advertising()
 {
     esp_err_t ret;

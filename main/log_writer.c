@@ -11,6 +11,9 @@
 #define TAG "LogWriter"
 
 #define MAX_PENDING_LOGS 128
+static const uint16_t MAX_READ_LOGS_OF_MEASUREMENT = 1000;
+static const uint16_t MAX_READ_LOGS_OF_BRIGHTNESS = 500;
+static const uint16_t MAX_READ_LOGS_OF_NOTIFICATION = 1200;
 
 static BaseLogEntry pending_logs[MAX_PENDING_LOGS];
 static size_t pending_log_count = 0;
@@ -19,7 +22,6 @@ static bool is_cached_logs_existed = false;
 static uint8_t therapy_slot_buffer[THERAPY_SLOT_SIZE];
 static uint8_t write_buffer[MAX_LOG_ENTRY_SIZE];
 
-static uint16_t last_saved_passed_duration = 0;
 static uint32_t starting_local_offset = 0;
 
 //Log’un flash’a hemen yazılmasına gerek yoksa yani bir terapi başlamamışsa cachelenir ve sonradan topluca yazılmak üzere bellekte tutulur.
@@ -37,32 +39,7 @@ static esp_err_t cache_log_entry(const BaseLogEntry* log) {
 }
 
 
-//İstenilen flash slotunda istenilen log var mı diye kontrol edilir.
-//Örneğin bir slot tamamlanmış mı (yani THERAPY_COMPLETED log'u var mı) diye anlamak için.
-static bool does_slot_contain_entry(uint32_t base_offset, uint8_t type_of_entry) {
-    uint32_t local_offset = 0;
 
-    esp_err_t err = esp_partition_read(get_log_partition(), base_offset, therapy_slot_buffer, THERAPY_SLOT_SIZE);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to read therapy slot: %s", esp_err_to_name(err));
-        return false;
-    }
-
-    while (local_offset < THERAPY_SLOT_SIZE) {
-        uint8_t type = therapy_slot_buffer[local_offset];
-
-        if (type == 0xFF) break;
-
-        if (type == type_of_entry) return true;
-
-        size_t size = get_log_entry_size(type);
-        if (size == 0 || local_offset + size > THERAPY_SLOT_SIZE) break;
-
-        local_offset += size;
-    }
-
-    return false;
-}
 
 /*
 static void read_logs(uint32_t base_offset) {
@@ -157,12 +134,12 @@ static bool find_next_log_offset(size_t entry_size, uint8_t entry_type, bool* is
             return true;
         }
 
-        size_t existing_entry_size = get_log_entry_size(existing_type);
-        if (existing_entry_size == 0 || local_offset + existing_entry_size > THERAPY_SLOT_SIZE) {
+        LogEntrySizeInfo size_info = get_log_entry_size_info(existing_type);
+        if (local_offset + size_info.total_length > THERAPY_SLOT_SIZE) {
             return false; // Bozulmuş log veya taşma
         }
 
-        local_offset += existing_entry_size;
+        local_offset += size_info.total_length;
     }
 
     return false;
@@ -218,7 +195,7 @@ esp_err_t append_log_entry(uint32_t offset, const BaseLogEntry* log) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    size_t expected_size = get_log_entry_size(log->type);
+    size_t expected_size = get_log_entry_size_info(log->type).total_length;
     ESP_LOGI(TAG, "Saving log with type:%u and expected size:%u", log->type, expected_size);
 
     if (expected_size == 0 || expected_size > MAX_LOG_ENTRY_SIZE) {
@@ -255,7 +232,6 @@ esp_err_t append_log_entry(uint32_t offset, const BaseLogEntry* log) {
 
     if(is_slot_getting_full) {
         if(write_slot_as_full(offset + local_offset, log->passed_seconds) == ESP_OK) {
-            last_saved_passed_duration = log->passed_seconds;
             ESP_LOGI(TAG, "Slot is full written at offset %lu", offset + local_offset);
         }
         else{
@@ -264,7 +240,6 @@ esp_err_t append_log_entry(uint32_t offset, const BaseLogEntry* log) {
     }
     else{
         if(write_log_entry(offset + local_offset, entry, log->entry_size) == ESP_OK) {
-            last_saved_passed_duration = log->passed_seconds;
             ESP_LOGI(TAG, "Log entry written at offset %lu", offset + local_offset);
         }
         else{
@@ -325,8 +300,7 @@ esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t p
             if (therapy_count > 0) {
                 base_offset = ((therapy_count - 1) % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
                 ESP_LOGI(TAG, "Base Offset of Slot: %lu", base_offset);
-                slot_is_finished = does_slot_contain_entry(base_offset, NOTIF_THERAPY_COMPLETED)
-                     || does_slot_contain_entry(base_offset, NOTIF_THERAPY_STOPPED_BY_APP);
+                slot_is_finished = false;//TODO: does_slot_contain_entry(base_offset, NOTIF_THERAPY_COMPLETED) || does_slot_contain_entry(base_offset, NOTIF_THERAPY_STOPPED_BY_APP);
                 
                 if(!slot_is_finished) { //TODO: ve son logdan itibaren 5 dk geçmişse.
                     BaseLogEntry complete_log = fill_base_log(NOTIF_THERAPY_COMPLETED, NULL, 0, 0); //THERAPY_COMPLETED log with zero passed duration indicates that therapy terminated wrong.
@@ -416,132 +390,6 @@ esp_err_t add_notification_log(uint8_t type, uint16_t passed_seconds) {
     ESP_LOGI(TAG, "Log of notification type of %u is being added.", type);
     uint8_t* data = NULL;
     return add_log(type, data, 0, passed_seconds);
-}
-
-esp_err_t read_and_set_records(uint16_t therapy_id) {
-    uint32_t base_offset = (therapy_id % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
-    ESP_LOGI(TAG, "Start to read log of therapy_id: %u", therapy_id);
-
-    esp_err_t err = esp_partition_read(get_log_partition(), base_offset, therapy_slot_buffer, THERAPY_SLOT_SIZE);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to read slot at index %u: %s", therapy_id, esp_err_to_name(err));
-        return err;
-    }
-    init_fragments();
-
-    // Her kayıt tipi için bufferlar
-    uint8_t* measurements = malloc(THERAPY_SLOT_SIZE);
-    uint8_t* notifications = malloc(THERAPY_SLOT_SIZE);
-    uint8_t* brightness_updates = malloc(THERAPY_SLOT_SIZE);
-
-    if (!measurements || !notifications || !brightness_updates) {
-        ESP_LOGE(TAG, "Memory allocation failed");
-        return ESP_ERR_NO_MEM;
-    }
-
-
-    uint16_t max_logs_per_type_measurement = THERAPY_SLOT_SIZE / (get_log_entry_size(MEASUREMENT_CHANGED) - 2);
-    uint16_t max_logs_per_type_brightness = THERAPY_SLOT_SIZE / (get_log_entry_size(NOTIF_BRIGHTNESS_UPDATED) - 2);
-    uint16_t max_logs_per_type_notification = THERAPY_SLOT_SIZE / (get_log_entry_size(DEVICE_AWAKED) - 1);
-
-    size_t count_measurements = 0;
-    size_t count_notifications = 0;
-    size_t count_brightness = 0;
-
-    uint16_t therapy_duration = 0;
-
-    uint32_t local_offset = 0;
-    while (local_offset < THERAPY_SLOT_SIZE) {
-        uint8_t type = therapy_slot_buffer[local_offset];
-        if (type == 0xFF) break;
-
-        size_t entry_size = get_log_entry_size(type);
-        if (entry_size == 0 || local_offset + entry_size > THERAPY_SLOT_SIZE) break;
-
-        const uint8_t* entry_ptr = &therapy_slot_buffer[local_offset];
-        const uint8_t* data_ptr = &entry_ptr[1];  // type'ten sonra gelen data
-        size_t data_len = entry_size - 4;
-
-
-        switch (type) {
-            case MEASUREMENT_CHANGED:
-                if (data_len != 2) break;
-                if (count_measurements >= max_logs_per_type_measurement) break;
-                memcpy(&measurements[count_measurements * 4], data_ptr, 2); // 2 byte data
-                measurements[count_measurements * 4 + 2] = entry_ptr[entry_size - 3]; // passed_seconds (1st byte)
-                measurements[count_measurements * 4 + 3] = entry_ptr[entry_size - 2]; // passed_seconds (2nd byte)
-                count_measurements++;
-                break;
-
-            case NOTIF_BRIGHTNESS_UPDATED:
-                if (data_len != 6) break;
-                if (count_brightness >= max_logs_per_type_brightness) break;
-                memcpy(&brightness_updates[count_brightness * 8], data_ptr, 6);
-                brightness_updates[count_brightness * 8 + 6] = entry_ptr[entry_size - 3];
-                brightness_updates[count_brightness * 8 + 7] = entry_ptr[entry_size - 2];
-                count_brightness++;
-                break;
-            case TIMER_STATE_NEW_THERAPY_BY_BUTTON:
-            case TIMER_STATE_NEW_THERAPY_BY_APP:
-            {
-                if(therapy_duration > 0) {
-                    ESP_LOGE(TAG, "Therapy with same therapy id is started more than once.");
-                    return ESP_FAIL; 
-                }
-                if (data_len != 4) break;
-                if (therapy_id != ((entry_ptr[entry_size - 7] << 8) | entry_ptr[entry_size - 6])) {
-                    ESP_LOGE(TAG, "Wrong therapy id is saved.: %u", ((entry_ptr[entry_size - 7] << 8) | entry_ptr[entry_size - 6]));
-                    //return ESP_FAIL; 
-                }
-                therapy_duration = (entry_ptr[entry_size - 5] << 8) | entry_ptr[entry_size - 4];
-
-                if (count_notifications >= max_logs_per_type_notification) break;
-                notifications[count_notifications * 3] = type;
-                notifications[count_notifications * 3 + 1] = entry_ptr[entry_size - 3]; // passed_seconds (1st byte)
-                notifications[count_notifications * 3 + 2] = entry_ptr[entry_size - 2]; // passed_seconds (2nd byte)
-                count_notifications++;
-                break;
-            }
-            default:
-                if (data_len != 0) break;
-                if (count_notifications >= max_logs_per_type_notification) break;
-                notifications[count_notifications * 3] = type; // hata var mı 
-                notifications[count_notifications * 3 + 1] = entry_ptr[entry_size - 3]; // passed_seconds
-                notifications[count_notifications * 3 + 2] = entry_ptr[entry_size - 2]; // passed_seconds
-                count_notifications++;
-                break;
-        }
-
-        local_offset += entry_size;
-    }
-
-    if(therapy_duration == 0) {
-        ESP_LOGE(TAG, "Therapy start log is not found.");
-        return ESP_FAIL; 
-    }
-    ESP_LOGI(TAG, "Continue to read log of therapy_id: %u", therapy_id);
-
-    start_encoding_for_new_therapy(therapy_id, therapy_duration, 0);
-
-    if (count_measurements > 0) {
-        ESP_LOGI(TAG, "aaaa, count_measurements: %u", count_measurements);
-        encode_records_of_therapy(therapy_id, 0x03, 4, count_measurements, measurements);
-    }
-    if (count_notifications > 0) {
-        ESP_LOGI(TAG, "bbbb, count_notifications: %u", count_notifications);
-        encode_records_of_therapy(therapy_id, 0x04, 3, count_notifications, notifications);
-    }
-    if (count_brightness > 0) {
-        ESP_LOGI(TAG, "cccc, count_brightness: %u", count_brightness);
-        encode_records_of_therapy(therapy_id, 0x05, 8, count_brightness, brightness_updates);
-    }
-    ESP_LOGI(TAG, "Finish to read log of therapy_id: %u", therapy_id);
-
-    free(measurements);
-    free(notifications);
-    free(brightness_updates);
-
-    return ESP_OK;
 }
 
 /*
@@ -722,54 +570,333 @@ void print_cached_log_sizes() {
     }
 }
 */
-uint16_t get_last_saved_passed_duration()
-{
-    uint16_t therapy_count = read_therapy_count();
-    if(therapy_count == 0) {
-        ESP_LOGE(TAG, "There should be a saved therapy.");
-        return ESP_FAIL;
-    }
-    uint32_t offset = ((therapy_count - 1) % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
 
-    esp_partition_read(get_log_partition(), offset, therapy_slot_buffer, THERAPY_SLOT_SIZE);
-    if(last_saved_passed_duration > 0)
-    {
-        return last_saved_passed_duration;
+bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs) {
+    uint32_t base_offset = ((therapy_id - 1)  % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
+    bool is_active_therapy = therapy_id == read_therapy_count();
+    esp_err_t err = esp_partition_read(get_log_partition(), base_offset, therapy_slot_buffer, THERAPY_SLOT_SIZE);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to read slot at index %u: %s", therapy_id, esp_err_to_name(err));
+        return false;
     }
-    uint32_t local_offset = 0;
-    uint8_t entry_size = get_log_entry_size(PASSED_DURATION_UPDATED);
+
+    therapy_logs->measurements = malloc(THERAPY_SLOT_SIZE);
+    therapy_logs->notifications = malloc(THERAPY_SLOT_SIZE);
+    therapy_logs->brightness_updates = malloc(THERAPY_SLOT_SIZE);
+
+    if (!therapy_logs->measurements || !therapy_logs->notifications || !therapy_logs->brightness_updates) {
+        ESP_LOGE(TAG, "Memory allocation failed");
+        free(therapy_logs->measurements);
+        free(therapy_logs->notifications);
+        free(therapy_logs->brightness_updates);
+        return false;
+    }
+
+    therapy_logs->count_measurements = 0;
+    therapy_logs->count_notifications = 0;
+    therapy_logs->count_brightness = 0;
     
-    while (local_offset + entry_size <= THERAPY_SLOT_SIZE) {
-        uint8_t existing_type = therapy_slot_buffer[local_offset];
-        if (existing_type == 0xFF) {
-            return (therapy_slot_buffer[offset + local_offset - 3] << 8) | therapy_slot_buffer[offset + local_offset - 2];
-        }
-        size_t existing_entry_size = get_log_entry_size(existing_type);
-        if (existing_entry_size == 0 || local_offset + existing_entry_size > THERAPY_SLOT_SIZE) {
-            return UINT16_MAX; // Bozulmuş log veya taşma
+    uint16_t count_measurements = 0;
+    uint16_t count_notifications = 0;
+    uint16_t count_brightness = 0;
+
+    uint32_t local_offset = 0;
+
+    while (local_offset < THERAPY_SLOT_SIZE) {
+        uint8_t type = therapy_slot_buffer[local_offset];
+        if (type == 0xFF) break;
+        
+        LogEntrySizeInfo size_info = get_log_entry_size_info(type);
+        if (local_offset + size_info.total_length > THERAPY_SLOT_SIZE) {
+            ESP_LOGE(TAG, "Wrong log entry.");
+            return false;
         }
 
-        local_offset += existing_entry_size;
+        const uint8_t first_data_byte_index = 1;
+        const uint8_t first_passed_duration_byte_index = first_data_byte_index + size_info.data_length;
+        const uint8_t* entry_ptr = &therapy_slot_buffer[local_offset];
+        const uint8_t* data_ptr = &entry_ptr[first_data_byte_index];  // type'ten sonra gelen data
+
+        switch (type) {
+            case MEASUREMENT_CHANGED:
+                if (therapy_logs->count_measurements >= MAX_READ_LOGS_OF_MEASUREMENT) break;
+
+                memcpy(&therapy_logs->measurements[count_measurements * 4], data_ptr, size_info.data_length); // data
+                therapy_logs->measurements[count_measurements * 4 + size_info.data_length] = entry_ptr[first_passed_duration_byte_index]; // passed_seconds (1st byte)
+                therapy_logs->measurements[count_measurements * 4 + size_info.data_length + 1] = entry_ptr[first_passed_duration_byte_index + 1]; // passed_seconds (2nd byte)
+                count_measurements++;
+
+                break;
+            case NOTIF_BRIGHTNESS_UPDATED:
+                if (count_brightness >= MAX_READ_LOGS_OF_BRIGHTNESS) break;
+
+                memcpy(&therapy_logs->brightness_updates[count_brightness * 8], data_ptr, 6);
+                therapy_logs->brightness_updates[count_brightness * 8 + size_info.data_length] = entry_ptr[first_passed_duration_byte_index];
+                therapy_logs->brightness_updates[count_brightness * 8 + size_info.data_length + 1] = entry_ptr[first_passed_duration_byte_index + 1];
+                count_brightness++;
+
+                break;
+
+            case BLE_CONNECTED:
+                if (count_notifications >= MAX_READ_LOGS_OF_NOTIFICATION) break;
+
+                therapy_logs->notifications[count_notifications * 3] = type; // hata var mı 
+                therapy_logs->notifications[count_notifications * 3 + 1] = entry_ptr[first_passed_duration_byte_index]; // passed_seconds
+                therapy_logs->notifications[count_notifications * 3 + 2] = entry_ptr[first_passed_duration_byte_index + 1]; // passed_seconds
+                count_notifications++;
+
+                if (is_active_therapy) {
+                    therapy_logs->count_notifications = count_notifications;
+                    therapy_logs->count_brightness = count_brightness;
+                    therapy_logs->count_measurements = count_measurements;
+                }
+
+                break;
+            default:
+                if (count_notifications >= MAX_READ_LOGS_OF_NOTIFICATION) break;
+
+                therapy_logs->notifications[count_notifications * 3] = type; // hata var mı 
+                therapy_logs->notifications[count_notifications * 3 + 1] = entry_ptr[first_passed_duration_byte_index]; // passed_seconds
+                therapy_logs->notifications[count_notifications * 3 + 2] = entry_ptr[first_passed_duration_byte_index + 1]; // passed_seconds
+                count_notifications++;
+
+                break;
+        }
     }
 
-    return UINT16_MAX;
+    if (!is_active_therapy) {
+        therapy_logs->count_notifications = count_notifications;
+        therapy_logs->count_brightness = count_brightness;
+        therapy_logs->count_measurements = count_measurements;
+    }
+
+    if (therapy_logs->count_notifications == 0 && therapy_logs->count_brightness == 0 && therapy_logs->count_measurements == 0) {
+        return false;
+    }
+    return true;
+
+}
+bool read_therapy_info(uint16_t therapy_id, ReadTherapyInfo* therapy_info) {
+    uint32_t base_offset = ((therapy_id - 1)  % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
+
+    esp_err_t err = esp_partition_read(get_log_partition(), base_offset, therapy_slot_buffer, THERAPY_SLOT_SIZE);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to read slot at index %u: %s", therapy_id, esp_err_to_name(err));
+        return false;
+    }
+
+    therapy_info->therapy_duration = 0;
+    therapy_info->passed_duration = 0;
+    therapy_info->is_over = false;
+
+    uint32_t local_offset = 0;
+
+    while (local_offset < THERAPY_SLOT_SIZE) {
+        uint8_t type = therapy_slot_buffer[local_offset];
+        if (type == 0xFF) break;
+        
+        LogEntrySizeInfo size_info = get_log_entry_size_info(type);
+        if (local_offset + size_info.total_length > THERAPY_SLOT_SIZE) {
+            ESP_LOGE(TAG, "Wrong log entry.");
+            return false;
+        }
+
+        therapy_info->passed_duration = (therapy_slot_buffer[local_offset + size_info.total_length - 3] << 8 ) | therapy_slot_buffer[local_offset + size_info.total_length - 2]; 
+
+        const uint8_t first_data_byte_index = 1;
+        const uint8_t* entry_ptr = &therapy_slot_buffer[local_offset];
+        const uint8_t* data_ptr = &entry_ptr[first_data_byte_index];  // type'ten sonra gelen data
+
+        switch (type) {
+            case NOTIF_BRIGHTNESS_UPDATED:
+                memcpy(therapy_info->brightness, data_ptr, 6);
+                break;
+            case TIMER_STATE_NEW_THERAPY_BY_BUTTON:
+            case TIMER_STATE_NEW_THERAPY_BY_APP:
+            {
+                if(therapy_info->therapy_duration > 0) {
+                    ESP_LOGE(TAG, "Therapy with same therapy id is started more than once.");
+                    return false; 
+                }
+                if (therapy_id != ((entry_ptr[size_info.total_length - 7] << 8) | entry_ptr[size_info.total_length - 6])) {
+                    ESP_LOGE(TAG, "Wrong therapy id is saved.: %u", ((entry_ptr[size_info.total_length - 7] << 8) | entry_ptr[size_info.total_length - 6]));
+                    return false;
+                }
+                therapy_info->therapy_duration = (entry_ptr[size_info.total_length - 5] << 8) | entry_ptr[size_info.total_length - 4];
+                break;
+            }
+            case NOTIF_SHUT_DOWN_BY_BUTTON:
+            case NOTIF_THERAPY_STOPPED_BY_APP:
+            case NOTIF_THERAPY_COMPLETED:
+                therapy_info->is_over = DONE;
+                break;
+    
+            default:
+                break;
+        }
+
+        local_offset += size_info.total_length;
+    }
+
+    return true;
+}
+/*
+esp_err_t read_and_set_records(uint16_t therapy_id) {
+    uint32_t base_offset = (therapy_id % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
+    ESP_LOGI(TAG, "Start to read log of therapy_id: %u", therapy_id);
+
+    esp_err_t err = esp_partition_read(get_log_partition(), base_offset, therapy_slot_buffer, THERAPY_SLOT_SIZE);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to read slot at index %u: %s", therapy_id, esp_err_to_name(err));
+        return err;
+    }
+    init_fragments();
+
+    // Her kayıt tipi için bufferlar
+    uint8_t* measurements = malloc(THERAPY_SLOT_SIZE);
+    uint8_t* notifications = malloc(THERAPY_SLOT_SIZE);
+    uint8_t* brightness_updates = malloc(THERAPY_SLOT_SIZE);
+
+    if (!measurements || !notifications || !brightness_updates) {
+        ESP_LOGE(TAG, "Memory allocation failed");
+        return ESP_ERR_NO_MEM;
+    }
+
+    size_t count_measurements = 0;
+    size_t count_notifications = 0;
+    size_t count_brightness = 0;
+
+    uint16_t therapy_duration = 0;
+
+    uint32_t local_offset = 0;
+    while (local_offset < THERAPY_SLOT_SIZE) {
+        uint8_t type = therapy_slot_buffer[local_offset];
+        if (type == 0xFF) break;
+        
+        LogEntrySizeInfo size_info = get_log_entry_size_info(type);
+        if (local_offset + size_info.total_length > THERAPY_SLOT_SIZE) break;
+
+        const uint8_t first_data_byte_index = 1;
+        const uint8_t first_passed_duration_byte_index = first_data_byte_index + size_info.data_length;
+        const uint8_t* entry_ptr = &therapy_slot_buffer[local_offset];
+        const uint8_t* data_ptr = &entry_ptr[first_data_byte_index];  // type'ten sonra gelen data
+
+        switch (type) {
+            case MEASUREMENT_CHANGED:
+                if (count_measurements >= MAX_READ_LOGS_OF_MEASUREMENT) break;
+                uint8_t measurement_record_length = 4;
+
+                memcpy(&measurements[count_measurements * measurement_record_length], data_ptr, size_info.data_length); // data
+                measurements[count_measurements * measurement_record_length + size_info.data_length] = entry_ptr[first_passed_duration_byte_index]; // passed_seconds (1st byte)
+                measurements[count_measurements * measurement_record_length + size_info.data_length + 1] = entry_ptr[first_passed_duration_byte_index + 1]; // passed_seconds (2nd byte)
+                count_measurements++;
+
+                break;
+
+            case NOTIF_BRIGHTNESS_UPDATED:
+                if (count_brightness >= MAX_READ_LOGS_OF_BRIGHTNESS) break;
+                uint8_t brightness_record_length = 8;
+
+                memcpy(&brightness_updates[count_brightness * brightness_record_length], data_ptr, 6);
+                brightness_updates[count_brightness * brightness_record_length + size_info.data_length] = entry_ptr[first_passed_duration_byte_index];
+                brightness_updates[count_brightness * brightness_record_length + size_info.data_length + 1] = entry_ptr[first_passed_duration_byte_index + 1];
+                count_brightness++;
+
+                break;
+            case TIMER_STATE_NEW_THERAPY_BY_BUTTON:
+            case TIMER_STATE_NEW_THERAPY_BY_APP:
+            {
+                if(therapy_duration > 0) {
+                    ESP_LOGE(TAG, "Therapy with same therapy id is started more than once.");
+                    return ESP_FAIL; 
+                }
+                if (data_len != 4) break;
+                if (therapy_id != ((entry_ptr[entry_size - 7] << 8) | entry_ptr[entry_size - 6])) {
+                    ESP_LOGE(TAG, "Wrong therapy id is saved.: %u", ((entry_ptr[entry_size - 7] << 8) | entry_ptr[entry_size - 6]));
+                    //return ESP_FAIL; 
+                }
+                therapy_duration = (entry_ptr[entry_size - 5] << 8) | entry_ptr[entry_size - 4];
+
+                if (count_notifications >= MAX_READ_LOGS_OF_NOTIFICATION) break;
+                notifications[count_notifications * 3] = type;
+                notifications[count_notifications * 3 + 1] = entry_ptr[entry_size - 3]; // passed_seconds (1st byte)
+                notifications[count_notifications * 3 + 2] = entry_ptr[entry_size - 2]; // passed_seconds (2nd byte)
+                count_notifications++;
+                break;
+            }
+            default:
+                if (count_notifications >= MAX_READ_LOGS_OF_NOTIFICATION) break;
+                uint8_t notification_record_length = 3;
+
+                notifications[count_notifications * notification_record_length] = type; // hata var mı 
+                notifications[count_notifications * notification_record_length + 1] = entry_ptr[first_passed_duration_byte_index]; // passed_seconds
+                notifications[count_notifications * notification_record_length + 2] = entry_ptr[first_passed_duration_byte_index + 1]; // passed_seconds
+                count_notifications++;
+                break;
+        }
+
+        local_offset += size_info.total_length;
+    }
+
+    if(therapy_duration == 0) {
+        ESP_LOGE(TAG, "Therapy start log is not found.");
+        return ESP_FAIL; 
+    }
+    ESP_LOGI(TAG, "Continue to read log of therapy_id: %u", therapy_id);
+
+    start_encoding_for_new_therapy(therapy_id, therapy_duration, 0);
+
+    if (count_measurements > 0) {
+        ESP_LOGI(TAG, "aaaa, count_measurements: %u", count_measurements);
+        encode_records_of_therapy(therapy_id, 0x03, 4, count_measurements, measurements);
+    }
+    if (count_notifications > 0) {
+        ESP_LOGI(TAG, "bbbb, count_notifications: %u", count_notifications);
+        encode_records_of_therapy(therapy_id, 0x04, 3, count_notifications, notifications);
+    }
+    if (count_brightness > 0) {
+        ESP_LOGI(TAG, "cccc, count_brightness: %u", count_brightness);
+        encode_records_of_therapy(therapy_id, 0x05, 8, count_brightness, brightness_updates);
+    }
+    ESP_LOGI(TAG, "Finish to read log of therapy_id: %u", therapy_id);
+
+    free(measurements);
+    free(notifications);
+    free(brightness_updates);
+
+    return ESP_OK;
 }
 
 
-    /*
-    if(type == PASSED_DURATION_UPDATED) {
-        uint16_t last_saved_duration;
+*/
 
-        esp_err_t err = esp_partition_read(get_log_partition(), offset + local_offset - 3, &last_saved_duration, 2);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to read last saved duration");
-            return err;
-        }    
-        uint16_t new_duration = ((entry[size - 3] << 8) | entry[size - 2]);
-    
-        if (new_duration < last_saved_duration + 10) {
-            ESP_LOGW(TAG, "There is no need to save time now. (Δt too small)");
-            return ESP_ERR_INVALID_STATE;
-        }
+//İstenilen flash slotunda istenilen log var mı diye kontrol edilir.
+//Örneğin bir slot tamamlanmış mı (yani THERAPY_COMPLETED log'u var mı) diye anlamak için.
+/*
+static bool does_slot_contain_entry(uint32_t base_offset, uint8_t type_of_entry) {
+    uint32_t local_offset = 0;
+
+    esp_err_t err = esp_partition_read(get_log_partition(), base_offset, therapy_slot_buffer, THERAPY_SLOT_SIZE);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to read therapy slot: %s", esp_err_to_name(err));
+        return false;
     }
-    */
+
+    while (local_offset < THERAPY_SLOT_SIZE) {
+        uint8_t type = therapy_slot_buffer[local_offset];
+
+        if (type == 0xFF) break;
+
+        if (type == type_of_entry) return true;
+
+        size_t size = get_log_entry_size(type);
+        if (size == 0 || local_offset + size > THERAPY_SLOT_SIZE) break;
+
+        local_offset += size;
+    }
+
+    return false;
+}
+
+*/
+

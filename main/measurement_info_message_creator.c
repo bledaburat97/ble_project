@@ -32,7 +32,7 @@ static void add_and_send_measurement_info(uint8_t temperature) {
     }
 
     size_t len = strlen(json_str);
-    send_info_message(MEASUREMENT_INFO_MESSAGE, (uint8_t*)json_str, len, message.message_id);
+    send_info_message_to_queue(MEASUREMENT_INFO_MESSAGE, (uint8_t*)json_str, len, message.message_id);
 
     free(json_str);
 }
@@ -49,5 +49,4 @@ static void on_temperature_update(uint8_t temperature) {
 void init_measurement_info_message_creator() {
     register_device_info_feedback_callback(on_device_info_feedback_callback);
     register_temperature_update(on_temperature_update);
-
 }

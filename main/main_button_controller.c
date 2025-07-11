@@ -39,11 +39,25 @@ void wait_for_button_to_sleep(void *pvParameters) {
                     enter_deep_sleep();
                 } else {
                     if(get_device_state() == STATE_INACTIVE) {
-                        start_therapy(false);
+                        if(is_inactivity_timer_running()) {
+                            stop_inactivity_timer();
+                            start_therapy(false);
+                            set_device_state(STATE_ACTIVE);
+                        }
+                        else{
+                            //ERROR
+                        }
                     }
                     else if(get_device_state() == STATE_ACTIVE) {
+                        if(is_therapy_timer_running()) {
+                            stop_therapy_timer();
+                            start_inactivity_timer();
+                            set_device_state(STATE_INACTIVE);
+                        }
+                        else{
+                            //ERROR
+                        }
                         add_and_send_notification_info(NOTIF_THERAPY_PAUSED_BY_BUTTON);
-                        start_inactivity_timer();
                         update_passed_therapy_duration();
                     }
                 }

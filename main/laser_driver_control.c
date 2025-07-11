@@ -4,7 +4,6 @@
 #include "string.h"
 #include "driver/gpio.h"
 #include "state_manager.h"
-#include "timer_management.h"
 
 #define LP5036_ADDRESS_1 0x30   // I2C address for the first LP5036
 #define LP5036_ADDRESS_2 0x31   // I2C address for the second LP5036
@@ -178,7 +177,7 @@ void set_brightness_of_region(uint8_t region_id, uint8_t brightness_percentage)
     }
 }
 
-static void set_laser_drivers_status(bool status)
+void set_laser_drivers_status(bool status)
 {
     for(uint8_t lp5036_index = 0; lp5036_index < NUM_OF_LP5036; lp5036_index++){
         uint8_t chip_en = status ? 0x40 : 0x00;
@@ -212,7 +211,7 @@ static void initialize_laser_driver_gpio(){
     ESP_LOGI(LASER_TAG, "Gpio is initialized successfully.");
 }
 
-static void set_laser_drivers_gpio_pin_status(bool status) {
+void set_laser_drivers_gpio_pin_status(bool status) {
     for(int laser_driver_index = 0; laser_driver_index < NUM_OF_LP5036; laser_driver_index++) {
         gpio_set_level(LASER_DRIVER_GPIO[laser_driver_index], status);
     }
@@ -253,45 +252,11 @@ void set_brightness(RegionStatusChangedInfo *region_status_changed_infos, uint8_
 }
 */
 
-static void on_state_changed(DeviceState new_state) {
-    if (new_state == STATE_TEMPERATURE_ALERT) {
-        set_laser_drivers_status(false);
-    }
-    else if (new_state == STATE_INACTIVE) {
-        if (get_helmet_state()) {
-            set_laser_drivers_status(true); //lazeri çalıştırmak demek değil. lazerin çalışabilir durumda olması.
-        }
-    }
-}
-
-static void on_helmet_state_changed(bool helmet_state){
-    if (helmet_state) {
-        if (get_device_state() == STATE_INACTIVE) {
-            set_laser_drivers_status(true);
-        }
-    }
-    else {
-        if (get_device_state() == STATE_ACTIVE) {
-            set_laser_drivers_status(false);
-        }
-    }
-}
-
-
 void initialize_laser_drivers() 
 {
     initialize_laser_driver_gpio();
     set_laser_drivers_gpio_pin_status(false);
-    set_laser_drivers_status(true);
+    set_laser_drivers_status(false);
     vTaskDelay(pdMS_TO_TICKS(100));
     set_banked_leds();
-    register_state_change_callback(on_state_changed);
-    register_helmet_state_change_callback(on_helmet_state_changed);
-}
-
-void stop_lasers()
-{
-    set_laser_drivers_status(false);
-    set_laser_drivers_gpio_pin_status(false);
-    start_inactivity_timer();
 }

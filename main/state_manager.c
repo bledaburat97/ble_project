@@ -17,11 +17,9 @@ static DeviceState current_state = STATE_IDLE;
 static bool helmet_state = false;
 static SemaphoreHandle_t state_mutex = NULL;
 static state_change_callback state_listeners[MAX_STATE_LISTENERS];
-static helmet_state_change_callback helmet_state_listeners[MAX_STATE_LISTENERS];
 QueueHandle_t state_event_queue;
 
 static int state_listener_count = 0;
-static int helmet_state_listener_count = 0;
 
 const char* get_device_state_str(DeviceState state) {
     switch (state) {
@@ -29,7 +27,6 @@ const char* get_device_state_str(DeviceState state) {
         case STATE_HUMIDITY_ALERT: return "HumidityAlert";
         case STATE_ACTIVE: return "Active";
         case STATE_INACTIVE: return "Inactive";
-        case STATE_START: return "Start";
         case STATE_IDLE: return "Idle";
         default: return "Invalid";
     }
@@ -67,19 +64,15 @@ void init_state_manager() {
     xTaskCreatePinnedToCore(state_event_dispatcher_task, "state_dispatcher", 3072, NULL, 5, NULL, tskNO_AFFINITY);
 }
 
-void set_helmet_state(bool state) {
+bool set_helmet_state(bool state) {
     if (xSemaphoreTake(state_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
         helmet_state = state;
         ESP_LOGI(TAG, "Helmet state changed: %s", helmet_state ? "TRUE": "FALSE");
-        
-        for (int i = 0; i < helmet_state_listener_count; i++) {
-            if (helmet_state_listeners[i]) {
-                helmet_state_listeners[i](helmet_state);
-            }
-        }
 
         xSemaphoreGive(state_mutex);
+        return true;
     }
+    return false;
 }
 
 void set_device_state(DeviceState new_state) {
@@ -138,15 +131,6 @@ void register_state_change_callback(state_change_callback callback) {
     if (state_listener_count < MAX_STATE_LISTENERS) {
         state_listeners[state_listener_count++] = callback;
         ESP_LOGI(TAG, "Registered state change listener (%d total)", state_listener_count);
-    } else {
-        ESP_LOGW(TAG, "Max state change listeners reached.");
-    }
-}
-
-void register_helmet_state_change_callback(helmet_state_change_callback callback) {
-    if (helmet_state_listener_count < MAX_STATE_LISTENERS) {
-        helmet_state_listeners[helmet_state_listener_count++] = callback;
-        ESP_LOGI(TAG, "Registered helmet state change listener (%d total)", helmet_state_listener_count);
     } else {
         ESP_LOGW(TAG, "Max state change listeners reached.");
     }

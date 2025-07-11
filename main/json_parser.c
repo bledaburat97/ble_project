@@ -10,9 +10,6 @@
 #include "laser_driver_control.h"
 #include "json_parser.h"
 
-static const char *JsonTAG = "JsonParser";
-
-
 bool decode_activation_message(const char* json_str, ActivationMessage* out_msg) {
     if (json_str == NULL || out_msg == NULL) return false;
 
@@ -101,6 +98,27 @@ bool decode_feedback_message(const char* json_str, FeedbackMessage* out_msg) {
     }
 
     out_msg->message_id = (uint8_t)message_id->valuedouble;
+
+    cJSON_Delete(root);
+    return true;
+}
+
+bool decode_records_feedback_message(const char* json_str, RecordsFeedbackMessage* out_msg) {
+    if (json_str == NULL || out_msg == NULL) return false;
+
+    cJSON *root = cJSON_Parse(json_str);
+    if (root == NULL) return false;
+
+    cJSON *id = cJSON_GetObjectItem(root, "therapy_id");
+    cJSON *success = cJSON_GetObjectItem(root, "is_success");
+
+    if (!cJSON_IsNumber(id) || !cJSON_IsNumber(success)) {
+        cJSON_Delete(root);
+        return false;
+    }
+
+    out_msg->therapy_id = (uint16_t)id->valuedouble;
+    out_msg->is_success = (bool) id->valueint > 0;
 
     cJSON_Delete(root);
     return true;

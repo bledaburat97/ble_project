@@ -39,7 +39,6 @@ typedef enum {
     BLE_CONNECTED,
     BLE_DISCONNECTED,
     MEASUREMENT_CHANGED,
-    INACTIVITY_TIMER_STARTED,
     HIGH_PROX_DETECTED_1,
     LOW_PROX_DETECTED_1,
     HIGH_PROX_DETECTED_2,
@@ -51,47 +50,17 @@ typedef enum {
     TEST,
 } NotificationType;
 
-// RTC time save event
-typedef struct {
-    uint8_t type;
-    uint8_t timestamp[5];
-    uint16_t passed_seconds;
-    uint8_t crc;
-} __attribute__((packed)) Time_saved_t;
-
-// Therapy start or continuation event
-typedef struct {
-    uint8_t type;
-    uint16_t therapy_id;
-    uint16_t therapy_duration;
-    uint16_t passed_seconds;
-    uint8_t crc;
-} __attribute__((packed)) Therapy_initialization_t;
-
-
-// MEASUREMENT_CHANGED event
-typedef struct {
-    uint8_t type;
-    uint8_t temperature;
-    uint8_t humidity;
-    uint16_t passed_seconds;
-    uint8_t crc;
-} __attribute__((packed)) Measurement_changed_t;
-
-// REGIONS_BRIGHTNESS_UPDATED event
-typedef struct {
-    uint8_t type;
-    uint8_t region_brightnesses[6];
-    uint16_t passed_seconds;
-    uint8_t crc;
-} __attribute__((packed)) Regions_updated_t;
-
 // General notification event (all others)
 typedef struct {
     uint8_t type;
     uint16_t passed_seconds;
     uint8_t crc;
 } __attribute__((packed)) Notification_t;
+
+typedef struct {
+    uint8_t total_length;
+    uint8_t data_length;
+} __attribute__((packed)) LogEntrySizeInfo;
 
 typedef struct {
     uint8_t type;

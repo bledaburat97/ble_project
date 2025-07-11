@@ -5,7 +5,7 @@
 #include "string.h"
 #include "driver/gpio.h"
 #include "state_manager.h"
-#include "timer_management.h"
+#include "general_manager.h"
 
 static const char *TAG = "TemperatureAlarm";
 
@@ -44,9 +44,7 @@ void monitor_alert_task(void *param) {
             if (current_level[i] != prev_level[i]) {
                 if(current_level[i] != normal_pin_status)
                 {
-                    if (get_device_state() != STATE_TEMPERATURE_ALERT){
-                        start_alert_timer(i);
-                    }
+                    throw_alert_for_temperature(i);
                     ESP_LOGI(TAG, "Temperature ALERT is triggered");
                 }
                 else

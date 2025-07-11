@@ -25,8 +25,8 @@ uint8_t calculate_crc8(const uint8_t *data, size_t length) {
 
 BaseLogEntry fill_base_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t passed_seconds) {
     BaseLogEntry log;
-    if(data_len != get_log_entry_size(type) - 4) {
-        ESP_LOGE(TAG, "Wrong data length!, data_len: %u, entry_size: %u", data_len, get_log_entry_size(type));
+    if(data_len != get_log_entry_size_info(type).data_length) {
+        ESP_LOGE(TAG, "Wrong data length!, data_len: %u, entry_size: %u", data_len, get_log_entry_size_info(type).total_length);
         log.entry_size = 0;
         return log;
     }
@@ -98,20 +98,38 @@ esp_err_t init_log_writer() {
     return ESP_OK;
 }
 
-size_t get_log_entry_size(uint8_t type) {
+LogEntrySizeInfo get_log_entry_size_info(uint8_t type) {
+    //1 byte type
+    //? byte data
+    //2 byte passed_sec
+    //1 byte crc
+    LogEntrySizeInfo size_info;
     switch (type) {
-        case NOTIF_BRIGHTNESS_UPDATED:   return sizeof(Regions_updated_t);
-        case MEASUREMENT_CHANGED:  return sizeof(Measurement_changed_t);
+        case NOTIF_BRIGHTNESS_UPDATED:
+            size_info.total_length = 10;
+            size_info.data_length = 6; //uint8_t region_brightnesses[6];
+            break;
+        case MEASUREMENT_CHANGED:
+            size_info.total_length = 6;
+            size_info.data_length = 2; //uint8_t temperature;uint8_t humidity;
+            break;
         case TIMER_STATE_NEW_THERAPY_BY_BUTTON:
         case TIMER_STATE_NEW_THERAPY_BY_APP:
         case TIMER_STATE_CONTINUE_THERAPY_BY_BUTTON:
-        case TIMER_STATE_CONTINUE_THERAPY_BY_APP:{
-            return sizeof(Therapy_initialization_t);
-        }
-        case RTC_TIME_SAVED:  return sizeof(Time_saved_t);
-        case TEST: return 5004;
-        default: return sizeof(Notification_t);
+        case TIMER_STATE_CONTINUE_THERAPY_BY_APP:
+            size_info.total_length = 8;
+            size_info.data_length = 4; //uint16_t therapy_id;uint16_t therapy_duration;
+            break;
+        case RTC_TIME_SAVED:
+            size_info.total_length = 9;
+            size_info.data_length = 5; //uint8_t timestamp[5];
+            break;
+        default: 
+            size_info.total_length = 4;
+            size_info.data_length = 0;
+            break;
     }
+    return size_info;
 }
 
 const esp_partition_t* get_log_partition() {

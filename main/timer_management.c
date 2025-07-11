@@ -20,15 +20,18 @@ static const char *TAG = "TimerManagement";
 static time_t last_updated_passed_duration_time = 0;
 static TimerHandle_t therapy_timer = NULL;
 static TimerHandle_t inactivity_timer = NULL;
-static TimerHandle_t alarm_timer = NULL;
+static TimerHandle_t alert_timer = NULL;
 
 static uint16_t passed_duration = 0;
 static uint16_t active_therapy_duration = DEFAULT_THERAPY_DURATION;
 
-static void (*timer_start_callback)(NotificationType) = NULL;
+static void (*timer_state_change_callback)(NotificationType) = NULL;
 static void (*timer_end_callback)(NotificationType) = NULL;
+static void (*timer_start_callback)(DeviceState) = NULL;
+static TimerHandle_t update_watchdog_timer = NULL;
+static const uint32_t WATCHDOG_TIMEOUT_MS = 10 * 1000; // 10 saniye
 
-static bool is_inactivity_timer_running()
+bool is_inactivity_timer_running()
 {
     if (inactivity_timer == NULL)
     {
@@ -38,7 +41,7 @@ static bool is_inactivity_timer_running()
     return true;
 }
 
-static bool is_therapy_timer_running()
+bool is_therapy_timer_running()
 {
     if (therapy_timer == NULL)
     {
@@ -48,9 +51,9 @@ static bool is_therapy_timer_running()
     return true;
 }
 
-static bool is_alarm_timer_running()
+bool is_alert_timer_running()
 {
-    if (alarm_timer == NULL)
+    if (alert_timer == NULL)
     {
         ESP_LOGI(TAG, "Alarm timer is null!");
         return false;
@@ -59,66 +62,67 @@ static bool is_alarm_timer_running()
 }
 
 static void therapy_timer_expiry_callback(TimerHandle_t xTimer) {
-    ESP_LOGI(TAG, "Therapy timer expired!");
     if (timer_end_callback) {
         timer_end_callback(NOTIF_THERAPY_COMPLETED);
     }
-    start_inactivity_timer();
-    reset_passed_therapy_duration();
 }
 
-static void stop_inactivity_timer() {
+bool stop_inactivity_timer() {
     if(stop_and_delete_timer(&inactivity_timer)){
         ESP_LOGI(TAG, "Inactivity timer is stopped.");
-        set_device_state(STATE_IDLE);
+        return true;
     }
     else{
         ESP_LOGI(TAG, "Inactivity timer can not be stopped.");
+        return false;
     }
 }
 
-static void stop_therapy_timer()
+bool stop_therapy_timer()
 {
     if(stop_and_delete_timer(&therapy_timer)){
         ESP_LOGI(TAG, "Therapy timer is stopped.");
-        set_device_state(STATE_IDLE);
+        return true;
     }
     else{
         ESP_LOGI(TAG, "Therapy timer can not be stopped.");
+        return false;
+    }
+}
+
+bool stop_alert_timer()
+{
+    if(stop_and_delete_timer(&alert_timer)){
+        ESP_LOGI(TAG, "Alert timer is stopped.");
+        return true;
+    }
+    else{
+        ESP_LOGI(TAG, "Alert timer can not be stopped.");
+        return false;
     }
 }
 
 static void start_therapy_timer(uint16_t duration) {
-    if(is_alarm_timer_running()) {
-        ESP_LOGE(TAG, "Alarm timer wasn't stopped.");
-        return;
-    }
-
-    if(is_inactivity_timer_running()) {
-        stop_inactivity_timer();
-    }
-
     therapy_timer = create_and_start_timer(STATE_ACTIVE, duration * 1000, therapy_timer_expiry_callback);
-    
-    set_device_state(STATE_ACTIVE);
+    if(timer_start_callback) {
+        timer_start_callback(STATE_ACTIVE);
+    }
 
     last_updated_passed_duration_time = time(NULL);
 }
 
-void start_new_therapy(uint16_t duration) {
-    if(is_therapy_timer_running()) {
-        stop_therapy_timer();
-    }
-    active_therapy_duration = duration;
+static void stop_duration_update_watchdog_timer() {
+    xTimerStop(update_watchdog_timer, 0);
+    xTimerDelete(update_watchdog_timer, 0);
+    update_watchdog_timer = NULL;
+}
 
+void start_new_therapy(uint16_t duration) {
+    active_therapy_duration = duration;
     start_therapy_timer(duration);
 }
 
 void start_therapy(bool is_by_app) {
-    if(is_therapy_timer_running()) {
-        ESP_LOGE(TAG, "There shouldn't have been an active therapy.");
-        return;
-    }
     if(passed_duration >= active_therapy_duration) {
         ESP_LOGE(TAG, "Passed duration: %u is more than therapy duration: %u", passed_duration, active_therapy_duration);
         return;
@@ -126,9 +130,9 @@ void start_therapy(bool is_by_app) {
     uint16_t duration = active_therapy_duration - passed_duration; //TODO: passed_duration'ın 5 dk cihaz çalıştıtılmazsa sıfırlanması lazım.
     start_therapy_timer(duration);
     if(passed_duration == 0) {
-        if (timer_start_callback) {
+        if (timer_state_change_callback) {
             if(!is_by_app) {
-                timer_start_callback(TIMER_STATE_NEW_THERAPY_BY_BUTTON);
+                timer_state_change_callback(TIMER_STATE_NEW_THERAPY_BY_BUTTON);
             }
             else{
                 ESP_LOGE(TAG, "App does not start default therapy.");
@@ -136,28 +140,24 @@ void start_therapy(bool is_by_app) {
         }
     }
     else {
-        if (timer_start_callback) {
+        if (timer_state_change_callback) {
             if(!is_by_app) {
-                timer_start_callback(TIMER_STATE_CONTINUE_THERAPY_BY_BUTTON);
+                timer_state_change_callback(TIMER_STATE_CONTINUE_THERAPY_BY_BUTTON);
             }
             else{
-                timer_start_callback(TIMER_STATE_CONTINUE_THERAPY_BY_APP);
+                timer_state_change_callback(TIMER_STATE_CONTINUE_THERAPY_BY_APP);
             }
         }
     }
 }
 
 static void inactivity_timer_expiry_callback(TimerHandle_t xTimer) {
-    ESP_LOGI(TAG, "Inactivity timer expired!");
-    stop_inactivity_timer();
     if (timer_end_callback) {
         timer_end_callback(NOTIF_INACTIVITY_TIMER_EXPIRED);
     }
-    enter_deep_sleep();
 }
 
 static void alert_timer_expiry_callback(TimerHandle_t xTimer) {
-    set_device_state(STATE_START);
     if (timer_end_callback) {
         timer_end_callback(NOTIF_ALERT_TIMER_EXPIRED);
     }
@@ -167,55 +167,49 @@ void register_timer_end_callback(void (*callback)(NotificationType)) {
     timer_end_callback = callback;
 }
 
-void register_timer_start_callback(void (*callback)(NotificationType)) {
+void register_timer_state_change_callback(void (*callback)(NotificationType)) {
+    timer_state_change_callback = callback;
+}
+
+void register_timer_start_callback(void (*callback)(DeviceState)) {
     timer_start_callback = callback;
 }
 
 void start_alert_timer(int sensor_index) {
-    if (!alarm_timer) {
-        alarm_timer = create_and_start_timer(STATE_TEMPERATURE_ALERT, ALARM_THRESHOLD_SECONDS * 1000, alert_timer_expiry_callback);
+    if (!alert_timer) {
+        alert_timer = create_and_start_timer(STATE_TEMPERATURE_ALERT, ALARM_THRESHOLD_SECONDS * 1000, alert_timer_expiry_callback);
+        if(timer_start_callback) {
+            timer_start_callback(STATE_TEMPERATURE_ALERT);
+        }
     }
     set_device_state(STATE_TEMPERATURE_ALERT);
-    if (timer_start_callback) {
+    if (timer_state_change_callback) {
         if(sensor_index == 0){
-            timer_start_callback(TIMER_STATE_HIGH_TEMP_ALERT_1);
+            timer_state_change_callback(TIMER_STATE_HIGH_TEMP_ALERT_1);
         }
         else if(sensor_index == 1){
-            timer_start_callback(TIMER_STATE_HIGH_TEMP_ALERT_2);
+            timer_state_change_callback(TIMER_STATE_HIGH_TEMP_ALERT_2);
         }
         else if(sensor_index == 2){
-            timer_start_callback(TIMER_STATE_HIGH_TEMP_ALERT_3);
+            timer_state_change_callback(TIMER_STATE_HIGH_TEMP_ALERT_3);
         }
     }
+    stop_duration_update_watchdog_timer();
 }
 
-void start_inactivity_timer() {
-    if(is_alarm_timer_running()) {
-        ESP_LOGE(TAG, "Alarm timer wasn't stopped.");
-        return;
-    }
-
-    if(is_therapy_timer_running()) {
-        stop_therapy_timer();
-    }
-
+bool start_inactivity_timer() {
     if (!inactivity_timer) {
         inactivity_timer = create_and_start_timer(STATE_INACTIVE, INACTIVITY_THRESHOLD_SECONDS * 1000, inactivity_timer_expiry_callback);
-    }
-    ESP_LOGI(TAG, "Set state as inactive.");
-    set_device_state(STATE_INACTIVE);
-    if (timer_start_callback) {
-        timer_start_callback(INACTIVITY_TIMER_STARTED);
-    }
-}
-    
-static void on_helmet_state_changed(bool helmet_state) {
-    if (!helmet_state) {
-        if (get_device_state() == STATE_ACTIVE) {
-            start_inactivity_timer();
-            update_passed_therapy_duration();
+        if(timer_start_callback) {
+            timer_start_callback(STATE_INACTIVE);
         }
     }
+    ESP_LOGI(TAG, "Set state as inactive.");
+    if (timer_state_change_callback) {
+        timer_state_change_callback(TIMER_STATE_INACTIVE);
+    }
+    stop_duration_update_watchdog_timer();
+    return true;
 }
 
 void reset_passed_therapy_duration() {
@@ -223,6 +217,12 @@ void reset_passed_therapy_duration() {
     passed_duration = 0;
     active_therapy_duration = DEFAULT_THERAPY_DURATION;
     last_updated_passed_duration_time = 0;
+}
+
+static void update_watchdog_timeout_callback(TimerHandle_t xTimer) {
+    if(get_device_state() == STATE_ACTIVE) {
+        add_notification_log(PASSED_DURATION_UPDATED, get_passed_duration());
+    }
 }
 
 void update_passed_therapy_duration() {
@@ -245,12 +245,30 @@ void update_passed_therapy_duration() {
 
     passed_duration += time_diff;
     last_updated_passed_duration_time = current_time;
+
+    if(get_device_state() == STATE_ACTIVE) {
+        if (update_watchdog_timer == NULL) {
+            update_watchdog_timer = xTimerCreate(
+                "UpdateWatchdog",
+                pdMS_TO_TICKS(WATCHDOG_TIMEOUT_MS),
+                pdFALSE,
+                NULL,
+                update_watchdog_timeout_callback
+            );
+        }
+
+        // Timer zaten var mı? Yeniden başlat
+        if (xTimerIsTimerActive(update_watchdog_timer)) {
+            xTimerStop(update_watchdog_timer, 0);
+        }
+
+        xTimerStart(update_watchdog_timer, 0);
+    }
 }
 
 void init_timer_manager()
 {
     reset_passed_therapy_duration();
-    register_helmet_state_change_callback(on_helmet_state_changed);
 }
 
 uint16_t get_passed_duration(){

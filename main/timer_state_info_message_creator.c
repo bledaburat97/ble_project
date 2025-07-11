@@ -34,7 +34,7 @@ static void on_device_info_feedback_callback() {
         message.therapy_id = 0;
     }
     else if(device_state == STATE_TEMPERATURE_ALERT) {
-        message.type = TIMER_STATE_LOW_TEMP_ALERT_1; //TODO: hangi sensörde hata varsa o olacak.
+        message.type = TIMER_STATE_HIGH_TEMP_ALERT_1; //TODO: hangi sensörde hata varsa o olacak.
         message.duration = 0; //TODO get remaining duration of alert;
         message.therapy_id = 0;
     }
@@ -60,7 +60,7 @@ static void on_device_info_feedback_callback() {
     }
 
     size_t len = strlen(json_str);
-    send_info_message(TIMER_STATE_INFO_MESSAGE, (uint8_t*)json_str, len, message.message_id);
+    send_info_message_to_queue(TIMER_STATE_INFO_MESSAGE, (uint8_t*)json_str, len, message.message_id);
 
     if(message.type == TIMER_STATE_ACTIVE_THERAPY || message.type == TIMER_STATE_PAUSED_THERAPY) {
         if(active_or_paused_therapy_callback) {
@@ -71,7 +71,7 @@ static void on_device_info_feedback_callback() {
 }
 
 
-static void add_and_send_new_other_state_info(NotificationType notification_type) {
+void add_and_send_new_other_state_info(NotificationType notification_type) {
     uint16_t passed_seconds = get_passed_duration();
     add_notification_log(notification_type, passed_seconds);
 
@@ -89,12 +89,12 @@ static void add_and_send_new_other_state_info(NotificationType notification_type
     }
 
     size_t len = strlen(json_str);
-    send_info_message(TIMER_STATE_INFO_MESSAGE, (uint8_t*)json_str, len, message.message_id);
+    send_info_message_to_queue(TIMER_STATE_INFO_MESSAGE, (uint8_t*)json_str, len, message.message_id);
 
     free(json_str);
 }
 
-static void add_and_send_new_therapy_state_info(NotificationType notification_type) {
+void add_and_send_new_therapy_state_info(NotificationType notification_type) {
     uint16_t therapy_id = 0; //URGENT
     uint16_t therapy_duration = 0; //URGENT
     uint16_t passed_seconds = get_passed_duration();
@@ -115,42 +115,15 @@ static void add_and_send_new_therapy_state_info(NotificationType notification_ty
     }
 
     size_t len = strlen(json_str);
-    send_info_message(TIMER_STATE_INFO_MESSAGE, (uint8_t*)json_str, len, message.message_id);
+    send_info_message_to_queue(TIMER_STATE_INFO_MESSAGE, (uint8_t*)json_str, len, message.message_id);
 
     free(json_str);
-}
-
-static void on_timer_start(NotificationType notification_type) {
-
-    switch(notification_type) {
-        case TIMER_STATE_INACTIVE:
-            add_and_send_new_other_state_info(notification_type);
-            break;
-        case TIMER_STATE_NEW_THERAPY_BY_BUTTON:
-        case TIMER_STATE_NEW_THERAPY_BY_APP:
-        case TIMER_STATE_CONTINUE_THERAPY_BY_BUTTON:
-        case TIMER_STATE_CONTINUE_THERAPY_BY_APP:
-            add_and_send_new_therapy_state_info(notification_type);
-            break;
-        case TIMER_STATE_LOW_TEMP_ALERT_1:
-        case TIMER_STATE_HIGH_TEMP_ALERT_1:
-        case TIMER_STATE_LOW_TEMP_ALERT_2:
-        case TIMER_STATE_HIGH_TEMP_ALERT_2:
-        case TIMER_STATE_LOW_TEMP_ALERT_3:
-        case TIMER_STATE_HIGH_TEMP_ALERT_3:
-            add_and_send_new_other_state_info(notification_type);
-            break;
-        default:
-            ESP_LOGE(TAG, "This notification type: %u shouldn't have start a timer.", notification_type);
-    }
 }
 
 void register_active_or_paused_therapy_info(void (*callback)()) {
     active_or_paused_therapy_callback = callback;
 }
 
-
 void init_timer_state_info_message_creator() {
-    register_timer_start_callback(on_timer_start);
     register_device_info_feedback_callback(on_device_info_feedback_callback);
 }

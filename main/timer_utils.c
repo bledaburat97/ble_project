@@ -34,7 +34,6 @@ bool stop_and_delete_timer(TimerHandle_t* timer) {
         }
         else {
             ESP_LOGE(TAG, "Failed to stop timer.");
-            return false;
         }
         if (xTimerDelete(*timer, 0) == pdPASS) {
             ESP_LOGI(TAG, "Timer deleted");

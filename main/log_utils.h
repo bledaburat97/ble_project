@@ -18,7 +18,7 @@ uint8_t calculate_crc8(const uint8_t *data, size_t length);
 BaseLogEntry fill_base_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t passed_seconds);
 esp_err_t init_log_writer();
 const esp_partition_t* get_log_partition();
-size_t get_log_entry_size(uint8_t type);
+LogEntrySizeInfo get_log_entry_size_info(uint8_t type);
 
 #ifdef __cplusplus
 }

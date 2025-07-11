@@ -1,0 +1,146 @@
+#include "state_manager.h"
+#include "temperature_alarm_control.h"
+#include "deep_sleep_manager.h"
+#include "timer_management.h"
+#include "notification_info_message_creator.h"
+#include "esp_log.h"
+#include "laser_driver_control.h"
+#include "timer_state_info_message_creator.h"
+
+static const char *TAG = "GeneralManager";
+
+static void on_state_changed(DeviceState new_state){
+    if (new_state == STATE_TEMPERATURE_ALERT) {
+        set_laser_drivers_gpio_pin_status(false);
+        set_laser_drivers_status(false);
+    }
+    else if (new_state == STATE_INACTIVE) {
+        if (get_helmet_state()) {
+            set_laser_drivers_gpio_pin_status(false);
+            set_laser_drivers_status(true); //lazeri çalıştırmak demek değil. lazerin çalışabilir durumda olması.
+        }
+    }
+    else if (new_state == STATE_ACTIVE) {
+        set_laser_drivers_gpio_pin_status(true);
+    }
+}
+
+void start_device() {
+    if(check_alert_status()) {
+        enter_deep_sleep();
+    }
+    else{
+        if(start_inactivity_timer()) {
+            set_device_state(STATE_INACTIVE);
+        }
+    }
+}
+
+static void on_timer_end(NotificationType notification_type) {
+    if(notification_type == NOTIF_ALERT_TIMER_EXPIRED)
+    {
+        add_and_send_notification_info(notification_type);
+        if(check_alert_status()) {
+            enter_deep_sleep();
+        }
+        else{
+            if(is_alert_timer_running()) {
+                stop_alert_timer();
+                start_inactivity_timer();
+                set_device_state(STATE_INACTIVE);
+            }
+            else {
+                //ERROR
+            }
+        }
+    }
+    else if(notification_type == NOTIF_INACTIVITY_TIMER_EXPIRED) {
+        ESP_LOGI(TAG, "Inactivity timer expired!");
+        if (!stop_inactivity_timer()) {
+            return;
+        }
+        set_device_state(STATE_IDLE);
+        add_and_send_notification_info(notification_type);
+        enter_deep_sleep();
+    }
+
+    else if(notification_type == NOTIF_THERAPY_COMPLETED) {
+        ESP_LOGI(TAG, "Therapy timer expired!");
+        
+        if(is_therapy_timer_running()) {
+            stop_therapy_timer();
+            start_inactivity_timer();
+            set_device_state(STATE_INACTIVE);
+        }
+        else {
+            //ERROR
+        }
+
+        reset_passed_therapy_duration();
+        add_and_send_notification_info(notification_type);
+    }
+}
+
+void change_helmet_state(bool helmet_state) {
+    if(!set_helmet_state(helmet_state)){
+        ESP_LOGE(TAG, "Helmet state can not be set.");
+    }
+
+    if (helmet_state) {
+        add_and_send_notification_info(NOTIF_HELMET_ON);
+    }
+    else {
+        if (get_device_state() == STATE_ACTIVE) {
+            if(is_therapy_timer_running()) {
+                stop_therapy_timer();
+                start_inactivity_timer();
+                set_device_state(STATE_INACTIVE);
+            }
+            else {
+                //ERROR
+            }
+            update_passed_therapy_duration();
+        }
+        add_and_send_notification_info(NOTIF_HELMET_OFF);
+    }
+}
+
+void throw_alert_for_temperature(uint8_t sensor_index) {
+    if (get_device_state() != STATE_TEMPERATURE_ALERT){
+        start_alert_timer(sensor_index);
+    }
+}
+
+static void on_timer_start(NotificationType notification_type) {
+
+    switch(notification_type) {
+        case TIMER_STATE_INACTIVE:
+            add_and_send_new_other_state_info(notification_type);
+            break;
+        case TIMER_STATE_NEW_THERAPY_BY_BUTTON:
+        case TIMER_STATE_NEW_THERAPY_BY_APP:
+        case TIMER_STATE_CONTINUE_THERAPY_BY_BUTTON:
+        case TIMER_STATE_CONTINUE_THERAPY_BY_APP:
+            add_and_send_new_therapy_state_info(notification_type);
+            break;
+        case TIMER_STATE_LOW_TEMP_ALERT_1:
+        case TIMER_STATE_HIGH_TEMP_ALERT_1:
+        case TIMER_STATE_LOW_TEMP_ALERT_2:
+        case TIMER_STATE_HIGH_TEMP_ALERT_2:
+        case TIMER_STATE_LOW_TEMP_ALERT_3:
+        case TIMER_STATE_HIGH_TEMP_ALERT_3:
+            add_and_send_new_other_state_info(notification_type);
+            break;
+        default:
+            ESP_LOGE(TAG, "This notification type: %u shouldn't have start a timer.", notification_type);
+    }
+}
+
+void init_general_manager()
+{
+    init_state_manager();
+    init_timer_manager();
+    register_state_change_callback(on_state_changed);
+    register_timer_end_callback(on_timer_end);
+    register_timer_state_change_callback(on_timer_start);
+}

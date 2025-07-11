@@ -15,10 +15,7 @@
 
 static const char *TAG = "DeviceInfoMessageCreator";
 
-static void add_and_send_device_info() {
-    uint16_t passed_seconds = get_passed_duration();
-    add_notification_log(BLE_CONNECTED, passed_seconds);
-
+static void send_device_info(uint16_t passed_seconds) {
     DeviceInfoMessage message;
     //message.current_time; //TODO: set current time when RTC integrated.
     esp_read_mac(message.device_id, ESP_MAC_WIFI_STA);
@@ -31,14 +28,16 @@ static void add_and_send_device_info() {
         return;
     }
     size_t len = strlen(json_str);
-    send_info_message(DEVICE_INFO_MESSAGE, (uint8_t*)json_str, len, message.message_id);
+    send_info_message_to_queue(DEVICE_INFO_MESSAGE, (uint8_t*)json_str, len, message.message_id);
 
     free(json_str);
 }
 
 static void on_connect_ble() {
     set_ble_connection_status(true);
-    add_and_send_device_info();
+    uint16_t passed_seconds = get_passed_duration();
+    add_notification_log(BLE_CONNECTED, passed_seconds);
+    send_device_info(passed_seconds);
 }
 
 void init_device_info_message_creator() {

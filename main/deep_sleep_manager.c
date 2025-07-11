@@ -6,7 +6,6 @@
 #include "freertos/task.h"
 #include "deep_sleep_manager.h"
 #include "state_manager.h"
-#include "timer_management.h"
 
 static const char *TAG = "DeepSleepManager";
 
