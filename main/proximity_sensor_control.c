@@ -19,8 +19,9 @@ static bool lp_prox_sensor_detection_status = false;
 
 static const char *TAG = "ProximitySensorControl";
 
-static uint16_t lowerThreshold = 1792;
-static uint16_t higherThreshold = 2304;
+static uint16_t lower_threshold = 1792;
+static uint16_t max_lower_threshold = 2304;
+static uint16_t higher_threshold = 2688;
 
 static void add_lp_read_command_to_queue(uint8_t device_address, uint8_t reg_address) {
     uint32_t lp_core_device_address = 0x00000000 | (device_address & 0xFF);
@@ -117,7 +118,7 @@ static uint8_t get_interrupt_count_exceed_bits(uint8_t count)
         count >>= 1;
         int_bits++;
     }
-
+    ESP_LOGI(TAG, "interrup control bit count: %u", int_bits);
     return int_bits;
 }
 
@@ -165,6 +166,9 @@ static void set_high_threshold(uint16_t high_threshold, bool is_lp)
     }
     else
     {
+        ESP_LOGI(TAG, "High threshold's high byte is set: %u", high_byte);
+        ESP_LOGI(TAG, "High threshold's low byte is set: %u", low_byte);
+
         add_lp_write_command_to_queue(VCNL_3020_ADDRESS, HIGH_THRESHOLD_REG_HIGH, &high_byte);
         add_lp_write_command_to_queue(VCNL_3020_ADDRESS, HIGH_THRESHOLD_REG_LOW, &low_byte);
     }
@@ -181,6 +185,8 @@ static void set_low_threshold(uint16_t low_threshold, bool is_lp)
     }
     else
     {
+        ESP_LOGI(TAG, "Low threshold's high byte is set: %u", high_byte);
+        ESP_LOGI(TAG, "Low threshold's low byte is set: %u", low_byte);
         add_lp_write_command_to_queue(VCNL_3020_ADDRESS, LOW_THRESHOLD_REG_HIGH, &high_byte);
         add_lp_write_command_to_queue(VCNL_3020_ADDRESS, LOW_THRESHOLD_REG_LOW, &low_byte);
     }
@@ -198,13 +204,13 @@ static void set_sensor_detection_status(bool is_lp, bool status) {
 }
 
 static void set_default_thresholds(bool is_lp) {
-    set_high_threshold(higherThreshold, is_lp);
-    set_low_threshold(lowerThreshold, is_lp);
+    set_high_threshold(higher_threshold, is_lp);
+    set_low_threshold(lower_threshold, is_lp);
 }
 
 static void increase_thresholds(bool is_lp) {
     set_high_threshold(0xFFFF, is_lp);
-    set_low_threshold(higherThreshold - 100, is_lp);
+    set_low_threshold(max_lower_threshold, is_lp);
 }
 
 static void reset_interrupt(bool is_lp, ProximityThresholdType type) {
@@ -230,12 +236,23 @@ void read_proximity_of_sensors() {
         ESP_LOGI(TAG, "highProximityByte: %u", highProximityByte);
         uint8_t lowProximityByte;
         read_register(VCNL_3020_ADDRESS, PROXIMITY_RESULT_REG_LOW, &lowProximityByte, 1, I2C_FIRST_MASTER_NUM);
-        ESP_LOGI(TAG, "highProximityByte: %u", lowProximityByte);
+        ESP_LOGI(TAG, "lowProximityByte: %u", lowProximityByte);
     }
+    
     if (is_lp_prox_sensor)
     {
         add_lp_read_command_to_queue(VCNL_3020_ADDRESS, PROXIMITY_RESULT_REG_HIGH);
         add_lp_read_command_to_queue(VCNL_3020_ADDRESS, PROXIMITY_RESULT_REG_LOW);
+    }
+}
+
+void proximity_read_task(void *pvParameters)
+{
+    while (1) {
+        ESP_LOGI(TAG, "Yakınlık sensörlerinden okuma yapılıyor...");
+        read_proximity_of_sensors();
+
+        vTaskDelay(pdMS_TO_TICKS(2000));
     }
 }
 
@@ -249,11 +266,14 @@ void initialize_proximity_sensors(bool hp_prox_sensor_exist, bool lp_prox_sensor
     set_led_current(DEFAULT_LED_CURRENT);
     set_interrupt_control(DEFAULT_INTERRUPT_CONTROL_BIT_COUNT);
 
-    set_high_threshold(false, higherThreshold);
-    set_high_threshold(true, higherThreshold);
-
-    set_low_threshold(false, lowerThreshold);
-    set_low_threshold(true, lowerThreshold);
+    if(is_hp_prox_sensor){
+        set_high_threshold(higher_threshold, false);
+        set_low_threshold(lower_threshold, false);
+    }
+    if(is_lp_prox_sensor){
+        set_high_threshold(higher_threshold, true);
+        set_low_threshold(lower_threshold, true);
+    }
 
     set_sensor_detection_status(false, false);
     set_sensor_detection_status(true, false);
@@ -268,12 +288,14 @@ void request_excess_status(bool is_lp)
     }
     else
     {
+        ESP_LOGI(TAG, "ADD_LP_READ_COMMAND_TO_QUEUE");
         add_lp_read_command_to_queue(VCNL_3020_ADDRESS, INTERRUPT_STATUS_REG);
     }
 }
 
 void check_interrupt_status(uint8_t status, bool is_lp)
 {
+    ESP_LOGI(TAG, "Check interrupt status, status: %u", status);
     bool isExcessDetected = false;
 
     if((status & 0x01) != 0)
@@ -285,16 +307,17 @@ void check_interrupt_status(uint8_t status, bool is_lp)
         if(!get_sensor_detection_status(is_lp)){
             set_sensor_detection_status(is_lp, true);
             increase_thresholds(is_lp);
+            ESP_LOGI(TAG, "Reset interrupt.");
             reset_interrupt(is_lp, HIGH);
             if(get_sensor_detection_status(!is_lp)) {
-                change_helmet_state(true);
+                //change_helmet_state(true);
                 ESP_LOGI(TAG, "HELMET_ON.");
             }
         }
         else {
             reset_interrupt(is_lp, HIGH);
             ESP_LOGE(TAG, "WRONG_THRESHOLD_VALUES.");
-            add_and_send_notification_info(WRONG_PROX_MEASUREMENT);
+            //add_and_send_notification_info(WRONG_PROX_MEASUREMENT);
         }
     }
 
@@ -314,18 +337,18 @@ void check_interrupt_status(uint8_t status, bool is_lp)
             set_sensor_detection_status(is_lp, false);
             set_default_thresholds(is_lp);
             reset_interrupt(is_lp, LOW);
-            change_helmet_state(false);
+            //change_helmet_state(false);
             ESP_LOGI(TAG, "HELMET_OFF.");
         }
         else{
             reset_interrupt(is_lp, LOW);
             ESP_LOGE(TAG, "WRONG_THRESHOLD_VALUES.");
-            add_and_send_notification_info(WRONG_PROX_MEASUREMENT);
+            //add_and_send_notification_info(WRONG_PROX_MEASUREMENT);
         }
     }
 
     if(!isExcessDetected && get_sensor_detection_status(is_lp)){
-        //ESP_LOGE(TAG, "TRY TO START LASERS AGAIN.");
+        ESP_LOGE(TAG, "TRY TO START LASERS AGAIN.");
         //yanlış int tespitinden dolayı kapatılan lazerler açılmalı.
         //TODO: TRY TO START LASERS AGAIN
     }

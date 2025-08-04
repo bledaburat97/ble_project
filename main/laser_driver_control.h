@@ -5,15 +5,9 @@
 #ifndef LASER_DRIVER_CONTROL_H
 #define LASER_DRIVER_CONTROL_H
 
-
 #define TOTAL_REGION_COUNT 6 
 #define MAX_NUM_OF_LED_OF_LP5036 36
 #define NUM_OF_LASER_DRIVERS 3
-
-typedef struct {
-    uint8_t region_id;
-    uint8_t brightness;
-} RegionStatusChangedInfo;
 
 typedef struct {
     uint8_t region_id;
@@ -37,9 +31,11 @@ typedef enum {
     LOG_SCALE_EN = 0x05
 } DeviceConfig1UpdateType;
 
+void initialize_laser_driver_gpio();
 void set_brightness_of_region(uint8_t region_id, uint8_t brightness_percentage);
 void initialize_laser_drivers();
 void update_device_config1(bool status, DeviceConfig1UpdateType type);
 void set_laser_drivers_gpio_pin_status(bool status);
 void set_laser_drivers_status(bool status);
+void set_laser_driver_status(uint8_t laser_driver_index, bool status);
 #endif 

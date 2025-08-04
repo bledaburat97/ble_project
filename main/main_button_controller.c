@@ -33,7 +33,7 @@ void wait_for_button_to_sleep(void *pvParameters) {
                 uint32_t duration_ms = press_duration * portTICK_PERIOD_MS;
 
                 ESP_LOGI(TAG, "Button is released, the passed duration: %lu ms", duration_ms);
-
+                /*
                 if (duration_ms >= PRESS_DURATION_TO_SLEEP_MS) {
                     ESP_LOGI(TAG, "Entering deep sleep.");
                     enter_deep_sleep();
@@ -61,9 +61,10 @@ void wait_for_button_to_sleep(void *pvParameters) {
                         update_passed_therapy_duration();
                     }
                 }
+                    */
             }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(200)); // debounce
+        vTaskDelay(pdMS_TO_TICKS(200));
     }
 }

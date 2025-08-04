@@ -36,32 +36,47 @@ void process_lp_queue_task(void *arg) {
     lp_core_task_t task;
 
     while (1) {
-        if(ulp_lp_core_command == NO_COMMAND){
+        uint32_t current_lp_command = __atomic_load_n(&ulp_lp_core_command, __ATOMIC_RELAXED);
+
+        if(current_lp_command == NO_COMMAND){
             if (queue_get_task(&task, pdMS_TO_TICKS(10)) == pdPASS) {
+                __atomic_store_n(&ulp_lp_core_command, task.lp_core_command, __ATOMIC_RELAXED);
+                __atomic_store_n(&ulp_lp_core_register, task.lp_core_register, __ATOMIC_RELAXED);
+                __atomic_store_n(&ulp_lp_core_value, task.lp_core_value, __ATOMIC_RELAXED);
+                __atomic_store_n(&ulp_lp_core_device_address, task.lp_core_device_address, __ATOMIC_RELAXED);
+                __atomic_store_n(&ulp_lp_core_byte_count, task.lp_core_byte_count, __ATOMIC_RELAXED);
 
-                ulp_lp_core_command = task.lp_core_command;
-                ulp_lp_core_register = task.lp_core_register;
-                ulp_lp_core_value = task.lp_core_value;
-                ulp_lp_core_device_address = task.lp_core_device_address;
-                ulp_lp_core_byte_count = task.lp_core_byte_count;
-
-                //ESP_LOGI("MAIN", "Queue'dan çıktı: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu", 
-                  //      task.lp_core_command, task.lp_core_register, task.lp_core_value, task.lp_core_device_address, task.lp_core_byte_count);
+                ESP_LOGI("MAIN", "Queue'dan çıktı: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu",
+                         task.lp_core_command, task.lp_core_register, task.lp_core_value, task.lp_core_device_address, task.lp_core_byte_count);
+            }
+            else {
+                // Kuyruk boş ve LP-Core boşta. Görevi kısa bir süre uykuya alarak CPU'yu serbest bırak.
+                vTaskDelay(pdMS_TO_TICKS(50));
             }
         }
-        else if(ulp_lp_core_command == WRITE_COMPLETED) {
-            //ESP_LOGI(TAG, "Write tamamlandı: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu", 
-              //  ulp_lp_core_command, ulp_lp_core_register, ulp_lp_core_value, ulp_lp_core_device_address, ulp_lp_core_byte_count);
-            ulp_lp_core_command = NO_COMMAND;
+        else if(current_lp_command == WRITE_COMPLETED) {
+            ESP_LOGI(TAG, "Write tamamlandı: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu",
+                     current_lp_command,
+                     __atomic_load_n(&ulp_lp_core_register, __ATOMIC_RELAXED),
+                     __atomic_load_n(&ulp_lp_core_value, __ATOMIC_RELAXED),
+                     __atomic_load_n(&ulp_lp_core_device_address, __ATOMIC_RELAXED),
+                     __atomic_load_n(&ulp_lp_core_byte_count, __ATOMIC_RELAXED));
+            __atomic_store_n(&ulp_lp_core_command, NO_COMMAND, __ATOMIC_RELAXED);
         }
-        else if(ulp_lp_core_command == READ_COMPLETED) {
-            //ESP_LOGI(TAG, "Read tamamlandı: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu", 
-              //  ulp_lp_core_command, ulp_lp_core_register, ulp_lp_core_value, ulp_lp_core_device_address, ulp_lp_core_byte_count);
-            if(ulp_lp_core_register == INTERRUPT_STATUS_REG && ulp_lp_core_device_address == VCNL_3020_ADDRESS) {
-                check_interrupt_status(ulp_lp_core_value & 0xFF, true);
+        else if(current_lp_command == READ_COMPLETED) {
+            ESP_LOGI(TAG, "Read tamamlandı: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu",
+                     current_lp_command,
+                     __atomic_load_n(&ulp_lp_core_register, __ATOMIC_RELAXED),
+                     __atomic_load_n(&ulp_lp_core_value, __ATOMIC_RELAXED),
+                     __atomic_load_n(&ulp_lp_core_device_address, __ATOMIC_RELAXED),
+                     __atomic_load_n(&ulp_lp_core_byte_count, __ATOMIC_RELAXED));
+            if(__atomic_load_n(&ulp_lp_core_register, __ATOMIC_RELAXED) == INTERRUPT_STATUS_REG && __atomic_load_n(&ulp_lp_core_device_address, __ATOMIC_RELAXED) == VCNL_3020_ADDRESS) {
+                check_interrupt_status(__atomic_load_n(&ulp_lp_core_value, __ATOMIC_RELAXED) & 0xFF, true);
             }
-            
-            ulp_lp_core_command = NO_COMMAND;
+            __atomic_store_n(&ulp_lp_core_command, NO_COMMAND, __ATOMIC_RELAXED);
+        }
+        else {
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
     }
 }

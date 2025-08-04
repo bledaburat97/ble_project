@@ -8,5 +8,5 @@
 #define PRESS_DURATION_TO_SLEEP_MS 3000
 
 void enter_deep_sleep();
-
+void set_deep_sleep_button();
 #endif 

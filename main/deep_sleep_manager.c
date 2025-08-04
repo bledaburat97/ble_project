@@ -9,9 +9,7 @@
 
 static const char *TAG = "DeepSleepManager";
 
-void enter_deep_sleep() {
-    ESP_LOGI(TAG, "Deep sleep'e geçiliyor...");
-    
+void set_deep_sleep_button() {
     // GPIO0 pull-up + input mod
     gpio_config_t io_conf = {
         .pin_bit_mask = BUTTON_PIN_BITMASK,
@@ -21,6 +19,13 @@ void enter_deep_sleep() {
         .intr_type = GPIO_INTR_DISABLE
     };
     gpio_config(&io_conf);
+}
+
+void enter_deep_sleep() {
+    ESP_LOGI(TAG, "Deep sleep'e geçiliyor...");
+    
+    // GPIO0 pull-up + input mod
+    set_deep_sleep_button();
 
     esp_sleep_enable_ext1_wakeup(BUTTON_PIN_BITMASK, ESP_EXT1_WAKEUP_ANY_LOW);
 

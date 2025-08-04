@@ -7,8 +7,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#define I2C_MASTER_SCL_IO_1 GPIO_NUM_13
-#define I2C_MASTER_SDA_IO_1 GPIO_NUM_12
+#define I2C_MASTER_SCL_IO_1 GPIO_NUM_14
+#define I2C_MASTER_SDA_IO_1 GPIO_NUM_15
 #define I2C_MASTER_SCL_IO_2 GPIO_NUM_7
 #define I2C_MASTER_SDA_IO_2 GPIO_NUM_6
 
@@ -16,13 +16,55 @@ static const char *TAG = "I2CControl";
 #define I2C_MASTER_FREQ_HZ 400000
 #define LP_I2C_MASTER_FREQ_HZ 100000
 
+/**
+ * @brief I2C Bus tarayıcı görevi.
+ * Bulunan I2C cihaz adreslerini seri monitöre yazdırır.
+ */
+void i2c_scanner_task(void *arg)
+{
+    ESP_LOGI(TAG, "I2C Tarama Başlatılıyor...");
+    while (1) {
+        printf("I2C Bus Scan:\n");
+        printf("   0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f\n");
+        printf("00:   ");
+        for (int i = 0; i < 0x78; i++) { // I2C adresleri 0x00 ile 0x7F arasındadır, 0x78 son yaygın adrestir.
+            if (i % 16 == 0 && i != 0) {
+                printf("\n%02x:", i);
+            }
+            // Özel adresleri atla (örn. genel çağrı adresleri)
+            if (i == 0 || i == 0x78 || i == 0x79) { // 0x78 ve 0x79, 10-bit adresleme için ayrılmıştır.
+                printf(" --");
+                continue;
+            }
+
+            i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+            i2c_master_start(cmd);
+            i2c_master_write_byte(cmd, (i << 1) | I2C_MASTER_WRITE, true); // Yazma denemesi
+            i2c_master_stop(cmd);
+            esp_err_t ret = i2c_master_cmd_begin(I2C_FIRST_MASTER_NUM, cmd, pdMS_TO_TICKS(10)); // Kısa timeout
+
+            if (ret == ESP_OK) {
+                printf(" %02x", i); // Cihaz yanıt verdi!
+            } else if (ret == ESP_ERR_TIMEOUT) {
+                printf(" --"); // Cihaz yanıt vermedi (timeout)
+            } else {
+                printf(" XX"); // Diğer hatalar
+            }
+            i2c_cmd_link_delete(cmd);
+            vTaskDelay(pdMS_TO_TICKS(10)); // Bir sonraki denemeden önce kısa bir gecikme
+        }
+        printf("\n");
+        vTaskDelay(pdMS_TO_TICKS(20000)); // Her 5 saniyede bir tarama yap
+    }
+}
+
 void init_i2c_master() {
     i2c_config_t conf = {
         .mode = I2C_MODE_MASTER,
         .sda_io_num = I2C_MASTER_SDA_IO_1,
-        .sda_pullup_en = GPIO_PULLUP_DISABLE,
+        .sda_pullup_en = GPIO_PULLUP_ENABLE,
         .scl_io_num = I2C_MASTER_SCL_IO_1,
-        .scl_pullup_en = GPIO_PULLUP_DISABLE,
+        .scl_pullup_en = GPIO_PULLUP_ENABLE,
         .master.clk_speed = I2C_MASTER_FREQ_HZ,
     };
 
@@ -71,13 +113,27 @@ esp_err_t write_register(uint8_t device_address, uint8_t reg_address, uint8_t *d
     }
     
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (device_address << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write_byte(cmd, reg_address, true);
-    i2c_master_write(cmd, data, length, true);
-
-    i2c_master_stop(cmd);
-    esp_err_t ret = i2c_master_cmd_begin(i2c_master_number, cmd, pdMS_TO_TICKS(10));
+    esp_err_t ret = i2c_master_start(cmd);
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "Start successful:");
+    }
+    ret = i2c_master_write_byte(cmd, (device_address << 1) | I2C_MASTER_WRITE, true);
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "Write device address successful:");
+    }
+    ret = i2c_master_write_byte(cmd, reg_address, true);
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "Write reg address successful:");
+    }
+    ret = i2c_master_write(cmd, data, length, true);
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "Write data successful:");
+    }
+    ret = i2c_master_stop(cmd);
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "Stop successful:");
+    }
+    ret = i2c_master_cmd_begin(i2c_master_number, cmd, pdMS_TO_TICKS(10));
     if (ret == ESP_OK) {
         ESP_LOGI(TAG, "Write successful: Device 0x%02x, Register 0x%02x, Data 0x%02x", 
                      device_address, reg_address, data[0]);
@@ -86,7 +142,6 @@ esp_err_t write_register(uint8_t device_address, uint8_t reg_address, uint8_t *d
                  device_address, reg_address, ret);
         vTaskDelay(pdMS_TO_TICKS(100));
     }
-    ESP_LOGI(TAG, "Write successed"); 
 
     i2c_cmd_link_delete(cmd);
 

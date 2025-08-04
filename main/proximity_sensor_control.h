@@ -15,4 +15,5 @@ void initialize_proximity_sensors(bool hp_prox_sensor_exist, bool lp_prox_sensor
 void request_excess_status(bool is_lp);
 void check_interrupt_status(uint8_t status, bool is_lp);
 void read_proximity_of_sensors();
+void proximity_read_task(void *pvParameters);
 #endif 

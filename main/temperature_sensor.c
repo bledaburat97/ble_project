@@ -5,7 +5,6 @@
 #include "esp_log.h"
 #include "lp_core_queue_manager.h"
 
-#define SENSOR_I2C_ADDR  0x48  // Sensörün I2C adresi
 #define TEMPERATURE_REG 0x00
 #define CONFIG_REG  0x01
 #define LOW_THRESHOLD_REG 0x02
@@ -74,10 +73,14 @@ void set_i2c_master_num(uint8_t master_num) {
 }
 
 void set_configuration(uint8_t device_address, TempSensorConfigReg config) {
+    ESP_LOGI(TAG, "Set configuration for temperature sensor of device address: %u", device_address);
+
     uint8_t config_byte = *(uint8_t*)&config;
     ESP_LOGI(TAG, "Configuration's written byte: %u°C", config_byte);
 
     write_register(device_address, CONFIG_REG, &config_byte, 1, i2c_master_num);
+        ESP_LOGI(TAG, "Configuration's written");
+
     //-LP-//add_lp_write_command_to_queue(device_address, CONFIG_REG, &config_byte, 1);
     uint8_t configurationBytes[2];
     read_register(device_address, CONFIG_REG, configurationBytes, 2, i2c_master_num);
@@ -87,6 +90,8 @@ void set_configuration(uint8_t device_address, TempSensorConfigReg config) {
 }
 
 void set_threshold_temperature(uint8_t device_address, float thresholdInDegree, TemperatureThresholdType type) {
+    ESP_LOGI(TAG, "Set threshold temperature for temperature sensor of device address: %u", device_address);
+
     uint8_t msb, lsb;
 
     convert_threshold_to_bytes(thresholdInDegree, &msb, &lsb);
@@ -102,8 +107,14 @@ void set_threshold_temperature(uint8_t device_address, float thresholdInDegree, 
 }
 
 float read_temperature_of_sensor(uint8_t device_address) {
+    ESP_LOGI(TAG, "Read temperature from temperature sensor of device address: %u", device_address);
+
     uint8_t temperatureBytes[2];
     read_register(device_address, TEMPERATURE_REG, temperatureBytes, 2, i2c_master_num);
+
+    ESP_LOGI(TAG, "1st byte read temperature: %u", temperatureBytes[0]);
+    ESP_LOGI(TAG, "2nd byte read temperature: %u", temperatureBytes[1]);
+
     //-LP-//add_lp_read_command_to_queue(device_address, TEMPERATURE_REG, 2);
     float temperature = convert_bytes_to_float(temperatureBytes[0], temperatureBytes[1]);
     //ESP_LOGI(TAG, "Temperature: %.2f°C", temperature);

@@ -7,12 +7,12 @@
 #include "temperature_alarm_control.h"
 
 #define FIRST_PJ85775_ADDRESS 0x48
-#define SECOND_PJ85775_ADDRESS 0x49
+#define SECOND_PJ85775_ADDRESS 0x4C
 #define THIRD_PJ85775_ADDRESS 0x4A
 
-#define FIRST_ALERT_GPIO GPIO_NUM_20
-#define SECOND_ALERT_GPIO GPIO_NUM_21
-#define THIRD_ALERT_GPIO GPIO_NUM_22
+#define FIRST_ALERT_GPIO GPIO_NUM_3
+#define SECOND_ALERT_GPIO GPIO_NUM_2
+#define THIRD_ALERT_GPIO GPIO_NUM_5
 
 #define NVS_KEY_TEMPERATURE "last_temp"
 #define TEMPERATURE_SENSOR_COUNT 1 //TODO: Değiştir.
@@ -21,8 +21,8 @@
 #define TEMPERATURE_DIFF_OFFSET 1
 
 static const char *TAG = "TemperatureControl";
-static const uint8_t sensor_addresses[] = {FIRST_PJ85775_ADDRESS, SECOND_PJ85775_ADDRESS, THIRD_PJ85775_ADDRESS};
-static const uint8_t alarm_gpios[] = {FIRST_ALERT_GPIO, SECOND_ALERT_GPIO, THIRD_ALERT_GPIO};
+static const uint8_t sensor_addresses[] = {SECOND_PJ85775_ADDRESS, FIRST_PJ85775_ADDRESS, THIRD_PJ85775_ADDRESS};
+static const uint8_t alarm_gpios[] = {SECOND_ALERT_GPIO, FIRST_ALERT_GPIO, THIRD_ALERT_GPIO};
 static float current_temperature;
 static void (*temp_update_callback)(uint8_t) = NULL;
 
@@ -41,18 +41,9 @@ void initialize_temperature_sensor() {
 
     for(int i = 0; i < TEMPERATURE_SENSOR_COUNT; i++) {
         set_configuration(sensor_addresses[i], config);
-        set_threshold_temperature(sensor_addresses[i], LOW_THRESHOLD, LOW);
-        set_threshold_temperature(sensor_addresses[i], HIGH_THRESHOLD, HIGH);
+        //set_threshold_temperature(sensor_addresses[i], LOW_THRESHOLD, LOW);
+        //set_threshold_temperature(sensor_addresses[i], HIGH_THRESHOLD, HIGH);
     }
-
-    float last_stored_temp;
-    /*
-    if (read_parameter(NVS_KEY_TEMPERATURE, &last_stored_temp, sizeof(float)) == ESP_OK) {
-        ESP_LOGI(TAG, "Last saved temperature: %.2f°C", last_stored_temp);
-    } else {
-        ESP_LOGE(TAG, "Last saved temperature can not be got.");
-    }
-        */
 }
 
 static uint8_t convert_float_to_byte(float temperature) {
@@ -96,7 +87,9 @@ static float measure_average_temperature() {
         float temperatureInDegree = read_temperature_of_sensor(sensor_addresses[i]);
         sum_of_temperatures += temperatureInDegree;
     }
-        
+    
+    ESP_LOGI(TAG, "Saved temperature: %.2f°C", sum_of_temperatures);
+   
     return sum_of_temperatures / TEMPERATURE_SENSOR_COUNT;
 }
 
@@ -109,6 +102,7 @@ uint8_t get_temperature() {
 void temperature_read_task(void *param) {
     while (1) {
         float average_temperature = measure_average_temperature();
+        /*
         if (current_temperature - average_temperature >= 0.5f || average_temperature - current_temperature >= 0.5f) {
             if(temp_update_callback) {
                 temp_update_callback(convert_float_to_byte(average_temperature));
@@ -118,12 +112,12 @@ void temperature_read_task(void *param) {
 
             }
         }
+            */
         current_temperature = average_temperature;
-        //save_parameter(NVS_KEY_TEMPERATURE, &average_temperature, sizeof(float)); TODO:delete
 
-        //ESP_LOGI(TAG, "Saved temperature: %.2f°C", average_temperature);
+        ESP_LOGI(TAG, "Saved temperature: %.2f°C", average_temperature);
         
-        vTaskDelay(pdMS_TO_TICKS(2000));
+        vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
 

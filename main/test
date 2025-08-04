@@ -1,0 +1,523 @@
+// YENİ: GraphQL Mutation tanımı
+const REQUEST_TICKET_QUERY = gql`
+  mutation RequestTicket($requestTicketIns: [RequestTicketIn!]!) {
+    requestTicket(requestTicketIns: $requestTicketIns) {
+      isSuccess
+      reservationId
+      successUrl
+      failedUrl
+      iframeCheckout
+    }
+  }
+`;
+
+// YENİ: Reservation durumunu sorgulamak için GraphQL Query
+const GET_RESERVATION_STATUS_QUERY = gql`
+  query GetReservationStatus($reservationId: String!) {
+    getReservationStatus(reservationId: $reservationId) {
+      status
+    }
+  }
+`;
+
+// useMutation hook'u ile GraphQL client'ını tanımla
+const [requestTicketQuery] = useQuery(REQUEST_TICKET_QUERY);
+const [getReservationStatus] = useLazyQuery(GET_RESERVATION_STATUS_QUERY, {
+  fetchPolicy: 'network-only', // Her zaman güncel durumu almak için
+});
+
+// ... (diğer useEffect'ler ve fonksiyonlar)
+
+async function initPayment() {
+    setInitPaymentLoading(true);
+    const requestedTickets = Object.entries(ticketTypeBuyRequest)
+        .filter(([_, value]) => value > 0)
+        .map(([key, value]) => ({ticketId: key, capacity: value}));
+
+    if (requestedTickets.length === 0) {
+        message.info(t("ticket.choose_ticket_before_continue"), 5);
+        setInitPaymentLoading(false);
+        return;
+    }
+
+    try {
+        const { data } = await requestTicketQuery({
+            variables: {
+                requestTicketIns: requestedTickets,
+            },
+        });
+
+        if (data.requestTicket.success) {
+            message.info(t("ticket.processing_request")); // "İsteğiniz işleniyor..."
+            const reservationId = data.requestTicket.reservationId;
+            //TODO: iframecheckoutu başlat.
+            //TODO: timer'ı başlat.
+        } else {
+            message.error(data.requestTicket.message || t("ticket.request_failed"));
+            //TODO: failedUrl'i yükle.
+        }
+    } catch (e) {
+        console.error("Error occurred during ticket request:", e);
+        message.error(t("ticket.request_failed_generic"));
+    } finally {
+        setInitPaymentLoading(false);
+    }
+}
+
+//TODO: pay butonuna basıldığında:
+startPollingForPaymentStatus(reservationId);
+
+
+// YENİ: Ödeme durumunu polling ile almak için fonksiyon
+const pollingIntervalRef = useRef<NodeJS.Timeout>();
+
+const startPollingForPaymentStatus = (reservationId: string) => {
+    // Önceki polling varsa temizle
+    if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+    }
+
+    // İlk sorguyu hemen yap
+    checkReservationStatus(reservationId);
+
+    // Belirli aralıklarla sorgula
+    pollingIntervalRef.current = setInterval(() => {
+        checkReservationStatus(reservationId);
+    }, 5000); // Örneğin her 5 saniyede bir sorgula
+};
+
+const stopPollingForPaymentStatus = () => {
+    if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = undefined;
+    }
+};
+
+const checkReservationStatus = async (reservationId: string) => {
+    try {
+        const { data } = await getReservationStatus({ variables: { reservationId } });
+
+        if (data?.getReservationStatus) {
+            const { status } = data.getReservationStatus;
+
+            switch (status) {
+                case "PAYMENT_INITIATED": // Backend'den gelen yeni durum
+                    // Polling devam etsin
+
+                    if (walleeIframeUrl) {
+                        setIframeCheckout({ iframeUrl: walleeIframeUrl, paymentMethodConfigurationId: "..." }); // PaymentMethodConfigurationId'yi backend'den de almanız gerekebilir
+                        stopPollingForPaymentStatus(); // Iframe URL'ini aldık, polling'i durdur
+                        setInitPaymentLoading(false); // Yükleme durumunu kapat
+                    }
+                    break;
+                case "COMPLETED": // Ödeme başarılı ve biletler kaydedildi
+                    stopPollingForPaymentStatus();
+                    setIsPaymentSuccess(true);
+                    //TODO: successUrl'i yükle. 
+                    // TODO: veya böyle yapılabilir mi düşün: Sayfayı success=true ile yenilemek yerine, doğrudan durumu güncelle
+                    // window.history.replaceState({}, document.title, url.pathname); // URL'den success parametresini kaldır
+                    message.success(t("ticket.success")); // Başarı mesajı
+                    break;
+                case "FAILED": // Ödeme veya bilet kaydı başarısız
+                case "CANCELLED": // Ödeme iptal edildi (örneğin zaman aşımı)
+                    stopPollingForPaymentStatus();
+                    message.error(t("ticket.request_failed"));
+                    setInitPaymentLoading(false); // Yükleme durumunu kapat
+                    //TODO: failed url'i yükle. 
+
+                    break;
+                // Diğer ara durumlar için polling devam etmeli
+                case "ORDER_INITIATED":
+                case "TICKET_DECREASED":
+                    // Polling devam etsin
+                    break;
+                default:
+                    console.warn("Unknown reservation status:", status);
+                    break;
+            }
+        }
+    } catch (error) {
+        console.error("Error polling reservation status:", error);
+        // Hata durumunda polling'i durdurabilir veya yeniden deneme stratejisi uygulayabiliriz.
+        // stopPollingForPaymentStatus();
+        // message.error(t("ticket.polling_error"));
+    }
+};
+
+// ... (mevcut useEffect'ler)
+
+// Ödeme başarılı olduğunda veya başarısız olduğunda polling'i temizleme
+useEffect(() => {
+    if (isPaymentSuccess || !countdownActive) { // countdownActive = false olduğunda Saga'nın bittiğini varsayalım
+        stopPollingForPaymentStatus();
+    }
+}, [isPaymentSuccess, countdownActive]); // countdownActive, zaman aşımı durumunu da tetikler
+
+
+
+
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useMutation, useLazyQuery, gql } from '@apollo/client';
+import { message } from 'antd'; // Ant Design message bileşeni
+import { useNavigate } from 'react-router-dom'; // React Router v6 için
+
+// Mevcut import'lar ve component tanımı
+// ...
+
+// YENİ: GraphQL Mutation tanımı (ismi ve tanımı güncellendi)
+const REQUEST_TICKET_MUTATION = gql`
+  mutation RequestTicket($requestTicketIns: [RequestTicketIn!]!) {
+    requestTicket(requestTicketIns: $requestTicketIns) {
+      isSuccess
+      reservationId
+      successUrl
+      failedUrl
+      iframeCheckout {
+        iframeUrl
+        paymentMethodConfigurationId
+      }
+    }
+  }
+`;
+
+// YENİ: Reservation durumunu sorgulamak için GraphQL Query
+const GET_RESERVATION_STATUS_QUERY = gql`
+  query GetReservationStatus($reservationId: String!) {
+    getReservationStatus(reservationId: $reservationId) {
+      status
+    }
+  }
+`;
+
+const EventDetail = () => {
+  // Mevcut state'ler
+  // ...
+  const [initPaymentLoading, setInitPaymentLoading] = useState(false);
+  const [iframeCheckout, setIframeCheckout] = useState<{ iframeUrl: string; paymentMethodConfigurationId: string } | null>(null);
+  const [reservationId, setReservationId] = useState<string | null>(null);
+  const [isPollingActive, setIsPollingActive] = useState(false); // Polling durumunu tutmak için
+  const [paymentPollingTimeoutId, setPaymentPollingTimeoutId] = useState<NodeJS.Timeout | null>(null); // Polling timeout'u için
+
+  const navigate = useNavigate(); // Yönlendirme için
+
+  // useMutation hook'u ile GraphQL client'ını tanımla
+  const [requestTicket, { loading: requestTicketLoading, error: requestTicketError }] = useMutation(REQUEST_TICKET_MUTATION);
+  const [getReservationStatus, { loading: getStatusLoading, error: getStatusError }] = useLazyQuery(GET_RESERVATION_STATUS_QUERY, {
+    fetchPolicy: 'network-only', // Her zaman güncel durumu almak için
+  });
+
+  // Polling Interval Ref'i
+  const pollingIntervalRef = useRef<NodeJS.Timeout | undefined>();
+
+  // Ödeme durumunu polling ile almak için fonksiyon
+  const checkReservationStatus = useCallback(async (currentReservationId: string) => {
+    try {
+      const { data } = await getReservationStatus({ variables: { reservationId: currentReservationId } });
+
+      if (data?.getReservationStatus) {
+        const { status } = data.getReservationStatus;
+
+        switch (status) {
+          case "COMPLETED":
+            stopPollingForPaymentStatus();
+            // setIsPaymentSuccess(true); // Artık direkt yönlendirme yapabiliriz
+            message.success(t("ticket.success"));
+            if (successUrlRef.current) { // Ref kullanarak güncel URL'i al
+                navigate(successUrlRef.current);
+            } else {
+                // Varsayılan bir başarı sayfasına yönlendir veya mesaj göster
+                navigate('/order-confirmed');
+            }
+            break;
+          case "FAILED":
+          case "CANCELLED":
+            stopPollingForPaymentStatus();
+            message.error(t("ticket.request_failed"));
+            if (failedUrlRef.current) { // Ref kullanarak güncel URL'i al
+                navigate(failedUrlRef.current);
+            } else {
+                // Varsayılan bir hata sayfasına yönlendir
+                navigate('/order-failed');
+            }
+            break;
+          // Bu durumlar için polling devam etmeli
+          case "PAYMENT_INITIATED":
+          case "ORDER_INITIATED":
+          case "TICKET_DECREASED":
+            // Polling devam ediyor
+            break;
+          default:
+            console.warn("Unknown reservation status:", status);
+            // Bilinmeyen bir durum gelirse, durdurup hata verebilir veya devam edebilir
+            // stopPollingForPaymentStatus();
+            // message.error(t("ticket.unknown_status_error"));
+            break;
+        }
+      }
+    } catch (error) {
+      console.error("Error polling reservation status:", error);
+      // Ağ hatası veya GraphQL hatası durumunda polling'i durdur
+      stopPollingForPaymentStatus();
+      message.error(t("ticket.polling_error"));
+    }
+  }, [getReservationStatus, navigate]); // Bağımlılıkları ekledik
+
+  const startPollingForPaymentStatus = useCallback((currentReservationId: string) => {
+    stopPollingForPaymentStatus(); // Önceki polling varsa temizle
+
+    setIsPollingActive(true);
+    // İlk sorguyu hemen yap
+    checkReservationStatus(currentReservationId);
+
+    // Belirli aralıklarla sorgula
+    pollingIntervalRef.current = setInterval(() => {
+      checkReservationStatus(currentReservationId);
+    }, 5000); // Örneğin her 5 saniyede bir sorgula
+
+    // **YENİ: Polling Timeout Yönetimi**
+    // 5 dakikalık (300 saniye) bir timeout koyalım
+    setPaymentPollingTimeoutId(setTimeout(() => {
+      stopPollingForPaymentStatus();
+      message.error(t("ticket.payment_timeout_error")); // "Ödeme işlemi zaman aşımına uğradı."
+      // Kullanıcıyı failedUrl'e yönlendirebiliriz
+      if (failedUrlRef.current) {
+          navigate(failedUrlRef.current);
+      } else {
+          navigate('/order-failed');
+      }
+    }, 300 * 1000)); // 5 dakika = 300 saniye
+  }, [checkReservationStatus, navigate]);
+
+  const stopPollingForPaymentStatus = useCallback(() => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = undefined;
+    }
+    if (paymentPollingTimeoutId) {
+      clearTimeout(paymentPollingTimeoutId);
+      setPaymentPollingTimeoutId(null);
+    }
+    setIsPollingActive(false);
+  }, [paymentPollingTimeoutId]);
+
+
+  // `successUrl` ve `failedUrl` için useRef kullanmak,
+  // `initPayment` çağrısı sırasında bu değerlerin sabit kalmasını sağlar.
+  const successUrlRef = useRef<string | null>(null);
+  const failedUrlRef = useRef<string | null>(null);
+
+  async function initPayment() {
+    setInitPaymentLoading(true);
+    // payButtonActive ve countdownActive'i false'a çekebiliriz ilk başta
+    // setPayButtonActive(false);
+    // setCountdownActive(false);
+
+    const requestedTickets = Object.entries(ticketTypeBuyRequest)
+      .filter(([_, value]) => value > 0)
+      .map(([key, value]) => ({ ticketId: key, capacity: value }));
+
+    if (requestedTickets.length === 0) {
+      message.info(t("ticket.choose_ticket_before_continue"), 5);
+      setInitPaymentLoading(false);
+      return;
+    }
+
+    try {
+      const { data } = await requestTicket({ // useMutation'dan gelen `requestTicket` fonksiyonu
+        variables: {
+          requestTicketIns: requestedTickets,
+        },
+      });
+
+      if (data.requestTicket.isSuccess) { // `success` yerine `isSuccess`
+        message.info(t("ticket.processing_request")); // "İsteğiniz işleniyor..."
+        const currentReservationId = data.requestTicket.reservationId;
+        setReservationId(currentReservationId);
+        successUrlRef.current = data.requestTicket.successUrl;
+        failedUrlRef.current = data.requestTicket.failedUrl;
+
+        // **TODO: iframeCheckout'u başlat.**
+        if (data.requestTicket.iframeCheckout?.iframeUrl) {
+          setIframeCheckout(data.requestTicket.iframeCheckout);
+          // İframe yüklendiğinde ve hazır olduğunda payButtonActive ve countdownActive durumları true yapılır.
+          // Bu mantık iframe'in yüklenmesini dinleyen bir useEffect içinde olabilir.
+          // Örneğin:
+          // setPayButtonActive(true); // iframe hazır olduğunda tetiklenmeli
+          // startCountdown(); // countdown'ı başlat
+        } else {
+          // iframeCheckout gelmezse veya isSuccess false ise
+          message.error(data.requestTicket.message || t("ticket.request_failed_no_iframe"));
+          // TODO: failedUrl'i yükle veya hata ekranına yönlendir.
+          if (data.requestTicket.failedUrl) {
+            navigate(data.requestTicket.failedUrl);
+          } else {
+            navigate('/order-failed');
+          }
+        }
+      } else {
+        message.error(data.requestTicket.message || t("ticket.request_failed"));
+        // TODO: failedUrl'i yükle.
+        if (data.requestTicket.failedUrl) {
+          navigate(data.requestTicket.failedUrl);
+        } else {
+          navigate('/order-failed');
+        }
+      }
+    } catch (e) {
+      console.error("Error occurred during ticket request:", e);
+      message.error(t("ticket.request_failed_generic"));
+      // Genişletilmiş hata yönetimi
+      if (requestTicketError) {
+          console.error("GraphQL Request Ticket Error:", requestTicketError);
+          message.error(`GraphQL Error: ${requestTicketError.message}`);
+      }
+      // Hata durumunda da failedUrl'e yönlendirme düşünebiliriz
+      // if (failedUrlRef.current) { navigate(failedUrlRef.current); }
+    } finally {
+      setInitPaymentLoading(false);
+    }
+  }
+
+  // **YENİ: Kullanıcı Wallee iframe içindeki "Pay" butonuna bastığında çağrılacak metod.**
+  // Bu fonksiyon genellikle Wallee'nin kendi callback mekanizmasından veya iframe ile etkileşimden tetiklenir.
+  // Varsayımsal olarak bir `onPayButtonClick` veya `onWalleeCheckoutSubmit` fonksiyonu olduğunu düşünelim.
+  const handleWalleePaySubmit = () => {
+    // Countdown biter, Loading sayfası yüklenir.
+    // setCountdownActive(false); // Geri sayımı durdur
+    // setShowLoadingPage(true); // Bir loading sayfası veya spinner göster
+    if (reservationId) {
+      startPollingForPaymentStatus(reservationId);
+    } else {
+      message.error(t("ticket.reservation_id_missing_for_polling"));
+    }
+  };
+
+
+  // **YENİ: Süresi dolan rezervasyonlar için mevcut geri sayım yönetimi**
+  // Süre biterse sayfa yenilenir ve polling durdurulur.
+  useEffect(() => {
+    if (countdownActive === false && !isPaymentSuccess) { // Countdown bittiyse ve ödeme başarılı değilse
+      stopPollingForPaymentStatus();
+      // Polling sırasında zaman aşımı olsa bile, countdown bittiğinde de sayfa yenilenebilir.
+      // window.location.reload(); // Sayfayı yenileme eski davranışa göre
+      // Alternatif: Belirli bir hata sayfasına yönlendir.
+      message.warn(t("ticket.reservation_expired"));
+      if (failedUrlRef.current) {
+          navigate(failedUrlRef.current);
+      } else {
+          navigate('/order-failed');
+      }
+    }
+  }, [countdownActive, isPaymentSuccess, stopPollingForPaymentStatus, navigate]); // Bağımlılıkları güncelleyin
+
+  // Component unmount olduğunda polling'i temizle
+  useEffect(() => {
+    return () => {
+      stopPollingForPaymentStatus();
+    };
+  }, [stopPollingForPaymentStatus]);
+
+  // UI Yükleme durumları için:
+  // requestTicketLoading, getStatusLoading veya isPollingActive durumlarında
+  // loading spinner veya overlay gösterebilirsiniz.
+  const overallLoading = initPaymentLoading || requestTicketLoading || getStatusLoading || isPollingActive;
+
+
+  // ... (render metodu ve diğer JSX)
+  return (
+    <div>
+      {/* ... Diğer EventDetail içeriği */}
+      {overallLoading && <div className="loading-overlay"><Spin size="large" tip={isPollingActive ? t("ticket.checking_payment_status") : t("ticket.processing_request")} /></div>}
+
+      {iframeCheckout?.iframeUrl && (
+        <div style={{ height: '400px', width: '100%' }}>
+          <iframe
+            src={iframeCheckout.iframeUrl}
+            frameBorder="0"
+            width="100%"
+            height="100%"
+            // onLoad veya Wallee'den gelen event listener ile payButtonActive'i true yapabilirsiniz.
+            // Örneğin: onLoad={() => setPayButtonActive(true)}
+          ></iframe>
+          {/* Pay butonu, Wallee iframe'in içinde olduğu için dışarıdan direkt tetikleyemeyiz.
+              Wallee'nin API'sini kullanarak veya iframe'in içindeki submit event'ini yakalayarak polling'i başlatmalıyız. */}
+        </div>
+      )}
+
+      {/* Test amacıyla bir buton ekleyelim, gerçekte Wallee callback'i tetikleyecek */}
+      {iframeCheckout && (
+          <button onClick={handleWalleePaySubmit}>Simulate Wallee Pay Button Click</button>
+      )}
+
+      {/* Order Confirmed / Order Failed ekranları için koşullu render */}
+      {/* isPaymentSuccess ? <OrderConfirmedScreen /> : null */}
+    </div>
+  );
+};
+
+
+
+
+
+
+@Controller
+public class OrderOrchestratorGraphQLController { // Bu controller'ı OrderOrchestratorService'in bir parçası olarak veya ayrı bir Query servisi olarak düşünebiliriz.
+
+    private final OrderOrchestratorRepository orchestratorRepository;
+
+    public OrderOrchestratorGraphQLController(OrderOrchestratorRepository orchestratorRepository) {
+        this.orchestratorRepository = orchestratorRepository;
+    }
+
+    @QueryMapping
+    public ReservationStatusOut getReservationStatus(@Argument String reservationId) {
+        UUID resId = UUID.fromString(reservationId);
+        SagaStateEntity sagaState = orchestratorRepository.getSagaState(resId);
+
+        if (sagaState == null) {
+            // Rezervasyon bulunamadı, hata veya UNKNOWN durumu dön
+            return new ReservationStatusOut("UNKNOWN", null);
+        }
+
+        // Saga durumuna göre frontend'e bilgi dön
+        String status = sagaState.getStatus().name(); // Enum'un string hali
+        String walleeIframeUrl = null;
+
+        if (sagaState.getStatus() == SagaState.PAYMENT_INITIATED) {
+            // Eğer PaymentInitiatedEvent, SagaStateEntity içinde iframeUrl'i saklıyorsa
+            // veya PaymentService'ten anlık olarak çekilebiliyorsa buradan dön
+            // Varsayım: SagaStateEntity, PaymentInitiatedEvent'in verilerini de tutuyor.
+            walleeIframeUrl = sagaState.getWalleeIframeUrl(); // SagaStateEntity içinde tuttuğunuzu varsayalım
+        }
+
+        return new ReservationStatusOut(status, walleeIframeUrl);
+    }
+}
+
+// ReservationStatusOut DTO (Backend)
+public class ReservationStatusOut {
+    private String status;
+    private String walleeIframeUrl;
+
+    public ReservationStatusOut(String status, String walleeIframeUrl) {
+        this.status = status;
+        this.walleeIframeUrl = walleeIframeUrl;
+    }
+
+    // Getters and setters
+}
+
+// SagaState enum'ına eklemeler
+public enum SagaState {
+    ORDER_INITIATED, // İlk talep alındı
+    TICKET_DECREASED, // Bilet stoğu düşürüldü
+    TICKET_DECREASE_FAILED, // Bilet stoğu düşürme başarısız
+    PAYMENT_INITIATED, // Ödeme başlatıldı, iframe URL'i hazır
+    PAYMENT_COMPLETED, // Ödeme başarılı
+    PAYMENT_FAILED, // Ödeme başarısız (Wallee'den veya zaman aşımı ile)
+    USER_TICKET_RECORDED, // Kullanıcıya biletler kaydedildi
+    USER_TICKET_RECORD_FAILED, // Kullanıcıya bilet kaydı başarısız
+    COMPLETED, // Tüm Saga başarıyla tamamlandı
+    FAILED, // Saga başarısızlıkla sonuçlandı (tazminatlar tamamlandı)
+    CHECKER_FAILED // Checker tarafından ele alınamayan bir durum
+}

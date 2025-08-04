@@ -12,7 +12,7 @@ void initialize_lp_core(void)
 
    ulp_lp_core_cfg_t cfg = {
     .wakeup_source = ULP_LP_CORE_WAKEUP_SOURCE_LP_TIMER, 
-    .lp_timer_sleep_duration_us = 5000000  // 5 saniye uyku süresi
+    .lp_timer_sleep_duration_us = 100000  // 0.1 saniye uyku süresi
 };
     // LP-Core'u başlat
     esp_err_t ret = ulp_lp_core_run(&cfg);

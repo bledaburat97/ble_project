@@ -5,60 +5,91 @@
 #include "driver/gpio.h"
 #include "state_manager.h"
 
-#define LP5036_ADDRESS_1 0x30   // I2C address for the first LP5036
-#define LP5036_ADDRESS_2 0x31   // I2C address for the second LP5036
-#define LP5036_ADDRESS_3 0x30   // I2C address for the third LP5036
+#define LP5036_ADDRESS_1 0x31   // u14
+#define LP5036_ADDRESS_2 0x30   // u6
+#define LP5036_ADDRESS_3 0x32 //u13
 
 #define DEVICE_CONFIG0_REG 0x00
 #define DEVICE_CONFIG1_REG 0x01
 #define LED_CONFIG0_REG 0x02
 #define LED_CONFIG1_REG 0x03
-#define BANK_A_COLOR_REG 0x05
+#define BANK_BRIGHTNESS_REG 0x04
 #define OUT0_COLOR_REG 0x14
 #define MAX_BRIGHTNESS 0xFF
 #define MIN_BRIGHTNESS 0x00
+#define LED0_BRIGHTNESS_REG 0x08
 
-#define NUM_OF_LP5036 1
+#define NUM_OF_LP5036 2
 static const char *LASER_TAG = "LaserDriverControl";
-const int LASER_DRIVER_GPIO[NUM_OF_LP5036] = { GPIO_NUM_4};
+const int LASER_DRIVER_ENABLE_GPIO = GPIO_NUM_17;
+const int LED_DRIVER_ENABLE_GPIO = GPIO_NUM_1;
 
-static const LP5036Info lp5036Infos[NUM_OF_LP5036] = {
+static LP5036Info lp5036Infos[NUM_OF_LP5036];
+/*
+static const LP5036Info banked_test_lp5036Infos[NUM_OF_LP5036] = {
     {
-        .address = LP5036_ADDRESS_1,
-        .region_piece_count = 3,
+        .address = LP5036_ADDRESS_1, //u14 DRIVER
+        .region_piece_count = 1,
         .region_piece_list = {
             {
                 .region_id = 1,
-                .led_list = 0x0000000000000007, //1,2,3,
+                .led_list = 0x0000000FFFFFFFFF,
                 .is_bank = true
-            },
+            }
+        },
+        .i2c_master_num = I2C_FIRST_MASTER_NUM
+    },
+    {
+        .address = LP5036_ADDRESS_2, //u6 DRIVER
+        .region_piece_count = 1,
+        .region_piece_list = {
+            {
+                .region_id = 1,
+                .led_list = 0x0000000FFFFFFFFF, 
+                .is_bank = true
+            }
+        },
+        .i2c_master_num = I2C_FIRST_MASTER_NUM
+    }
+        
+};
+*/
+
+static const LP5036Info not_banked_test_lp5036Infos[NUM_OF_LP5036] = {
+    {
+        .address = LP5036_ADDRESS_1, //u14 DRIVER
+        .region_piece_count = 3,
+        .region_piece_list = {
             {
                 .region_id = 2,
-                .led_list = 0x0000000000000060, //6,7
+                .led_list = 0x0000000000000004, //SMD Lazer 1
                 .is_bank = false
             },
             {
                 .region_id = 3,
-                .led_list = 0x000000000000180, //8,9
+                .led_list = 0x0000000000000001, //SMD Lazer 2
+                .is_bank = false
+            },
+            {
+                .region_id = 4,
+                .led_list = 0x0000000000048000, // LEDler
                 .is_bank = false
             }
         },
         .i2c_master_num = I2C_FIRST_MASTER_NUM
     },
-    /*
     {
-        .address = LP5036_ADDRESS_2, //LP5036_ADDRESS_2
+        .address = LP5036_ADDRESS_2, //u6 DRIVER
         .region_piece_count = 1,
         .region_piece_list = {
             {
-                .region_id = 3,
-                .led_list = 0x000000000000180, //8,9
+                .region_id = 1,
+                .led_list = 0x0000000A00000000, //33,35 TH Lazer
                 .is_bank = false
             }
         },
         .i2c_master_num = I2C_FIRST_MASTER_NUM
     }
-    */
 };
 
 static void set_banked_leds() {
@@ -94,7 +125,8 @@ static void set_banked_leds() {
                     ESP_LOGI(LASER_TAG, "set_banked_leds write_register() called with:");
                     ESP_LOGI(LASER_TAG, "  device_address: 0x%02X", info->address);
                     ESP_LOGI(LASER_TAG, "  reg_address: 0x%02X", LED_CONFIG0_REG);
-                    ESP_LOGI(LASER_TAG, "  data: 0x%02X", led_config0_data);
+                    ESP_LOGI(LASER_TAG, "  led_config0_data: 0x%02X", led_config0_data);
+                    ESP_LOGI(LASER_TAG, "  led_config1_data: 0x%02X", led_config1_data);
                     ESP_LOGI(LASER_TAG, "  length: %d", 1);
                     ESP_LOGI(LASER_TAG, "  i2c_master_number: %d", info->i2c_master_num);
 
@@ -107,7 +139,7 @@ static void set_banked_leds() {
                         ESP_LOGE(LASER_TAG, "Failed to write LED_CONFIG1_REG for address 0x%02X", info->address);
                     }
                     vTaskDelay(pdMS_TO_TICKS(100));
-
+                    ESP_LOGI(LASER_TAG, "LED CONFIG is done");
                 }
                 break;
             }
@@ -139,7 +171,7 @@ static uint8_t convert_brightness_percentage_to_brightness(uint8_t brightness_pe
 void set_brightness_of_region(uint8_t region_id, uint8_t brightness_percentage)
 {
     uint8_t brightness = convert_brightness_percentage_to_brightness(brightness_percentage);
-    
+    ESP_LOGI(LASER_TAG, "brightness: %u", brightness);
     if (region_id < 1 || region_id > TOTAL_REGION_COUNT) {
         ESP_LOGE(LASER_TAG, "Invalid region ID: %d", region_id);
         return;
@@ -156,65 +188,103 @@ void set_brightness_of_region(uint8_t region_id, uint8_t brightness_percentage)
             continue;
         }
 
-        /*TODO: 
+
         if(region_piece->is_bank)
         {
-            if (write_register(info->address, BANK_A_COLOR_REG, &brightness, 1, info->i2c_master_num) != ESP_OK) {
-                ESP_LOGE(LASER_TAG, "Failed to write BANK_A_COLOR_REG brightness for address 0x%02X", info->address);
+            if (write_register(info->address, BANK_BRIGHTNESS_REG, &brightness, 1, info->i2c_master_num) != ESP_OK) {
+                ESP_LOGE(LASER_TAG, "Failed to write BANK_BRIGHTNESS brightness for address 0x%02X", info->address);
             }
+            ESP_LOGI(LASER_TAG, "Banked leds are running.");
+
+            vTaskDelay(pdMS_TO_TICKS(100));
         }
         else
         {
+            //TODO: OUT0 parlaklık set ediyorsa:
             for (uint8_t j = 0; j < MAX_NUM_OF_LED_OF_LP5036; j++) {
                 if ((region_piece->led_list >> j) & 1) {
                     if (write_register(info->address, OUT0_COLOR_REG + j, &brightness, 1, info->i2c_master_num) != ESP_OK) {
                         ESP_LOGE(LASER_TAG, "Failed to write OUT0_COLOR_REG brightness for address 0x%02X, for led index %d", info->address, j);
                     }
+                    else{
+                        ESP_LOGI(LASER_TAG, "Write led of : %u", j);
+                    }
+                    vTaskDelay(pdMS_TO_TICKS(100));
                 }
             }
+            ESP_LOGI(LASER_TAG, "Individual leds are running.");
+            //TODO: OUT0 parlaklık set etmiyorsa üsttekini yoruma al bunu aç:
+            /*
+            for (uint8_t j = 0; j < MAX_NUM_OF_LED_OF_LP5036; j++) {
+                if ((region_piece->led_list >> j) & 1) {
+                    // Her 3 LED bir modül olduğundan, parlaklık register'ı LEDx_BRIGHTNESS_REG + (j/3) olmalı
+                    uint8_t led_module_index = j / 3;
+                    if (write_register(info->address, LED0_BRIGHTNESS_REG + led_module_index, &brightness, 1, info->i2c_master_num) != ESP_OK) {
+                        ESP_LOGE(LASER_TAG, "Failed to write LED_BRIGHTNESS_REG for address 0x%02X, for led module index %d", info->address, led_module_index);
+                    }
+                    vTaskDelay(pdMS_TO_TICKS(100));
+                }
+            }
+            */
+
         }
-        */
+        
     }
 }
 
 void set_laser_drivers_status(bool status)
 {
     for(uint8_t lp5036_index = 0; lp5036_index < NUM_OF_LP5036; lp5036_index++){
-        uint8_t chip_en = status ? 0x40 : 0x00;
-        vTaskDelay(pdMS_TO_TICKS(100)); 
-        ESP_LOGI(LASER_TAG, "set_laser_drivers_status write_register() called with:");
-        ESP_LOGI(LASER_TAG, "  device_address: 0x%02X", lp5036Infos[0].address);
-        ESP_LOGI(LASER_TAG, "  reg_address: 0x%02X", DEVICE_CONFIG0_REG);
-        ESP_LOGI(LASER_TAG, "  data: 0x%02X", chip_en);
-        ESP_LOGI(LASER_TAG, "  length: %d", 1);
-        ESP_LOGI(LASER_TAG, "  i2c_master_number: %d", lp5036Infos[0].i2c_master_num);
-        if (write_register(lp5036Infos[0].address, DEVICE_CONFIG0_REG, &chip_en, 1, lp5036Infos[0].i2c_master_num) != ESP_OK) {
-            ESP_LOGE(LASER_TAG, "Failed to write DEVICE_CONFIG0_REG for address 0x%02X, for status: %d", lp5036Infos[0].address, status);
-        }
-        vTaskDelay(pdMS_TO_TICKS(100)); 
+        set_laser_driver_status(lp5036_index, status);
     }
 }
 
-static void initialize_laser_driver_gpio(){
-    gpio_config_t io_conf_laser_driver = {
-        .pin_bit_mask = (1ULL << LASER_DRIVER_GPIO[0]) ,
+void set_laser_driver_status(uint8_t laser_driver_index, bool status) {
+    if(laser_driver_index >= NUM_OF_LP5036){
+        return;
+    } 
+    uint8_t chip_en = status ? 0x40 : 0x00;
+    ESP_LOGI(LASER_TAG, "set_laser_drivers_status write_register() called with:");
+    ESP_LOGI(LASER_TAG, "  device_address: 0x%02X", lp5036Infos[laser_driver_index].address);
+    ESP_LOGI(LASER_TAG, "  reg_address: 0x%02X", DEVICE_CONFIG0_REG);
+    ESP_LOGI(LASER_TAG, "  data: 0x%02X", chip_en);
+    ESP_LOGI(LASER_TAG, "  length: %d", 1);
+    ESP_LOGI(LASER_TAG, "  i2c_master_number: %d", lp5036Infos[laser_driver_index].i2c_master_num);
+    if (write_register(lp5036Infos[laser_driver_index].address, DEVICE_CONFIG0_REG, &chip_en, 1, lp5036Infos[laser_driver_index].i2c_master_num) != ESP_OK) {
+        ESP_LOGE(LASER_TAG, "Failed to write DEVICE_CONFIG0_REG for address 0x%02X, for status: %d", lp5036Infos[laser_driver_index].address, status);
+    }
+    vTaskDelay(pdMS_TO_TICKS(100)); 
+}
+
+
+void initialize_laser_driver_gpio(){
+    gpio_config_t io_conf_led_driver = {
+        .pin_bit_mask = (1ULL << LED_DRIVER_ENABLE_GPIO),
         .mode = GPIO_MODE_OUTPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
         .intr_type = GPIO_INTR_DISABLE
     };
 
-    for (int i = 0; i < NUM_OF_LP5036; i++) {
-        io_conf_laser_driver.pin_bit_mask = (1ULL << LASER_DRIVER_GPIO[i]);
-        gpio_config(&io_conf_laser_driver);
-    }
-    ESP_LOGI(LASER_TAG, "Gpio is initialized successfully.");
+    gpio_config(&io_conf_led_driver);
+    ESP_LOGI(LASER_TAG, "led Gpio is initialized successfully.");
+
+        gpio_config_t io_conf_laser_driver = {
+        .pin_bit_mask = (1ULL << LASER_DRIVER_ENABLE_GPIO),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+
+    gpio_config(&io_conf_laser_driver);
+    ESP_LOGI(LASER_TAG, "laser Gpio is initialized successfully.");
 }
 
 void set_laser_drivers_gpio_pin_status(bool status) {
-    for(int laser_driver_index = 0; laser_driver_index < NUM_OF_LP5036; laser_driver_index++) {
-        gpio_set_level(LASER_DRIVER_GPIO[laser_driver_index], status);
-    }
+    gpio_set_level(LED_DRIVER_ENABLE_GPIO, status);
+    gpio_set_level(LASER_DRIVER_ENABLE_GPIO, status);
+
     ESP_LOGI(LASER_TAG, "Gpio pin status is set.");
 }
 
@@ -238,25 +308,55 @@ void update_device_config1(bool status, DeviceConfig1UpdateType type) {
         if (write_register(lp5036Infos[lp5036_index].address, DEVICE_CONFIG1_REG, &device_config1_result, 1, lp5036Infos[lp5036_index].i2c_master_num) != ESP_OK) {
             ESP_LOGE(LASER_TAG, "Failed to write DEVICE_CONFIG1_REG for address 0x%02X", lp5036Infos[lp5036_index].address);
         } else {
-            ESP_LOGI(LASER_TAG, "Successfully updated POWER_SAVE_EN for address 0x%02X to %d", lp5036Infos[lp5036_index].address, status);
+            ESP_LOGI(LASER_TAG, "Successfully updated type %d for address 0x%02X to %d", lp5036Infos[lp5036_index].address, type, status);
         }
     }
 }
 
-/*
-void set_brightness(RegionStatusChangedInfo *region_status_changed_infos, uint8_t num_of_changed_regions)
-{
-    for(uint8_t i = 0; i < num_of_changed_regions; i++){
-        set_brightness_of_region(region_status_changed_infos[i].region_id, region_status_changed_infos[i].brightness);
-    }
-}
-*/
-
 void initialize_laser_drivers() 
 {
+    //memcpy(lp5036Infos, banked_test_lp5036Infos, sizeof(LP5036Info) * NUM_OF_LP5036);
+    // memcpy(lp5036Infos, mixed_test_lp5036Infos, sizeof(LP5036Info) * NUM_OF_LP5036);
+    memcpy(lp5036Infos, not_banked_test_lp5036Infos, sizeof(LP5036Info) * NUM_OF_LP5036);
+
     initialize_laser_driver_gpio();
-    set_laser_drivers_gpio_pin_status(false);
-    set_laser_drivers_status(false);
+    set_laser_drivers_gpio_pin_status(true);
+    set_laser_drivers_status(true);
     vTaskDelay(pdMS_TO_TICKS(100));
     set_banked_leds();
 }
+
+/*
+
+static const LP5036Info mixed_test_lp5036Infos[NUM_OF_LP5036] = {
+    {
+        .address = LP5036_ADDRESS_1, //u14 DRIVER
+        .region_piece_count = 2,
+        .region_piece_list = {
+            {
+                .region_id = 1,
+                .led_list = 0x000000000000000F, //0-3 SMD Lazer
+                .is_bank = true
+            },
+            {
+                .region_id = 2,
+                .led_list = 0x0000000490480000, //19,22,28,31,34 LEDler
+                .is_bank = false
+            }
+        },
+        .i2c_master_num = I2C_FIRST_MASTER_NUM
+    },
+    {
+        .address = LP5036_ADDRESS_2, //u6 DRIVER
+        .region_piece_count = 1,
+        .region_piece_list = {
+            {
+                .region_id = 3,
+                .led_list = 0x0000000A00000000, //33,35 TH Lazer
+                .is_bank = false
+            }
+        },
+        .i2c_master_num = I2C_FIRST_MASTER_NUM
+    }
+};
+*/

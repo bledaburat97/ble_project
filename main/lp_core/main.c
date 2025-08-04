@@ -19,36 +19,43 @@ volatile uint32_t lp_core_byte_count = 0;
 int main(void)
 {
     while (1) {
+        uint32_t current_lp_command = __atomic_load_n(&lp_core_command, __ATOMIC_RELAXED); // Atomik okuma
+
         //write
-        if(lp_core_command == WRITE_COMMAND) {
+        if(current_lp_command == WRITE_COMMAND) { // <-- Düzeltildi: current_lp_command kullanılıyor
             uint8_t data[MAX_BYTE_COUNT + 1];
-            data[0] = lp_core_register & 0xFF;
-            for(int i = 1; i <= lp_core_byte_count; i++){
-                data[i] = (lp_core_value >> (8 * (lp_core_byte_count - i))) & 0xFF;
+            data[0] = __atomic_load_n(&lp_core_register, __ATOMIC_RELAXED) & 0xFF; // Atomik okuma
+            for(int i = 1; i <= __atomic_load_n(&lp_core_byte_count, __ATOMIC_RELAXED); i++){ // Atomik okuma
+                data[i] = (__atomic_load_n(&lp_core_value, __ATOMIC_RELAXED) >> (8 * (__atomic_load_n(&lp_core_byte_count, __ATOMIC_RELAXED) - i))) & 0xFF; // Atomik okuma
             }
-            if(lp_core_i2c_master_write_to_device(LP_I2C_NUM_0, lp_core_device_address, data, lp_core_byte_count + 1, LP_I2C_TRANS_WAIT_FOREVER) == ESP_OK) {
-                lp_core_command = WRITE_COMPLETED;
+            if(lp_core_i2c_master_write_to_device(LP_I2C_NUM_0, __atomic_load_n(&lp_core_device_address, __ATOMIC_RELAXED), data, __atomic_load_n(&lp_core_byte_count, __ATOMIC_RELAXED) + 1, LP_I2C_TRANS_WAIT_FOREVER) == ESP_OK) { // Atomik okuma
+                __atomic_store_n(&lp_core_command, WRITE_COMPLETED, __ATOMIC_RELAXED); // Atomik yazma
+            } else {
+                // Hata durumunu ele alın
             }
         }
         //read
-        else if(lp_core_command == READ_COMMAND) {
-            uint8_t reg = lp_core_register & 0xFF;
-            if(lp_core_byte_count == 1) {
+        else if(current_lp_command == READ_COMMAND) { // <-- Düzeltildi: current_lp_command kullanılıyor
+            uint8_t reg = __atomic_load_n(&lp_core_register, __ATOMIC_RELAXED) & 0xFF; // Atomik okuma
+            if(__atomic_load_n(&lp_core_byte_count, __ATOMIC_RELAXED) == 1) { // Atomik okuma
                 uint8_t data = 0;
-                if(lp_core_i2c_master_write_read_device(LP_I2C_NUM_0, lp_core_device_address, &reg, 1, &data, 1, LP_I2C_TRANS_WAIT_FOREVER) == ESP_OK) {
-                    lp_core_value = (lp_core_value & 0xFFFFFF00) | (data);
-                    lp_core_command = READ_COMPLETED;
+                if(lp_core_i2c_master_write_read_device(LP_I2C_NUM_0, __atomic_load_n(&lp_core_device_address, __ATOMIC_RELAXED), &reg, 1, &data, 1, LP_I2C_TRANS_WAIT_FOREVER) == ESP_OK) { // Atomik okuma
+                    __atomic_store_n(&lp_core_value, (__atomic_load_n(&lp_core_value, __ATOMIC_RELAXED) & 0xFFFFFF00) | (data), __ATOMIC_RELAXED); // Atomik yazma
+                    __atomic_store_n(&lp_core_command, READ_COMPLETED, __ATOMIC_RELAXED); // Atomik yazma
+                } else {
+                    // Hata durumunu ele alın
                 }
             }
-            else if(lp_core_byte_count == 2) {
+            else if(__atomic_load_n(&lp_core_byte_count, __ATOMIC_RELAXED) == 2) { // Atomik okuma
                 uint8_t data[2] = {0};
-                if(lp_core_i2c_master_write_read_device(LP_I2C_NUM_0, lp_core_device_address, &reg, 1, data, 2, LP_I2C_TRANS_WAIT_FOREVER) == ESP_OK) {
-                    lp_core_value = ((lp_core_value & 0xFFFF0000) | (data[0] << 8)) | data[1];
-                    lp_core_command = READ_COMPLETED;
+                if(lp_core_i2c_master_write_read_device(LP_I2C_NUM_0, __atomic_load_n(&lp_core_device_address, __ATOMIC_RELAXED), &reg, 1, data, 2, LP_I2C_TRANS_WAIT_FOREVER) == ESP_OK) { // Atomik okuma
+                    __atomic_store_n(&lp_core_value, ((__atomic_load_n(&lp_core_value, __ATOMIC_RELAXED) & 0xFFFF0000) | (data[0] << 8)) | data[1], __ATOMIC_RELAXED); // Atomik yazma
+                    __atomic_store_n(&lp_core_command, READ_COMPLETED, __ATOMIC_RELAXED); // Atomik yazma
+                } else {
+                    // Hata durumunu ele alın
                 }
             }
         }
     }
     return 0;
 }
-
