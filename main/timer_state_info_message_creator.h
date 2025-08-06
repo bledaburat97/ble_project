@@ -1,4 +1,4 @@
-#include "log_types.h"
+#include "storage/log_types.h"
 
 #ifndef TIMER_STATE_INFO_MESSAGE_CREATOR_H
 #define TIMER_STATE_INFO_MESSAGE_CREATOR_H

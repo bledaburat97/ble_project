@@ -1,7 +1,7 @@
 #include "current_therapy_info_manager.h"
 
 #include <stdint.h>
-#include "log_writer.h"
+#include "storage/log_writer.h"
 #include "therapy_counter.h"
 #include "esp_log.h"
 #include "matching_message_encoder.h"
@@ -64,7 +64,9 @@ void init_current_therapy_info_manager() {
 }
 
 void set_records(uint16_t therapy_id) {
+    ESP_LOGI(TAG, "Set records");
     if(current_therapy_state == NONE && therapy_id == read_therapy_count()) {
+        ESP_LOGE(TAG, "HATA.");
         return;
     }
     if(therapy_id == 0) {

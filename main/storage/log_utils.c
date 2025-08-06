@@ -1,12 +1,9 @@
 #include "log_utils.h"
-#include "log_types.h"
+#include "storage/log_types.h"
 #include "esp_log.h"
 #include <string.h>
 
 #define TAG "LogUtils"
-#define LOG_PARTITION_NAME "log_storage"
-
-static const esp_partition_t* log_partition = NULL;
 
 uint8_t calculate_crc8(const uint8_t *data, size_t length) {
     uint8_t crc = 0x00;
@@ -21,7 +18,6 @@ uint8_t calculate_crc8(const uint8_t *data, size_t length) {
     }
     return crc;
 }
-
 
 BaseLogEntry fill_base_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t passed_seconds) {
     BaseLogEntry log;
@@ -88,16 +84,6 @@ BaseLogEntry fill_base_log(uint8_t type, const uint8_t* data, size_t data_len, u
     return log;
 }
 
-esp_err_t init_log_writer() {
-    log_partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, LOG_STORAGE_SUBTYPE, LOG_PARTITION_NAME);
-
-    if (!log_partition) {
-        ESP_LOGE(TAG, "Log partition is not found");
-        return ESP_FAIL;
-    }
-    return ESP_OK;
-}
-
 LogEntrySizeInfo get_log_entry_size_info(uint8_t type) {
     //1 byte type
     //? byte data
@@ -130,8 +116,4 @@ LogEntrySizeInfo get_log_entry_size_info(uint8_t type) {
             break;
     }
     return size_info;
-}
-
-const esp_partition_t* get_log_partition() {
-    return log_partition;
 }

@@ -7,13 +7,12 @@
 
 #include "time.h"
 
-#include "storage_management.h"
 #include "deep_sleep_manager.h"
 #include "state_manager.h"
 #include "temperature_alarm_control.h"
 #include "timer_utils.h"
-#include "log_writer.h"
-#include "log_utils.h"
+#include "storage/log_writer.h"
+#include "storage/log_utils.h"
 
 static const char *TAG = "TimerManagement";
 

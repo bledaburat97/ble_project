@@ -14,7 +14,7 @@
 #define RECORD_TYPE_MEASUREMENT     0x03
 #define RECORD_TYPE_NOTIFICATION    0x04
 #define RECORD_TYPE_BRIGHTNESS      0x05
-#define MAX_FRAGMENT_SIZE 30
+#define MAX_FRAGMENT_SIZE 60
 #define MAX_FRAGMENT_COUNT 100
 
 static const char *TAG = "MatchingMessageEncoder";

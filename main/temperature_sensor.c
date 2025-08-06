@@ -97,10 +97,12 @@ void set_threshold_temperature(uint8_t device_address, float thresholdInDegree, 
     convert_threshold_to_bytes(thresholdInDegree, &msb, &lsb);
     uint8_t threshold[2] ={msb, lsb}; 
     if (type == LOW){
+        ESP_LOGI(TAG, "Low temperature limit: %.2f°C", thresholdInDegree);
         write_register(device_address, LOW_THRESHOLD_REG, threshold, 2, i2c_master_num);
         //-LP-//add_lp_write_command_to_queue(device_address, LOW_THRESHOLD_REG, threshold, 2);
     }
     else if(type == HIGH) {
+        ESP_LOGI(TAG, "High temperature limit: %.2f°C", thresholdInDegree);
         write_register(device_address, HIGH_THRESHOLD_REG, threshold, 2, i2c_master_num);
         //-LP-//add_lp_write_command_to_queue(device_address, HIGH_THRESHOLD_REG, threshold, 2);
     }
@@ -112,8 +114,8 @@ float read_temperature_of_sensor(uint8_t device_address) {
     uint8_t temperatureBytes[2];
     read_register(device_address, TEMPERATURE_REG, temperatureBytes, 2, i2c_master_num);
 
-    ESP_LOGI(TAG, "1st byte read temperature: %u", temperatureBytes[0]);
-    ESP_LOGI(TAG, "2nd byte read temperature: %u", temperatureBytes[1]);
+    //ESP_LOGI(TAG, "1st byte read temperature: %u", temperatureBytes[0]);
+    //ESP_LOGI(TAG, "2nd byte read temperature: %u", temperatureBytes[1]);
 
     //-LP-//add_lp_read_command_to_queue(device_address, TEMPERATURE_REG, 2);
     float temperature = convert_bytes_to_float(temperatureBytes[0], temperatureBytes[1]);

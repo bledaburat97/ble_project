@@ -1,6 +1,6 @@
 #pragma once
 
-#include "log_types.h"
+#include "storage/log_types.h"
 #ifndef UNIT_TESTING
 #include "esp_err.h"
 #else
@@ -33,7 +33,6 @@ typedef struct {
 } ReadTherapyInfo;
 
 
-esp_err_t log_writer_init();
 esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t passed_seconds);
 esp_err_t add_notification_log(uint8_t type, uint16_t passed_seconds);
 void print_cached_log_sizes();
@@ -46,7 +45,7 @@ uint16_t get_last_saved_passed_duration();
 //esp_err_t read_and_set_records(uint16_t therapy_id);
 bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs);
 bool read_therapy_info(uint16_t therapy_id, ReadTherapyInfo* therapy_info);
-
+void read_and_print_test_logs(uint8_t therapy_id);
 #ifdef __cplusplus
 }
 #endif

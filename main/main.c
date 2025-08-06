@@ -88,31 +88,32 @@
 #include "transaction_manager.h"
 #include "state_manager.h"
 #include "deep_sleep_manager.h"
-#include "storage_management.h"
 #include "main_button_controller.h"
 
-#include "log_types.h"
-#include "log_writer.h"
-#include "log_utils.h"
+#include "storage/log_types.h"
+#include "storage/log_writer.h"
+#include "storage/log_utils.h"
 #include "therapy_counter.h"
 #include "matching_message_encoder.h"
 #include "notification_info_message_creator.h"
 #include "general_manager.h"
 #include "nvs_flash.h"
+#include "storage/log_partition_manager.h"
+#include "records_info_message_creator.h"
 
 static const char *TAG = "Main";
 
-static bool is_ble_active = false;
+static bool is_ble_active = true;
 static bool is_state_and_timer_active = false;
 static bool is_lp_prox_sensor_active = false;
-static bool is_therapy_counter_partition_active = false;
-static bool is_log_partition_active = false;
+static bool is_therapy_counter_partition_active = true;
+static bool is_log_partition_active = true;
 static bool is_laser_and_led_drivers_active = true;
-static bool is_temperature_sensor_active = false;
-static bool is_hp_prox_sensor_active = true;
+static bool is_temperature_sensor_active = true;
+static bool is_hp_prox_sensor_active = false;
 static bool is_boot_button_control_active = false;
 static bool is_default_sleep_active = false;
-static bool is_deep_sleep_button_control_active = true;
+static bool is_deep_sleep_button_control_active = false;
 static bool is_creating_logs_permitted = false;
 
 void app_main() {
@@ -147,6 +148,16 @@ void app_main() {
     
     if(is_device_active) {
 
+        if(is_therapy_counter_partition_active) {
+            init_therapy_counter_partition();
+            uint16_t therapy_count = read_therapy_count();
+            ESP_LOGI(TAG, "Therapy count: %u", therapy_count);
+        }
+
+        if(is_log_partition_active) {
+            init_log_partition();
+        }
+
         if(is_ble_active) {
             init_transaction_manager();
         }
@@ -165,16 +176,9 @@ void app_main() {
             xTaskCreate(process_lp_queue_task, "ProcessLpQueueTask", 4096, NULL, 5, NULL);
         }
 
-        if(is_therapy_counter_partition_active) {
-            init_therapy_counter_partition();
-            uint16_t therapy_count = read_therapy_count();
-            ESP_LOGI(TAG, "Therapy count: %u", therapy_count);
-        }
+        //test_add_log_flow();
+        //send_records_info_message(1);
 
-        if(is_log_partition_active) {
-            init_log_writer();
-        }
-                    
         /*
             read_and_set_records(0);
             read_and_set_records(1);
@@ -194,9 +198,9 @@ void app_main() {
                 
         if(is_temperature_sensor_active) {
             initialize_temperature_sensor();
-            //initialize_alert_gpios();
+            initialize_alert_gpios();
             xTaskCreate(temperature_read_task, "Temperature Update Task", 2048, NULL, 1, NULL);
-            //xTaskCreate(monitor_alert_task, "Monitor Alert Task", 2048, NULL, 1, NULL);
+            xTaskCreate(monitor_alert_task, "Monitor Alert Task", 2048, NULL, 1, NULL);
         }
                 
         if(is_lp_prox_sensor_active || is_hp_prox_sensor_active) {

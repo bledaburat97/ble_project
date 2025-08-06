@@ -15,7 +15,7 @@
 #include "transaction_manager.h"
 #include "transaction_message_encoder.h"
 #include "json_encoder.h"
-#include "log_writer.h"
+#include "storage/log_writer.h"
 #include "therapy_counter.h"
 #include "matching_message_encoder.h"
 #include "ble/ble_state_manager.h"

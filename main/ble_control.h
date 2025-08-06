@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "log_types.h"
+#include "storage/log_types.h"
 #include "esp_err.h"
 
 #ifndef BLE_CONTROL_H

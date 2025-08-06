@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "log_types.h"
+#include "storage/log_types.h"
 #include "json_parser.h"
 
 #ifndef TRANSACTION_MANAGER_H

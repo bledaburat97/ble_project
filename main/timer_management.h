@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "log_types.h"
+#include "storage/log_types.h"
 #include "state_manager.h"
 
 #ifndef TIMER_MANAGEMENT_H

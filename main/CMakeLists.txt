@@ -4,7 +4,7 @@ set(app_sources "lp_core_main.c")
 #set(CMAKE_C_COMPILER "C:/Users/bleda.burat/.espressif/tools/riscv32-esp-elf/esp-13.2.0_20240530/riscv32-esp-elf/bin/riscv32-esp-elf-gcc.exe" CACHE STRING "C Compiler" FORCE)
 #set(CMAKE_ASM_COMPILER "C:/Users/bleda.burat/.espressif/tools/riscv32-esp-elf/esp-13.2.0_20240530/riscv32-esp-elf/bin/riscv32-esp-elf-as.exe" CACHE STRING "ASM Compiler" FORCE)
 
-idf_component_register(SRCS "json_encoder.c" "therapy_counter.c" "log_utils.c" "log_writer.c" "timer_utils.c" "proximity_sensor_control.c" "temperature_sensor_control.c" 
+idf_component_register(SRCS "json_encoder.c" "therapy_counter.c" "timer_utils.c" "proximity_sensor_control.c" "temperature_sensor_control.c" 
                             "temperature_sensor.c" 
                             "i2c_control.c" 
                             "json_parser.c" 
@@ -24,8 +24,9 @@ idf_component_register(SRCS "json_encoder.c" "therapy_counter.c" "log_utils.c" "
                             "transaction_message_encoder.c"
                             "deep_sleep_manager.c"
                             "main_button_controller.c"
-                            "log_utils.c"
-                            "log_writer.c"
+                            "storage/log_utils.c"
+                            "storage/log_writer.c"
+                            "storage/log_partition_manager.c"
                             "therapy_counter.c"
                             "json_encoder.c"
                             "matching_message_encoder.c"

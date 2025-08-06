@@ -137,12 +137,14 @@ static void queue_sender_task(void *pvParameters)
 
     while (1) {
         if (xQueueReceive(high_priority_queue, &entry, pdMS_TO_TICKS(50)) == pdTRUE) {
-            send_and_track(&entry);
+            ESP_LOGI(TAG, "Receive high priority message in the queue.");
+            //send_and_track(&entry);
             continue;
         }
 
         if (xQueueReceive(low_priority_queue, &entry, pdMS_TO_TICKS(50)) == pdTRUE) {
-            send_and_track(&entry);
+            ESP_LOGI(TAG, "Receive low priority message in the queue.");
+            //send_and_track(&entry);
             continue;
         }
 

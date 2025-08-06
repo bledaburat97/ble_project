@@ -1,6 +1,7 @@
 #include "log_writer.h"
 #include "log_types.h"
 #include "log_utils.h"
+#include "log_partition_manager.h"
 #include "therapy_counter.h"
 #include "esp_partition.h"
 #include "esp_log.h"
@@ -10,6 +11,8 @@
 
 #define TAG "LogWriter"
 
+#define THERAPY_SLOT_SIZE 4096
+#define MAX_SAVED_THERAPY 500
 #define MAX_PENDING_LOGS 128
 static const uint16_t MAX_READ_LOGS_OF_MEASUREMENT = 1000;
 static const uint16_t MAX_READ_LOGS_OF_BRIGHTNESS = 500;
@@ -38,32 +41,6 @@ static esp_err_t cache_log_entry(const BaseLogEntry* log) {
     return ESP_OK;
 }
 
-
-
-
-/*
-static void read_logs(uint32_t base_offset) {
-
-    esp_err_t err = esp_partition_read(get_log_partition(), base_offset, therapy_slot_buffer, THERAPY_SLOT_SIZE);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to read therapy slot: %s", esp_err_to_name(err));
-    }
-    uint32_t local_offset = 0;
-
-    while (local_offset <= THERAPY_SLOT_SIZE) {
-        if (therapy_slot_buffer[local_offset] == 0xFF) break;  // boş alan bulundu
-        uint8_t type = therapy_slot_buffer[local_offset];
-        ESP_LOGI(TAG, "Read log type is: %u", type);
-        size_t entry_size = get_log_entry_size(type);
-        if (entry_size == 0) break;
-
-        local_offset += entry_size;
-    }
-    ESP_LOGI(TAG, "All logs are read.");
-
-}
-*/
-
 //Verilen entry verisini offset konumuna flash’a yazar. Son bayta CRC8 (hata kontrolü) ekler.
 //Flash’a doğrudan bir log yazarken kullanılır.
 //Önce buffer sıfırlanır → veri kopyalanır → CRC eklenir → yazılır.
@@ -75,8 +52,12 @@ static esp_err_t write_log_entry(uint32_t offset, const uint8_t* entry, size_t s
     memset(write_buffer, 0, MAX_LOG_ENTRY_SIZE);
     memcpy(write_buffer, entry, size);
     write_buffer[size - 1] = calculate_crc8(write_buffer, size - 1);
-
-    esp_err_t err = esp_partition_write(get_log_partition(), offset, write_buffer, size);
+    const esp_partition_t* partition = get_log_partition();
+    if (!partition) {
+        ESP_LOGE(TAG, "Cannot write to flash, partition is NULL!");
+        return ESP_ERR_INVALID_ARG;
+    }
+    esp_err_t err = esp_partition_write(partition, offset, write_buffer, size);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to write log entry at offset %lu: %s", offset, esp_err_to_name(err));
         return err;
@@ -392,55 +373,6 @@ esp_err_t add_notification_log(uint8_t type, uint16_t passed_seconds) {
     return add_log(type, data, 0, passed_seconds);
 }
 
-/*
-//for test
-void test_cache_log_limit() {
-
-    BaseLogEntry test_log;
-    uint8_t* data = NULL;
-    fill_base_log(&test_log, PASSED_DURATION_UPDATED, data, 0, 0);
-
-    for (int i = 0; i < MAX_PENDING_LOGS + 5; ++i) {
-        esp_err_t err = cache_log_entry(&test_log);
-        ESP_LOGI(TAG, "cache_log_entry() call %d -> %s", i, esp_err_to_name(err));
-    }
-
-    print_cached_log_sizes();
-}
-
-//for test
-void test_flush_to_slot() {
-
-    BaseLogEntry test_log_1;
-    uint8_t* data_1 = NULL;
-    fill_base_log(&test_log_1, DEVICE_AWAKED, data_1, 0, 29);
-
-    BaseLogEntry test_log_2;
-    uint8_t data_2[] = {0x01, 0x2C};
-    fill_base_log(&test_log_2, MEASUREMENT_CHANGED, data_2, sizeof(data_2), 123);
-
-    BaseLogEntry test_log_3;
-    uint8_t data_3[] = {0x01, 0x2C, 0x01, 0x22};
-    fill_base_log(&test_log_3, THERAPY_STARTED_BY_BUTTON, data_3, sizeof(data_3), 200);
-
-    
-    cache_log_entry(&test_log_1);
-
-    for (int i = 0; i < 5; ++i) {
-        cache_log_entry(&test_log_2);
-    }
-
-    cache_log_entry(&test_log_3);
-
-    print_cached_log_sizes();
-
-    flush_cached_logs_to_slot(0);
-
-    print_cached_log_sizes();
-
-    read_logs(0);
-}
-*/
 //for test
 void test_add_log_flow() {
 
@@ -484,70 +416,6 @@ void test_add_log_flow() {
 
     uint8_t* data_13 = NULL;
     add_log(NOTIF_THERAPY_COMPLETED, data_13, 0, 280);
-
-    /*
-    BaseLogEntry complete;
-    uint8_t* data_5 = NULL;
-    fill_base_log(&complete, THERAPY_COMPLETED, data_5, 0, 30);
-    add_log(&complete);
-
-    BaseLogEntry test_log_3;
-    uint8_t* data_6 = NULL;
-    fill_base_log(&test_log_3, DEVICE_AWAKED, data_6, 0, 40);
-    add_log(&test_log_3);
-
-    BaseLogEntry start2;
-    uint8_t data_8[] = {0x01, 0x2C, 0x01, 0x22};
-    fill_base_log(&start2, THERAPY_STARTED_BY_APP, data_8, sizeof(data_8), 20);
-    add_log(&start2);
-
-    for(int i = 0; i < 1000; i++) {
-        ESP_LOGI(TAG, "test_meas:%u", i);
-
-        BaseLogEntry test_log_4;
-        uint8_t data_7[] = {0x01, 0x2C};
-        fill_base_log(&test_log_4, MEASUREMENT_CHANGED, data_7, sizeof(data_4), 40);
-        add_log(&test_log_4);
-    }
-
-    ESP_LOGI(TAG, "MEASUREMENT_CHANGED AGAIN");
-
-    BaseLogEntry measure2;
-    uint8_t data_9[] = {0x01, 0x2C};
-    fill_base_log(&measure2, MEASUREMENT_CHANGED, data_9, sizeof(data_9), 25);
-    add_log(&measure2);
-
-    ESP_LOGI(TAG, "THERAPY_COMPLETED");
-
-    BaseLogEntry complete2;
-    uint8_t* data_10 = NULL;
-    fill_base_log(&complete2, THERAPY_COMPLETED, data_10, 0, 30);
-    add_log(&complete2);
-
-    ESP_LOGI(TAG, "MEASUREMENT_CHANGED");
-
-    BaseLogEntry measure3;
-    uint8_t data_11[] = {0x01, 0x2C};
-    fill_base_log(&measure3, MEASUREMENT_CHANGED, data_11, sizeof(data_11), 25);
-    add_log(&measure3);
-
-
-
-    ESP_LOGI(TAG, "read_logs(0)");
-    read_logs(0);
-    ESP_LOGI(TAG, "read_logs(THERAPY_SLOT_SIZE)");
-    read_logs(THERAPY_SLOT_SIZE);
-    ESP_LOGI(TAG, "read_logs(2 * THERAPY_SLOT_SIZE)");
-    read_logs(2 * THERAPY_SLOT_SIZE);
-    ESP_LOGI(TAG, "read_logs(3 * THERAPY_SLOT_SIZE)");
-    read_logs(3 * THERAPY_SLOT_SIZE);
-    ESP_LOGI(TAG, "read_logs(4 * THERAPY_SLOT_SIZE)");
-    read_logs(4 * THERAPY_SLOT_SIZE);
-    ESP_LOGI(TAG, "read_logs(5 * THERAPY_SLOT_SIZE)");
-    read_logs(5 * THERAPY_SLOT_SIZE);
-    ESP_LOGI(TAG, "read_logs(6 * THERAPY_SLOT_SIZE)");
-    read_logs(6 * THERAPY_SLOT_SIZE);
-    */
 }
 
 //for test
@@ -572,9 +440,16 @@ void print_cached_log_sizes() {
 */
 
 bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs) {
+    ESP_LOGI(TAG, "Read records for therapy id: %u", therapy_id);
     uint32_t base_offset = ((therapy_id - 1)  % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
     bool is_active_therapy = therapy_id == read_therapy_count();
-    esp_err_t err = esp_partition_read(get_log_partition(), base_offset, therapy_slot_buffer, THERAPY_SLOT_SIZE);
+    const esp_partition_t* partition = get_log_partition();
+    if (!partition) {
+        ESP_LOGE(TAG, "Log partition is not initialized.");
+        return false;
+    }
+
+    esp_err_t err = esp_partition_read(partition, base_offset, therapy_slot_buffer, THERAPY_SLOT_SIZE);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to read slot at index %u: %s", therapy_id, esp_err_to_name(err));
         return false;
@@ -662,6 +537,7 @@ bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs) {
 
                 break;
         }
+        local_offset += size_info.total_length;
     }
 
     if (!is_active_therapy) {
@@ -671,15 +547,25 @@ bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs) {
     }
 
     if (therapy_logs->count_notifications == 0 && therapy_logs->count_brightness == 0 && therapy_logs->count_measurements == 0) {
+        free(therapy_logs->measurements);
+        free(therapy_logs->notifications);
+        free(therapy_logs->brightness_updates);
         return false;
     }
+    ESP_LOGI(TAG, "Read records for therapy id: %u is successful.", therapy_id);
     return true;
 
 }
+
 bool read_therapy_info(uint16_t therapy_id, ReadTherapyInfo* therapy_info) {
     uint32_t base_offset = ((therapy_id - 1)  % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
+    const esp_partition_t* partition = get_log_partition();
+    if (!partition) {
+        ESP_LOGE(TAG, "Cannot read flash, partition is NULL!");
+        return false;
+    }
 
-    esp_err_t err = esp_partition_read(get_log_partition(), base_offset, therapy_slot_buffer, THERAPY_SLOT_SIZE);
+    esp_err_t err = esp_partition_read(partition, base_offset, therapy_slot_buffer, THERAPY_SLOT_SIZE);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to read slot at index %u: %s", therapy_id, esp_err_to_name(err));
         return false;
@@ -740,135 +626,90 @@ bool read_therapy_info(uint16_t therapy_id, ReadTherapyInfo* therapy_info) {
 
     return true;
 }
-/*
-esp_err_t read_and_set_records(uint16_t therapy_id) {
-    uint32_t base_offset = (therapy_id % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
-    ESP_LOGI(TAG, "Start to read log of therapy_id: %u", therapy_id);
 
-    esp_err_t err = esp_partition_read(get_log_partition(), base_offset, therapy_slot_buffer, THERAPY_SLOT_SIZE);
+void read_and_print_test_logs(uint8_t therapy_id) {
+    ESP_LOGI(TAG, "Starting log reading test...");
+
+    uint32_t base_offset = ((therapy_id - 1)  % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
+    const esp_partition_t* partition = get_log_partition();
+    if (!partition) {
+        ESP_LOGE(TAG, "Cannot read flash, partition is NULL!");
+        return;
+    }
+    esp_err_t err = esp_partition_read(partition, base_offset, therapy_slot_buffer, THERAPY_SLOT_SIZE);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to read slot at index %u: %s", therapy_id, esp_err_to_name(err));
-        return err;
+        return;
     }
-    init_fragments();
-
-    // Her kayıt tipi için bufferlar
-    uint8_t* measurements = malloc(THERAPY_SLOT_SIZE);
-    uint8_t* notifications = malloc(THERAPY_SLOT_SIZE);
-    uint8_t* brightness_updates = malloc(THERAPY_SLOT_SIZE);
-
-    if (!measurements || !notifications || !brightness_updates) {
-        ESP_LOGE(TAG, "Memory allocation failed");
-        return ESP_ERR_NO_MEM;
-    }
-
-    size_t count_measurements = 0;
-    size_t count_notifications = 0;
-    size_t count_brightness = 0;
-
-    uint16_t therapy_duration = 0;
 
     uint32_t local_offset = 0;
+    uint16_t log_count = 0;
+
     while (local_offset < THERAPY_SLOT_SIZE) {
         uint8_t type = therapy_slot_buffer[local_offset];
-        if (type == 0xFF) break;
+
+        if (type == 0xFF) {
+            ESP_LOGI(TAG, "End of logs reached. (0xFF terminator found)");
+            break;
+        }
         
         LogEntrySizeInfo size_info = get_log_entry_size_info(type);
-        if (local_offset + size_info.total_length > THERAPY_SLOT_SIZE) break;
 
-        const uint8_t first_data_byte_index = 1;
-        const uint8_t first_passed_duration_byte_index = first_data_byte_index + size_info.data_length;
+        if (local_offset + size_info.total_length > THERAPY_SLOT_SIZE) {
+            ESP_LOGE(TAG, "Corrupt log entry detected at offset %lu. Aborting read.", local_offset);
+            break;
+        }
+
         const uint8_t* entry_ptr = &therapy_slot_buffer[local_offset];
-        const uint8_t* data_ptr = &entry_ptr[first_data_byte_index];  // type'ten sonra gelen data
+        const uint8_t* data_ptr = &entry_ptr[1];
+        uint16_t passed_seconds;
+        memcpy(&passed_seconds, &entry_ptr[1 + size_info.data_length], sizeof(passed_seconds));
+        uint8_t crc = entry_ptr[size_info.total_length - 1];
+        
+        log_count++;
 
         switch (type) {
             case MEASUREMENT_CHANGED:
-                if (count_measurements >= MAX_READ_LOGS_OF_MEASUREMENT) break;
-                uint8_t measurement_record_length = 4;
-
-                memcpy(&measurements[count_measurements * measurement_record_length], data_ptr, size_info.data_length); // data
-                measurements[count_measurements * measurement_record_length + size_info.data_length] = entry_ptr[first_passed_duration_byte_index]; // passed_seconds (1st byte)
-                measurements[count_measurements * measurement_record_length + size_info.data_length + 1] = entry_ptr[first_passed_duration_byte_index + 1]; // passed_seconds (2nd byte)
-                count_measurements++;
-
+                ESP_LOGI(TAG, "MEASUREMENT_CHANGED");
+                ESP_LOGI(TAG, "Temp: %u, Hum: %u", data_ptr[0], data_ptr[1]);
                 break;
-
             case NOTIF_BRIGHTNESS_UPDATED:
-                if (count_brightness >= MAX_READ_LOGS_OF_BRIGHTNESS) break;
-                uint8_t brightness_record_length = 8;
-
-                memcpy(&brightness_updates[count_brightness * brightness_record_length], data_ptr, 6);
-                brightness_updates[count_brightness * brightness_record_length + size_info.data_length] = entry_ptr[first_passed_duration_byte_index];
-                brightness_updates[count_brightness * brightness_record_length + size_info.data_length + 1] = entry_ptr[first_passed_duration_byte_index + 1];
-                count_brightness++;
-
+                ESP_LOGI(TAG, "NOTIF_BRIGHTNESS_UPDATED");
+                ESP_LOGI(TAG, "Brightness: [%u, %u, %u, %u, %u, %u]", 
+                        data_ptr[0], data_ptr[1], data_ptr[2], data_ptr[3], data_ptr[4], data_ptr[5]);
                 break;
-            case TIMER_STATE_NEW_THERAPY_BY_BUTTON:
             case TIMER_STATE_NEW_THERAPY_BY_APP:
-            {
-                if(therapy_duration > 0) {
-                    ESP_LOGE(TAG, "Therapy with same therapy id is started more than once.");
-                    return ESP_FAIL; 
-                }
-                if (data_len != 4) break;
-                if (therapy_id != ((entry_ptr[entry_size - 7] << 8) | entry_ptr[entry_size - 6])) {
-                    ESP_LOGE(TAG, "Wrong therapy id is saved.: %u", ((entry_ptr[entry_size - 7] << 8) | entry_ptr[entry_size - 6]));
-                    //return ESP_FAIL; 
-                }
-                therapy_duration = (entry_ptr[entry_size - 5] << 8) | entry_ptr[entry_size - 4];
-
-                if (count_notifications >= MAX_READ_LOGS_OF_NOTIFICATION) break;
-                notifications[count_notifications * 3] = type;
-                notifications[count_notifications * 3 + 1] = entry_ptr[entry_size - 3]; // passed_seconds (1st byte)
-                notifications[count_notifications * 3 + 2] = entry_ptr[entry_size - 2]; // passed_seconds (2nd byte)
-                count_notifications++;
+                ESP_LOGI(TAG, "TIMER_STATE_NEW_THERAPY_BY_APP");
+                uint16_t therapy_id_read;
+                uint16_t therapy_duration_read;
+                memcpy(&therapy_id_read, &data_ptr[0], sizeof(therapy_id_read));
+                memcpy(&therapy_duration_read, &data_ptr[2], sizeof(therapy_duration_read));
+                ESP_LOGI(TAG, "Therapy ID: %u, Duration: %u", therapy_id_read, therapy_duration_read);
                 break;
-            }
+            case NOTIF_THERAPY_COMPLETED:
+                ESP_LOGI(TAG, "NOTIF_THERAPY_COMPLETED");
+                break;
+            case DEVICE_AWAKED:
+                ESP_LOGI(TAG, "DEVICE_AWAKED");
+                break;
+            case NOTIF_HELMET_ON:
+                ESP_LOGI(TAG, "NOTIF_HELMET_ON");
+                break;
             default:
-                if (count_notifications >= MAX_READ_LOGS_OF_NOTIFICATION) break;
-                uint8_t notification_record_length = 3;
-
-                notifications[count_notifications * notification_record_length] = type; // hata var mı 
-                notifications[count_notifications * notification_record_length + 1] = entry_ptr[first_passed_duration_byte_index]; // passed_seconds
-                notifications[count_notifications * notification_record_length + 2] = entry_ptr[first_passed_duration_byte_index + 1]; // passed_seconds
-                count_notifications++;
+                ESP_LOGI(TAG, "UNKNOWN_TYPE (%u)", type);
                 break;
         }
 
+        ESP_LOGI(TAG, "--- Log #%u ---", log_count);
+        ESP_LOGI(TAG, "Passed Seconds: %u", passed_seconds);
+        ESP_LOGI(TAG, "CRC: 0x%02X", crc);
+
         local_offset += size_info.total_length;
     }
-
-    if(therapy_duration == 0) {
-        ESP_LOGE(TAG, "Therapy start log is not found.");
-        return ESP_FAIL; 
-    }
-    ESP_LOGI(TAG, "Continue to read log of therapy_id: %u", therapy_id);
-
-    start_encoding_for_new_therapy(therapy_id, therapy_duration, 0);
-
-    if (count_measurements > 0) {
-        ESP_LOGI(TAG, "aaaa, count_measurements: %u", count_measurements);
-        encode_records_of_therapy(therapy_id, 0x03, 4, count_measurements, measurements);
-    }
-    if (count_notifications > 0) {
-        ESP_LOGI(TAG, "bbbb, count_notifications: %u", count_notifications);
-        encode_records_of_therapy(therapy_id, 0x04, 3, count_notifications, notifications);
-    }
-    if (count_brightness > 0) {
-        ESP_LOGI(TAG, "cccc, count_brightness: %u", count_brightness);
-        encode_records_of_therapy(therapy_id, 0x05, 8, count_brightness, brightness_updates);
-    }
-    ESP_LOGI(TAG, "Finish to read log of therapy_id: %u", therapy_id);
-
-    free(measurements);
-    free(notifications);
-    free(brightness_updates);
-
-    return ESP_OK;
+    ESP_LOGI(TAG, "All logs have been read from the buffer.");
 }
 
 
-*/
 
 //İstenilen flash slotunda istenilen log var mı diye kontrol edilir.
 //Örneğin bir slot tamamlanmış mı (yani THERAPY_COMPLETED log'u var mı) diye anlamak için.
@@ -899,4 +740,3 @@ static bool does_slot_contain_entry(uint32_t base_offset, uint8_t type_of_entry)
 }
 
 */
-

@@ -12,9 +12,22 @@ static const char *TAG = "TemperatureAlarm";
 static bool normal_pin_status;
 static uint8_t *alarm_gpio_list = NULL;
 static uint8_t active_temp_sensor_count;
+static void (*temp_alert_callback)(uint8_t) = NULL;
+static void (*temp_normal_callback)(uint8_t) = NULL;
+
+void register_temperature_alert(void (*callback)(uint8_t)) {
+    temp_alert_callback = callback;
+    ESP_LOGI(TAG, "Temp alert callback is registered.");
+}
+
+void register_temperature_normal(void (*callback)(uint8_t)) {
+    temp_normal_callback = callback;
+    ESP_LOGI(TAG, "Temp normal callback is registered.");
+}
 
 void set_alert_pin_normal_status(bool status) {
     normal_pin_status = status;
+    ESP_LOGI(TAG, "ALERT PIN NORMAL STATUS: %s", normal_pin_status ? "HIGH (NORMAL)" : "LOW");
 }
 
 void set_alarm_gpios(const uint8_t* alarm_gpios, uint8_t count) {
@@ -42,19 +55,28 @@ void monitor_alert_task(void *param) {
             current_level[i] = gpio_get_level(alarm_gpio_list[i]);
 
             if (current_level[i] != prev_level[i]) {
+                ESP_LOGI(TAG, "Current LEVEL PIN %d: %s", i, current_level[i] ? "HIGH (NORMAL)" : "LOW");
                 if(current_level[i] != normal_pin_status)
                 {
-                    throw_alert_for_temperature(i);
+                    //throw_alert_for_temperature(i);
                     ESP_LOGI(TAG, "Temperature ALERT is triggered");
+                    if(temp_alert_callback) {
+                        ESP_LOGI(TAG, "Alert callback is sent.");
+                        temp_alert_callback(i);
+                    }
                 }
                 else
                 {
                     ESP_LOGI(TAG, "Temperature is on normal level.");
+                    if(temp_normal_callback) {
+                        ESP_LOGI(TAG, "Normal temp callback is sent.");
+                        temp_normal_callback(i);
+                    }
                 }
                 prev_level[i] = current_level[i];
             }
         }
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 

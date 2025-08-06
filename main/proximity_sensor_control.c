@@ -4,7 +4,7 @@
 #include "proximity_sensor_config.h"
 #include "lp_core_queue_manager.h"
 #include "state_manager.h"
-#include "log_types.h"
+#include "storage/log_types.h"
 #include "transaction_manager.h"
 #include "notification_info_message_creator.h"
 #include "general_manager.h"

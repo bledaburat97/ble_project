@@ -1,11 +1,11 @@
 #include "notification_info_message_creator.h"
 
-#include "log_types.h"
+#include "storage/log_types.h"
 #include "esp_log.h"
 #include "json_encoder.h"
 #include "ble_control.h"
 #include "timer_management.h"
-#include "log_writer.h"
+#include "storage/log_writer.h"
 #include "ble/ble_state_manager.h"
 #include "therapy_message_counter.h"
 #include "state_manager.h"

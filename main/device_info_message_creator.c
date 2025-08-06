@@ -1,6 +1,6 @@
 #include "device_info_message_creator.h"
 
-#include "log_types.h"
+#include "storage/log_types.h"
 #include "esp_log.h"
 #include "json_encoder.h"
 #include "ble_control.h"
@@ -10,7 +10,7 @@
 #include <string.h>
 #include "message_queue_manager.h"
 #include "timer_management.h"
-#include "log_writer.h"
+#include "storage/log_writer.h"
 #include "ble/ble_state_manager.h"
 
 static const char *TAG = "DeviceInfoMessageCreator";

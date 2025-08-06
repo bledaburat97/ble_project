@@ -1,5 +1,4 @@
 #include <stdint.h>
-#include "log_types.h"
 
 #ifndef JSON_ENCODER_H
 #define JSON_ENCODER_H

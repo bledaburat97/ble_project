@@ -1,13 +1,13 @@
 #include "records_info_message_creator.h"
 
-#include "log_types.h"
+#include "storage/log_types.h"
 #include "esp_log.h"
 #include "ble_control.h"
 #include "message_queue_manager.h"
 #include "therapy_counter.h"
 #include "matching_message_encoder.h"
 #include "timer_state_info_message_creator.h"
-#include "log_writer.h"
+#include "storage/log_writer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "json_parser.h"
@@ -18,7 +18,7 @@ static const char *TAG = "RecordsInfoMessageCreator";
 static uint8_t MAX_RECORDS_TO_BE_SENT = 20;
 static uint16_t final_therapy_id_to_be_sent;
 
-static void send_records_info_message(uint16_t therapy_id) {
+void send_records_info_message(uint16_t therapy_id) {
     set_records(therapy_id);
     uint16_t fragment_count = get_fragment_count();
     ESP_LOGI(TAG, "therapy_id: %d, fragment_count: %d", therapy_id, fragment_count);
@@ -97,9 +97,18 @@ static void on_record_pending_approval_timeout(const uint16_t therapy_id) {
 
 void init_records_info_message_creator() {
     register_active_or_paused_therapy_info(on_active_or_paused_therapy_existed);
+    ESP_LOGI(TAG, "1111");
+
     register_on_write_records_feedback_callback(on_records_feedback);
+    ESP_LOGI(TAG, "222");
+
     register_on_write_updating_records_callback(on_write_of_record_request_message);
+    ESP_LOGI(TAG, "333");
+
     register_on_record_pending_approval_timeout_callback(on_record_pending_approval_timeout);
+    ESP_LOGI(TAG, "4444");
+
     final_therapy_id_to_be_sent = read_therapy_count();
+    ESP_LOGI(TAG, "final_therapy_id_to_be_sent: %u", final_therapy_id_to_be_sent);
 }
 

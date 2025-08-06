@@ -1,9 +1,9 @@
 #include "measurement_info_message_creator.h"
 
-#include "log_types.h"
+#include "storage/log_types.h"
 #include "esp_log.h"
 #include "json_encoder.h"
-#include "log_writer.h"
+#include "storage/log_writer.h"
 #include "message_queue_manager.h"
 #include "temperature_sensor_control.h"
 #include "therapy_message_counter.h"
