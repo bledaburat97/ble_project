@@ -1,0 +1,199 @@
+scalar Instant
+scalar UUID
+scalar BigDecimal
+
+type Query {
+  # Tekil
+  event(id: ID!): Event
+  user(id: ID!): User
+  ticket(id: ID!): Ticket
+  reservation(id: ID!): Reservation
+
+  # Listeler: hepsi aynı kalıp
+  events(filter: EventFilter, pagination: Pagination = {}, sort: [EventSort!]): EventConnection!
+  users(filter: UserFilter, pagination: Pagination = {}, sort: [UserSort!]): UserConnection!
+  tickets(filter: TicketFilter, pagination: Pagination = {}, sort: [TicketSort!]): TicketConnection!
+
+  # Arama: tek uç, birleştirilmiş sonuçlar (Union)
+  search(keyword: String!, limit: Int = 10): [SearchResult!]!
+
+  # Oturum açmış kullanıcı kökü
+  me: Me!
+}
+
+type Mutation {
+  # Event CRUD
+  createEvent(input: EventCreateIn!): Event!
+  updateEventInfo(input: UpdateEventInfoIn!): Boolean!
+  deleteEvent(id: ID!): Boolean!
+  submitEventForApproval(id: ID!): Boolean!
+
+  # Event bağlam güncellemeleri
+  updateEventParticipants(input: UpdateEventParticipantsIn!): UpdateEventParticipantsOut!
+  setEventAddress(id: ID!, addressId: ID): Boolean!
+  setEventVenue(id: ID!, venueUserId: ID): Boolean!
+
+  # Ticket
+  createTicket(input: TicketCreateIn!): Ticket!
+  updateTicket(input: TicketUpdateIn!): Ticket!
+  deleteTicket(id: ID!): Boolean!
+  decreaseAvailableTicketCount(items: [RequestedTicketInput!]!): Boolean!
+
+  # Reservation & Payment akışı (saga uyumlu, adımlanmış)
+  startReservation(items: [RequestedTicketInput!]!): Reservation!
+  checkoutReservation(input: CheckoutInput!): PaymentSession!
+}
+
+"""
+Yetkili alanları barındıran tekil tip. Dashboard varyantına gerek kalmaz.
+"""
+type Event {
+  id: ID!
+  name: String!
+  description: String
+  genres: [String!]
+  startDate: Instant!
+  endDate: Instant!
+  imageUrl: String
+  ownerUserId: ID!
+  venueUserId: ID
+  artistIds: [ID!]
+  addressId: ID
+  status: EventStatus # sadece sahibi/organizer için doldurulur
+  maxImagePixel: Int
+
+  # İlişkiler
+  organizer: User
+  venue: User
+  artists: [User!]
+  address: Address
+  tickets(pagination: Pagination = {}): TicketConnection!
+}
+
+enum EventStatus { DRAFT WAIT_FOR_APPROVAL APPROVED REJECTED }
+
+# Me kökü: bütün "getSignedIn..." uçlarının yerine
+type Me {
+  id: ID!
+  summary: SignInUserSummary
+  business: BusinessUser
+  individual: IndividualUser
+  myEvents(filter: EventFilter, pagination: Pagination = {}, sort: [EventSort!]): EventConnection!
+  hasActiveEvents: Boolean!
+  analytics: BusinessUserAnalytics
+}
+
+type EventConnection { edges: [EventEdge!]!, pageInfo: PageInfo! }
+type EventEdge { node: Event!, cursor: String! }
+type UserConnection  { edges: [UserEdge!]!, pageInfo: PageInfo! }
+type UserEdge { node: User!, cursor: String! }
+type TicketConnection { edges: [TicketEdge!]!, pageInfo: PageInfo! }
+type TicketEdge { node: Ticket!, cursor: String! }
+
+type PageInfo {
+  hasNextPage: Boolean!
+  endCursor: String
+}
+
+# Filtre / Sıralama / Sayfalama
+input Pagination { first: Int = 12, after: String }
+input EventFilter {
+  eventIds: [ID!]
+  ownerUserId: ID
+  venueUserId: ID
+  artistUserIds: [ID!]
+  genres: [String!]
+  date: DateFilterEnum = ALL
+  keyword: String
+  # dashboard = myEvents gibi varyantlar için:
+  onlyMine: Boolean
+  onlyIncluded: Boolean
+}
+enum DateFilterEnum { UPCOMING PREVIOUS ALL }
+input EventSort { field: EventSortField!, direction: SortDirection = DESC }
+enum EventSortField { START_DATE CREATED_AT NAME }
+enum SortDirection { ASC DESC }
+
+# Kullanıcı tarafı: tüm “search/getByUsername/topX” vs tek uçlara taşınır
+type User {
+  id: ID!
+  username: String!
+  displayName: String
+  imageUrl: String
+  role: UserRole
+  address: Address
+  type: String
+}
+enum UserRole { USER ORGANIZER VENUE ARTIST INTERNAL }
+
+input UserFilter {
+  usernames: [String!]
+  role: UserRole
+  keyword: String
+  topCities: Boolean
+  topVenues: Boolean
+  topOrganizers: Boolean
+}
+
+# Arama Birleşik Sonuçları
+union SearchResult = Event | User
+
+# Ticket & Reservation konsolidasyonu
+type Ticket {
+  id: ID!
+  eventId: ID!
+  type: String
+  description: String
+  price: BigDecimal
+  currency: Currency
+  capacity: Int
+  remainingCapacity: Int
+  limitPerUser: Int
+  saleStartDate: Instant
+  saleEndDate: Instant
+  saleEnded: Boolean
+}
+
+type Reservation {
+  id: ID!
+  transactionId: ID!
+  userId: ID!
+  items: [ReservationItem!]!
+  status: ReservationStatus!
+}
+type ReservationItem {
+  ticketId: ID!
+  requestedCapacity: Int!
+  unitPrice: BigDecimal!
+  unitSellerFee: BigDecimal!
+  unitServiceFee: BigDecimal!
+  currencyCode: String!
+}
+enum ReservationStatus { PENDING EXPIRED CONFIRMED CANCELED }
+
+input RequestedTicketInput { ticketId: ID!, requestedCapacity: Int! }
+
+input CheckoutInput {
+  reservationId: ID!
+  currencyCode: String!
+  encodedEventId: String!
+  user: UserInformationInput!
+}
+
+type PaymentSession {
+  isSuccess: Boolean!
+  iframeUrl: String
+  paymentConfigId: String
+  transactionId: String
+  status: PaymentStatus
+}
+enum PaymentStatus { INITIATED PROCESSING APPROVED DECLINED FAILED }
+
+# Ortak tipler (adres, para, analytics vb.)
+type Address { id: ID, fullAddress: String, country: String, administrativeArea: String, locality: String, lat: String, lng: String }
+type Currency { code: String!, symbol: String }
+type BusinessUserAnalytics { totalEventCount: Int, totalEarned: [KeyValueDecimal], totalTicketSold: [KeyValueInt] }
+type KeyValueDecimal { key: String, value: Float }
+type KeyValueInt { key: String, value: Int }
+type SignInUserSummary { username: String, displayName: String, imageUrl: String, type: String, preferredLanguage: LanguageEnum, timezone: String, maxImagePixel: Int }
+enum LanguageEnum { en fr de }

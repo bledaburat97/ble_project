@@ -69,7 +69,7 @@ void monitor_alert_task(void *param) {
                 {
                     ESP_LOGI(TAG, "Temperature is on normal level.");
                     if(temp_normal_callback) {
-                        ESP_LOGI(TAG, "Normal temp callback is sent.");
+                        //ESP_LOGI(TAG, "Normal temp callback is sent.");
                         temp_normal_callback(i);
                     }
                 }

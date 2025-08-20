@@ -38,6 +38,7 @@ void wait_for_button_to_sleep(void *pvParameters) {
                     ESP_LOGI(TAG, "Entering deep sleep.");
                     enter_deep_sleep();
                 } else {
+                 
                     if(get_device_state() == STATE_INACTIVE) {
                         if(is_inactivity_timer_running()) {
                             stop_inactivity_timer();

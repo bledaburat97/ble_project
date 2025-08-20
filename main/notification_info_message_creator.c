@@ -37,7 +37,7 @@ static void send_notification_info(NotificationType type, uint16_t passed_second
 }
 
 void add_and_send_notification_info(NotificationType notification_type) {
-    uint16_t passed_seconds = get_passed_duration();
+    uint16_t passed_seconds = 0; //get_passed_duration();
     add_notification_log(notification_type, passed_seconds);
     send_notification_info(notification_type, passed_seconds);
 }

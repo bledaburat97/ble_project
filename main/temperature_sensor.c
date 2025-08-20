@@ -109,7 +109,7 @@ void set_threshold_temperature(uint8_t device_address, float thresholdInDegree, 
 }
 
 float read_temperature_of_sensor(uint8_t device_address) {
-    ESP_LOGI(TAG, "Read temperature from temperature sensor of device address: %u", device_address);
+    //ESP_LOGI(TAG, "Read temperature from temperature sensor of device address: %u", device_address);
 
     uint8_t temperatureBytes[2];
     read_register(device_address, TEMPERATURE_REG, temperatureBytes, 2, i2c_master_num);

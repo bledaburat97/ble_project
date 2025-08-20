@@ -1,0 +1,41 @@
+@DgsComponent
+public class EventUserExtensionsFetcher {
+
+    @DgsEntityFetcher(name = "Event")
+    public Event resolveEvent(Map<String, Object> values) {
+        // Yalnızca federation representation’dan ID alıyoruz
+        String eventId = (String) values.get("id");
+        // EventService temel alanları döndürdüğü için burada sadece “id taşımak” yeterli
+        return Event.builder().id(eventId).build();
+    }
+
+    @DgsData(parentType = "Event", field = "organizer")
+    public CompletableFuture<User> organizer(DgsDataFetchingEnvironment dfe) {
+        Event ev = dfe.getSourceOrThrow();
+        DataLoader<UUID, User> dl = dfe.getDataLoader(OwnerUserLoader.class);
+        return dl.load(UUID.fromString(ev.getOwnerUserId()));
+    }
+
+    @DgsData(parentType = "Event", field = "venue")
+    public CompletableFuture<User> venue(DgsDataFetchingEnvironment dfe) {
+        Event ev = dfe.getSourceOrThrow();
+        if (ev.getVenueUserId() == null) return CompletableFuture.completedFuture(null);
+        DataLoader<UUID, User> dl = dfe.getDataLoader(VenueUserLoader.class);
+        return dl.load(UUID.fromString(ev.getVenueUserId()));
+    }
+
+    @DgsData(parentType = "Event", field = "artists")
+    public CompletableFuture<List<User>> artists(DgsDataFetchingEnvironment dfe) {
+        Event ev = dfe.getSourceOrThrow();
+        DataLoader<List<UUID>, List<User>> dl = dfe.getDataLoader(ArtistListLoader.class);
+        return dl.load(parseArtistIds(ev.getArtistIds())); // "1,2,3" -> List<UUID>
+    }
+
+    @DgsData(parentType = "Event", field = "address")
+    public CompletableFuture<Address> address(DgsDataFetchingEnvironment dfe) {
+        Event ev = dfe.getSourceOrThrow();
+        if (ev.getAddressId() == null) return CompletableFuture.completedFuture(null);
+        DataLoader<String, Address> dl = dfe.getDataLoader(AddressLoader.class);
+        return dl.load(ev.getAddressId());
+    }
+}

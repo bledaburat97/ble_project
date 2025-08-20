@@ -1,0 +1,17 @@
+@DgsComponent
+public class EventDataFetcher {
+    @DgsQuery
+    public Event event(@InputArgument String id) { /* DB -> Event */ }
+
+    @DgsQuery
+    public EventConnection events(@InputArgument EventFilter filter,
+                                  @InputArgument Pagination pagination,
+                                  @InputArgument List<EventSort> sort) { /* repo -> connection */ }
+
+    // Federation: başka servislerden Event istenirken referans çözümü
+    @DgsEntityFetcher(name = "Event")
+    public Event resolveEvent(Map<String,Object> rep) {
+        String id = (String) rep.get("id");
+        return event(id);
+    }
+}

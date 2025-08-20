@@ -35,9 +35,9 @@ static void send_device_info(uint16_t passed_seconds) {
 
 static void on_connect_ble() {
     set_ble_connection_status(true);
-    uint16_t passed_seconds = get_passed_duration();
-    add_notification_log(BLE_CONNECTED, passed_seconds);
-    send_device_info(passed_seconds);
+    //uint16_t passed_seconds = get_passed_duration();
+    //add_notification_log(BLE_CONNECTED, passed_seconds);
+    //send_device_info(passed_seconds);
 }
 
 void init_device_info_message_creator() {

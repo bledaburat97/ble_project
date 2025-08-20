@@ -110,11 +110,21 @@ static bool is_therapy_counter_partition_active = true;
 static bool is_log_partition_active = true;
 static bool is_laser_and_led_drivers_active = true;
 static bool is_temperature_sensor_active = true;
-static bool is_hp_prox_sensor_active = false;
+static bool is_hp_prox_sensor_active = true;
 static bool is_boot_button_control_active = false;
 static bool is_default_sleep_active = false;
 static bool is_deep_sleep_button_control_active = false;
 static bool is_creating_logs_permitted = false;
+
+void periodic_message_sender_task(void *pvParameters) {
+    const TickType_t delay_ticks = pdMS_TO_TICKS(30 * 1000); 
+    while (1) {
+        ESP_LOGI(TAG, "Sending records info message for therapy ID 1...");
+        send_records_info_message(1);
+
+        vTaskDelay(delay_ticks);
+    }
+}
 
 void app_main() {
    esp_err_t ret = nvs_flash_init();
@@ -177,7 +187,7 @@ void app_main() {
         }
 
         //test_add_log_flow();
-        //send_records_info_message(1);
+        xTaskCreate(periodic_message_sender_task, "PeriodicMsgSender", 2048, NULL, 5, NULL);
 
         /*
             read_and_set_records(0);
@@ -202,7 +212,7 @@ void app_main() {
             xTaskCreate(temperature_read_task, "Temperature Update Task", 2048, NULL, 1, NULL);
             xTaskCreate(monitor_alert_task, "Monitor Alert Task", 2048, NULL, 1, NULL);
         }
-                
+        
         if(is_lp_prox_sensor_active || is_hp_prox_sensor_active) {
             initialize_proximity_int_gpio();
             initialize_proximity_sensors(is_hp_prox_sensor_active, is_lp_prox_sensor_active);

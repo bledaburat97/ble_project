@@ -16,14 +16,16 @@ static const char *TAG = "MeasurementInfoMessageCreator";
 static void add_and_send_measurement_info(uint8_t temperature) {
     uint8_t humidity = 0; //URGENT
     uint8_t data[] = {temperature, humidity}; //URGENT eğer temp veya hum değişmişse.
-    uint16_t passed_seconds = get_passed_duration();
+    uint16_t passed_seconds = 0; //TODO: get_passed_duration();
     add_log(MEASUREMENT_CHANGED, data, sizeof(data), passed_seconds);
 
     MeasurementInfoMessage message;
     message.temperature = temperature;
+    ESP_LOGI(TAG, "Sent Temperature: %u", message.temperature);
     message.humidity = humidity;
     message.passed_seconds = passed_seconds;
     message.message_id = get_message_id();
+    ESP_LOGI(TAG, "Sent Message Id: %u", message.message_id);
 
     char *json_str = encode_measurement_info_message(&message);
     if (json_str == NULL) {
@@ -43,6 +45,7 @@ static void on_device_info_feedback_callback() {
 }
 
 static void on_temperature_update(uint8_t temperature) {
+    ESP_LOGI(TAG, "On temperature update of temperature: %u.", temperature);
     add_and_send_measurement_info(temperature);
 }
 

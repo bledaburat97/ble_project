@@ -51,10 +51,10 @@ char* encode_measurement_info_message(const MeasurementInfoMessage *message) {
     cJSON *root = cJSON_CreateObject();
     if (root == NULL) return NULL;
 
-    cJSON_AddNumberToObject(root, "temp", message->temperature);
-    cJSON_AddNumberToObject(root, "humid", message->humidity);
-    cJSON_AddNumberToObject(root, "message_id", message->message_id);
-    cJSON_AddNumberToObject(root, "passed_sec", message->passed_seconds);
+    cJSON_AddNumberToObject(root, "t", message->temperature);
+    cJSON_AddNumberToObject(root, "h", message->humidity);
+    cJSON_AddNumberToObject(root, "m", message->message_id);
+    cJSON_AddNumberToObject(root, "p", message->passed_seconds);
 
     char *json_str = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);

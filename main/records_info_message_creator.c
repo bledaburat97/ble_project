@@ -26,13 +26,14 @@ void send_records_info_message(uint16_t therapy_id) {
     for (uint16_t i = 0; i <= fragment_count; i++) {
         const uint8_t* frag = get_fragment(i);
         size_t len = get_fragment_length(i);
+        ESP_LOGI(TAG, "---------------------------------------");
         ESP_LOGI(TAG, "fragment id: %d, length: %d", i, len);
 
         if (frag != NULL && len > 0) {
             ESP_LOGI(TAG, "Sending fragment for therapy_id: %d, fragment_index: %d", therapy_id, i);
             ESP_LOG_BUFFER_HEX(TAG, frag, len);
             send_records_info_message_to_queue(therapy_id, (uint8_t*)frag, len,  i == fragment_count);
-            vTaskDelay(pdMS_TO_TICKS(200));  //TODO Gerekirse bu süre MTU'ya göre ayarlanabilir
+            vTaskDelay(pdMS_TO_TICKS(10));  //TODO Gerekirse bu süre MTU'ya göre ayarlanabilir
         }
     }
 }

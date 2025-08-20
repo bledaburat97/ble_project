@@ -80,15 +80,15 @@ void set_records(uint16_t therapy_id) {
         start_encoding_for_new_therapy(therapy_id, active_therapy_duration, passed_duration);
 
         if (read_therapy_logs.count_measurements > 0) {
-            ESP_LOGI(TAG, "aaaa, count_measurements: %u", read_therapy_logs.count_measurements);
+            //ESP_LOGI(TAG, "count_measurements: %u", read_therapy_logs.count_measurements);
             encode_records_of_therapy(therapy_id, 0x03, 4, read_therapy_logs.count_measurements, read_therapy_logs.measurements);
         }
         if (read_therapy_logs.count_notifications > 0) {
-            ESP_LOGI(TAG, "bbbb, count_notifications: %u", read_therapy_logs.count_notifications);
+            //ESP_LOGI(TAG, "count_notifications: %u", read_therapy_logs.count_notifications);
             encode_records_of_therapy(therapy_id, 0x04, 3, read_therapy_logs.count_notifications, read_therapy_logs.notifications);
         }
         if (read_therapy_logs.count_brightness > 0) {
-            ESP_LOGI(TAG, "cccc, count_brightness: %u", read_therapy_logs.count_brightness);
+            //ESP_LOGI(TAG, "count_brightness: %u", read_therapy_logs.count_brightness);
             encode_records_of_therapy(therapy_id, 0x05, 8, read_therapy_logs.count_brightness, read_therapy_logs.brightness_updates);
         }
 

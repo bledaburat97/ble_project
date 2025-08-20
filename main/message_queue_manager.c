@@ -16,10 +16,11 @@
 #include "esp_log.h"
 
 #define MAX_PENDING_MESSAGES 100
+#define MAX_MESSAGE_DATA_SIZE 500
 
 static const char *TAG = "MessageQueueManager";
-static uint16_t MAX_TIMEOUT_DURATION = 2000;
-
+static uint16_t MAX_TIMEOUT_DURATION = 50000;
+static uint16_t dynamic_period = 1000;
 static void (*device_info_feedback_callback)() = NULL;
 static void (*timer_state_info_feedback_callback)() = NULL;
 static void (*record_pending_approval_timeout_callback)(uint16_t) = NULL;
@@ -68,6 +69,7 @@ static void check_pending_timeouts()
 
 static void add_pending_message(const MessageQueueEntry *entry)
 {
+    ESP_LOGI(TAG, "Add pending message.");
     for (int i = 0; i < MAX_PENDING_MESSAGES; i++) {
         if (pending_approval_messages[i].type == 0) { // boş slot
             pending_approval_messages[i].type = entry->type;
@@ -90,8 +92,6 @@ static void add_pending_records(const uint16_t therapy_id) {
 
 static void send_and_track(const MessageQueueEntry *entry)
 {
-    ESP_LOGI(TAG, "send and track.");
-
     if (!get_ble_connection_status()) {
         ESP_LOGW(TAG, "No active BLE connection, cannot send message.");
         return;
@@ -103,11 +103,12 @@ static void send_and_track(const MessageQueueEntry *entry)
     SemaphoreHandle_t ble_mutex = get_ble_mutex_handle();
 
     while (retry_count < max_retries) {
-        if (xSemaphoreTake(ble_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
+        if (xSemaphoreTake(ble_mutex, pdMS_TO_TICKS(150)) == pdTRUE) {
             esp_err_t ret = ble_send_info_message_with_type(entry->type, entry->data, entry->data_length);
 
             if (ret == ESP_OK) {
-                ESP_LOGI(TAG, "Message sent (type=%d, id=%u)", entry->type, entry->id);
+                ESP_LOGI(TAG, "Message sent (type=%d, id=%u, length=%u)", entry->type, entry->id, entry->data_length);
+                ESP_LOGI(TAG, "---------------------------------------");
 
                 if (entry->wait_for_response) {
                     if(entry->type == RECORDS_INFO_MESSAGE) {
@@ -116,7 +117,6 @@ static void send_and_track(const MessageQueueEntry *entry)
                     else{
                         add_pending_message(entry);
                     }
-
                 }
             } else {
                 ESP_LOGE(TAG, "Failed to send message: %s", esp_err_to_name(ret));
@@ -131,20 +131,34 @@ static void send_and_track(const MessageQueueEntry *entry)
     }
 }
 
+static void on_dynamic_period_change(uint16_t period) {
+    ESP_LOGI(TAG, "Dynamic period is changed: %u", period);
+    dynamic_period = period;
+}
+
 static void queue_sender_task(void *pvParameters)
 {
     MessageQueueEntry entry;
 
+
     while (1) {
-        if (xQueueReceive(high_priority_queue, &entry, pdMS_TO_TICKS(50)) == pdTRUE) {
-            ESP_LOGI(TAG, "Receive high priority message in the queue.");
-            //send_and_track(&entry);
+        TickType_t inter_message_delay = pdMS_TO_TICKS(dynamic_period);
+
+        if (xQueueReceive(high_priority_queue, &entry, pdMS_TO_TICKS(100)) == pdTRUE) {
+            ESP_LOGI(TAG, "Received high priority message in the queue.");
+            send_and_track(&entry);
+            free(entry.data);
+            
+            vTaskDelay(inter_message_delay);
             continue;
         }
 
-        if (xQueueReceive(low_priority_queue, &entry, pdMS_TO_TICKS(50)) == pdTRUE) {
-            ESP_LOGI(TAG, "Receive low priority message in the queue.");
-            //send_and_track(&entry);
+        if (xQueueReceive(low_priority_queue, &entry, pdMS_TO_TICKS(100)) == pdTRUE) {
+            ESP_LOGI(TAG, "Received low priority message in the queue.");
+            send_and_track(&entry);
+            free(entry.data);
+            
+            vTaskDelay(inter_message_delay);
             continue;
         }
 
@@ -160,35 +174,59 @@ void init_message_queue_manager()
     if (high_priority_queue == NULL || low_priority_queue == NULL) {
         ESP_LOGE(TAG, "Failed to create message queues!");
     }
-
+    register_dynamic_period_change_callback(on_dynamic_period_change);
     xTaskCreatePinnedToCore(queue_sender_task, "queue_sender", 4096, NULL, 5, NULL, tskNO_AFFINITY);
+
 }
 
 
 void send_records_info_message_to_queue(uint16_t therapy_id, uint8_t* data, size_t data_length, bool wait_for_response) {
     ESP_LOGI(TAG, "Adding records message of %u to queue to send it", therapy_id);
+
+    uint8_t* data_copy = (uint8_t*)malloc(data_length);
+    if (data_copy == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate memory for message copy");
+        return;
+    }
+
+    memcpy(data_copy, data, data_length);
+
     MessageQueueEntry entry = {
         .type = RECORDS_INFO_MESSAGE,
-        .data = data,
+        .data = data_copy,
         .data_length = data_length,
         .id = therapy_id,
         .wait_for_response = wait_for_response
     };
     
-    xQueueSend(low_priority_queue, &entry, portMAX_DELAY);
+    if(xQueueSend(low_priority_queue, &entry, portMAX_DELAY) != pdTRUE) {
+        ESP_LOGE(TAG, "Failed to send message to queue");
+        free(data_copy);
+    }
 } 
 
 void send_info_message_to_queue(MessageType message_type, uint8_t* data, size_t data_length, uint16_t message_id) {
     ESP_LOGI(TAG, "Adding message of %u to queue to send it", message_type);
+    
+    uint8_t* data_copy = (uint8_t*)malloc(data_length);
+    if (data_copy == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate memory for message copy");
+        return;
+    }
+    memcpy(data_copy, data, data_length);
+
     MessageQueueEntry entry = {
         .type = message_type,
-        .data = data,
+        .data = data_copy,
         .data_length = data_length,
         .id = message_id,
         .wait_for_response = true
     };
     
-    xQueueSend(high_priority_queue, &entry, portMAX_DELAY);
+    if(xQueueSend(high_priority_queue, &entry, portMAX_DELAY) != pdTRUE) {
+        ESP_LOGE(TAG, "Failed to send message to queue");
+        free(data_copy);
+    }
 }
 
 void process_feedback_message(uint16_t ack_message_id)
@@ -196,7 +234,7 @@ void process_feedback_message(uint16_t ack_message_id)
     for (int i = 0; i < MAX_PENDING_MESSAGES; i++) {
         if (pending_approval_messages[i].message_id == ack_message_id) {
             
-            ESP_LOGI(TAG, "Feedback received for message (type=%d id=%u)", pending_approval_messages[i].type, ack_message_id);
+            ESP_LOGW(TAG, "Feedback received for message (type=%d id=%u)", pending_approval_messages[i].type, ack_message_id);
 
             if(pending_approval_messages[i].type == DEVICE_INFO_MESSAGE) {
                 for (int i = 0; i < device_info_listener_count; i++) {

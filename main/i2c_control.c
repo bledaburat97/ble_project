@@ -115,31 +115,31 @@ esp_err_t write_register(uint8_t device_address, uint8_t reg_address, uint8_t *d
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     esp_err_t ret = i2c_master_start(cmd);
     if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "Start successful:");
+        //ESP_LOGI(TAG, "Start successful:");
     }
     ret = i2c_master_write_byte(cmd, (device_address << 1) | I2C_MASTER_WRITE, true);
     if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "Write device address successful:");
+        //ESP_LOGI(TAG, "Write device address successful:");
     }
     ret = i2c_master_write_byte(cmd, reg_address, true);
     if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "Write reg address successful:");
+        //ESP_LOGI(TAG, "Write reg address successful:");
     }
     ret = i2c_master_write(cmd, data, length, true);
     if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "Write data successful:");
+        //ESP_LOGI(TAG, "Write data successful:");
     }
     ret = i2c_master_stop(cmd);
     if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "Stop successful:");
+        //ESP_LOGI(TAG, "Stop successful:");
     }
     ret = i2c_master_cmd_begin(i2c_master_number, cmd, pdMS_TO_TICKS(10));
     if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "Write successful: Device 0x%02x, Register 0x%02x, Data 0x%02x", 
-                     device_address, reg_address, data[0]);
+        //ESP_LOGI(TAG, "Write successful: Device 0x%02x, Register 0x%02x, Data 0x%02x", 
+          //           device_address, reg_address, data[0]);
     } else {
-        ESP_LOGE(TAG, "Write failed: Device 0x%02x, Register 0x%02x, Error 0x%x", 
-                 device_address, reg_address, ret);
+        //ESP_LOGE(TAG, "Write failed: Device 0x%02x, Register 0x%02x, Error 0x%x", 
+          //       device_address, reg_address, ret);
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 

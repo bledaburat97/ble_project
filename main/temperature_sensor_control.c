@@ -17,8 +17,8 @@
 #define NVS_KEY_TEMPERATURE "last_temp"
 #define TEMPERATURE_SENSOR_COUNT 1 //TODO: Değiştir.
 #define LOW_THRESHOLD_IN_NORMAL 25.5
-#define LOW_THRESHOLD_IN_ALERT 27
-#define HIGH_THRESHOLD_IN_NORMAL 27.5
+#define LOW_THRESHOLD_IN_ALERT 28
+#define HIGH_THRESHOLD_IN_NORMAL 28.5
 #define HIGH_THRESHOLD_IN_ALERT 30
 
 #define TEMPERATURE_DIFF_OFFSET 1
@@ -91,22 +91,21 @@ void temperature_read_task(void *param) {
 
         if (fabsf(current_temperature - rounded_temperature) >= 0.5f) {
             ESP_LOGI(TAG,"Temperature changed.");
-            /*
+            
             if(temp_update_callback) {
                 temp_update_callback(convert_float_to_byte(average_temperature));
             }
             else {
                 ESP_LOGE(TAG, "Temperature update can not be sent.");
             }
-            */
         } 
 
         current_temperature = rounded_temperature;
 
-        ESP_LOGI(TAG, "Measured temperature: %.2f°C", average_temperature);
+        ESP_LOGI(TAG, "Temperature measured: %.2f°C", average_temperature);
         //ESP_LOGI(TAG, "Saved temperature: %.2f°C", rounded_temperature);
 
-        vTaskDelay(pdMS_TO_TICKS(2000));
+        vTaskDelay(pdMS_TO_TICKS(3000));
     }
 }
 
@@ -126,8 +125,8 @@ static void set_normal_thresholds(uint8_t sensor_index) {
 static void on_temp_alert_callback(uint8_t sensor_index) {
     float average_temperature = measure_average_temperature();
     float rounded_temperature = round_down_to_half(average_temperature);
-    ESP_LOGI(TAG, "sensor index: %u", sensor_index);
-    ESP_LOGI(TAG, "temperature: %.2f°C", average_temperature);
+    //ESP_LOGI(TAG, "sensor index: %u", sensor_index);
+    //ESP_LOGI(TAG, "temperature: %.2f°C", average_temperature);
     ESP_LOGI(TAG, "Saved temperature: %.2f°C", rounded_temperature);
     increase_thresholds(sensor_index);
 }
@@ -135,8 +134,8 @@ static void on_temp_alert_callback(uint8_t sensor_index) {
 static void on_temp_normal_callback(uint8_t sensor_index) {
     float average_temperature = measure_average_temperature();
     float rounded_temperature = round_down_to_half(average_temperature);
-    ESP_LOGI(TAG, "sensor index: %u", sensor_index);
-    ESP_LOGI(TAG, "temperature: %.2f°C", average_temperature);
+    //ESP_LOGI(TAG, "sensor index: %u", sensor_index);
+    //ESP_LOGI(TAG, "temperature: %.2f°C", average_temperature);
     ESP_LOGI(TAG, "Saved temperature: %.2f°C", rounded_temperature);
     set_normal_thresholds(sensor_index);
 }

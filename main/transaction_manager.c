@@ -47,8 +47,8 @@ static const char *TAG = "TransactionManager";
 
 static void on_disconnect_ble() {
     set_ble_connection_status(false);
-    uint16_t passed_seconds = get_passed_duration();
-    add_notification_log(BLE_DISCONNECTED, passed_seconds);
+    //uint16_t passed_seconds = get_passed_duration();
+    //add_notification_log(BLE_DISCONNECTED, passed_seconds);
 }
 
 static void handle_status_change_message(const StatusChangeMessage *msg)

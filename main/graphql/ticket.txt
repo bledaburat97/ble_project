@@ -1,0 +1,10 @@
+@DgsComponent
+public class EventTicketExtensionsFetcher {
+    @DgsData(parentType = "Event", field = "tickets")
+    public CompletableFuture<TicketConnection> tickets(DgsDataFetchingEnvironment dfe,
+                                                       @InputArgument Pagination pagination) {
+        Event ev = dfe.getSourceOrThrow();
+        DataLoader<String, List<Ticket>> dl = dfe.getDataLoader(TicketsByEventLoader.class);
+        return dl.load(ev.getId()).thenApply(list -> toConnection(list, pagination));
+    }
+}

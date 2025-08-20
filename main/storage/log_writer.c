@@ -102,7 +102,7 @@ static bool find_next_log_offset(size_t entry_size, uint8_t entry_type, bool* is
         }
 
         else if(existing_type == NOTIF_THERAPY_COMPLETED || existing_type == NOTIF_THERAPY_STOPPED_BY_APP) {
-            ESP_LOGE(TAG, "This slot with local offset: %lu was completed.", local_offset);
+            //ESP_LOGE(TAG, "This slot with local offset: %lu was completed.", local_offset);
             return false;
         }
 
@@ -169,7 +169,7 @@ Tüm log yazma sürecini yöneten merkezi fonksiyon:
     Hatalı girişlere karşı boyut/CRC koruması sağlar
 */
 esp_err_t append_log_entry(uint32_t offset, const BaseLogEntry* log) {
-    ESP_LOGI(TAG, "Appending log entry to offset: %lu", offset);
+    //ESP_LOGI(TAG, "Appending log entry to offset: %lu", offset);
     uint8_t entry[MAX_LOG_ENTRY_SIZE] = {0};
     if (!create_log_entry(log, entry)) {
         ESP_LOGE(TAG, "Failed to create log entry from BaseLogEntry");
@@ -177,7 +177,7 @@ esp_err_t append_log_entry(uint32_t offset, const BaseLogEntry* log) {
     }
 
     size_t expected_size = get_log_entry_size_info(log->type).total_length;
-    ESP_LOGI(TAG, "Saving log with type:%u and expected size:%u", log->type, expected_size);
+    //ESP_LOGI(TAG, "Saving log with type:%u and expected size:%u", log->type, expected_size);
 
     if (expected_size == 0 || expected_size > MAX_LOG_ENTRY_SIZE) {
         ESP_LOGE(TAG, "Invalid or oversized log type: type=0x%02X", log->type);
@@ -207,7 +207,7 @@ esp_err_t append_log_entry(uint32_t offset, const BaseLogEntry* log) {
 
     bool found = find_next_log_offset(log->entry_size, log->type, &is_slot_getting_full, &local_offset);
     if (!found) {
-        ESP_LOGW(TAG, "No space found for log entry.");
+        //ESP_LOGW(TAG, "No space found for log entry.");
         return ESP_ERR_NO_MEM;
     }
 
@@ -349,7 +349,7 @@ esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t p
                 return ESP_FAIL;
             }
             uint32_t base_offset = ((therapy_count - 1) % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
-            ESP_LOGI(TAG, "Log is saving the slot of flash with the base offset of: %lu", base_offset);
+            //ESP_LOGI(TAG, "Log is saving the slot of flash with the base offset of: %lu", base_offset);
             return append_log_entry(base_offset, &log);
         }
         

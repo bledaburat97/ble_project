@@ -25,6 +25,7 @@ static void checkProximitySensor(uint8_t asserted_sensor_index){
 
 void monitor_proximity_int_task(void *param) {
     while (1) {
+
         for (int i = 1; i < MAX_NUM_OF_SENSORS; i++) {
             int current_level = gpio_get_level(PROX_SENSOR_INT_GPIO[i]);
 

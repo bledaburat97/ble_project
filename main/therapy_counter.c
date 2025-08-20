@@ -39,7 +39,7 @@ uint16_t read_therapy_count() {
         esp_partition_read(counter_partition, i, &val1, 1);
         esp_partition_read(counter_partition, i + 1, &val2, 1);
 
-        ESP_LOGI(TAG, "val1: %u, val2: %u", val1, val2);
+        //ESP_LOGI(TAG, "val1: %u, val2: %u", val1, val2);
 
         // Hiç yazılmamış bölgeye geldik, sayaç burada biter
         if (val1 == 0xFF && val2 == 0xFF) {

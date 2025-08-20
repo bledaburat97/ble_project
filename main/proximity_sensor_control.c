@@ -227,16 +227,19 @@ static void reset_interrupt(bool is_lp, ProximityThresholdType type) {
 }
 
 void read_proximity_of_sensors() {
-    ESP_LOGI(TAG, "Log proximity.");
+    //ESP_LOGI(TAG, "Log proximity.");
 
     if (is_hp_prox_sensor)
     {
         uint8_t highProximityByte;
         read_register(VCNL_3020_ADDRESS, PROXIMITY_RESULT_REG_HIGH, &highProximityByte, 1, I2C_FIRST_MASTER_NUM);
-        ESP_LOGI(TAG, "highProximityByte: %u", highProximityByte);
+        if(highProximityByte > 10) {
+            ESP_LOGI(TAG, "Proximity Measured: high byte: %u", highProximityByte);
+            add_and_send_notification_info(NOTIF_HELMET_ON); //for test
+        }
         uint8_t lowProximityByte;
         read_register(VCNL_3020_ADDRESS, PROXIMITY_RESULT_REG_LOW, &lowProximityByte, 1, I2C_FIRST_MASTER_NUM);
-        ESP_LOGI(TAG, "lowProximityByte: %u", lowProximityByte);
+
     }
     
     if (is_lp_prox_sensor)
@@ -249,10 +252,10 @@ void read_proximity_of_sensors() {
 void proximity_read_task(void *pvParameters)
 {
     while (1) {
-        ESP_LOGI(TAG, "Yakınlık sensörlerinden okuma yapılıyor...");
+        //ESP_LOGI(TAG, "Yakınlık sensörlerinden okuma yapılıyor...");
         read_proximity_of_sensors();
 
-        vTaskDelay(pdMS_TO_TICKS(2000));
+        vTaskDelay(pdMS_TO_TICKS(200));
     }
 }
 
@@ -267,6 +270,7 @@ void initialize_proximity_sensors(bool hp_prox_sensor_exist, bool lp_prox_sensor
     set_interrupt_control(DEFAULT_INTERRUPT_CONTROL_BIT_COUNT);
 
     if(is_hp_prox_sensor){
+        ESP_LOGI(TAG, "Proximity Threshold is set.");
         set_high_threshold(higher_threshold, false);
         set_low_threshold(lower_threshold, false);
     }
@@ -309,6 +313,7 @@ void check_interrupt_status(uint8_t status, bool is_lp)
             increase_thresholds(is_lp);
             ESP_LOGI(TAG, "Reset interrupt.");
             reset_interrupt(is_lp, HIGH);
+            add_and_send_notification_info(NOTIF_HELMET_ON); //for test
             if(get_sensor_detection_status(!is_lp)) {
                 //change_helmet_state(true);
                 ESP_LOGI(TAG, "HELMET_ON.");
@@ -339,6 +344,7 @@ void check_interrupt_status(uint8_t status, bool is_lp)
             reset_interrupt(is_lp, LOW);
             //change_helmet_state(false);
             ESP_LOGI(TAG, "HELMET_OFF.");
+            add_and_send_notification_info(NOTIF_HELMET_OFF); //for test
         }
         else{
             reset_interrupt(is_lp, LOW);
