@@ -19,7 +19,7 @@ static void on_timer_state_info_feedback_callback() {
     add_and_send_notification_info(helmet_status);
 }
 
-static void send_notification_info(NotificationType type, uint16_t passed_seconds) {
+void send_notification_info(NotificationType type, uint16_t passed_seconds) {
     NotificationMessage message;
     message.type = type;
     message.passed_seconds = passed_seconds;

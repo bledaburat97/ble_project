@@ -38,6 +38,7 @@
 #define PROFILE_NUM 1
 #define MAX_JSON_STRING_SIZE 128
 #define PROFILE_A_APP_ID 0
+#define GATTS_CHAR_UUID_AUTH                    0x2A55
 #define GATTS_CHAR_UUID_RECORDS                 0x2A56
 #define GATTS_CHAR_UUID_TIMER_STATE             0x2A57
 #define GATTS_CHAR_UUID_MEASUREMENT             0x2A58
@@ -68,7 +69,7 @@ static int8_t  g_rssi_ema = -60;
 static bool g_rssi_task_running = false;
 typedef enum { PROF_REALLY_GOOD, PROF_GOOD, PROF_FAIR, PROF_POOR, PROF_VERY_POOR, PROF_WORST} link_prof_t;
 static link_prof_t g_prof = PROF_GOOD;
-
+static uint16_t g_cur_mtu = 23;
 
 static SemaphoreHandle_t s_conf_sem = NULL;
 static volatile esp_gatt_status_t s_last_conf_status = ESP_GATT_OK;
@@ -79,7 +80,7 @@ static bool notif_ind_enabled = false;
 
 
 static inline uint16_t ms_to_conn_int(uint16_t ms) {
-    return (uint16_t)((ms / 1.25f) + 0.5f);
+    return (uint16_t)((ms * 4 + 2) / 5);
 }
 
 extern void set_send_period_ms(uint16_t ms);
@@ -103,6 +104,7 @@ static inline esp_err_t set_phy_masks_(const esp_bd_addr_t addr,
 /* --- Hız (yakın mesafe) --- */
 esp_err_t set_phy_2m(void)
 {
+    ESP_LOGI(TAG, "Try to set phy as 2m");
     return set_phy_masks_(g_peer_bda,
                           ESP_BLE_GAP_PHY_2M_PREF_MASK,   /* TX */
                           ESP_BLE_GAP_PHY_2M_PREF_MASK,   /* RX */
@@ -112,6 +114,7 @@ esp_err_t set_phy_2m(void)
 /* --- Orta (varsayılan hız/menzil) --- */
 esp_err_t set_phy_1m(void)
 {
+    ESP_LOGI(TAG, "Try to set phy as 1m");
     return set_phy_masks_(g_peer_bda,
                           ESP_BLE_GAP_PHY_1M_PREF_MASK,
                           ESP_BLE_GAP_PHY_1M_PREF_MASK,
@@ -121,6 +124,7 @@ esp_err_t set_phy_1m(void)
 /* --- Uzun menzil (coded, S=2) --- */
 esp_err_t set_phy_coded_s2(void)
 {
+    ESP_LOGI(TAG, "Try to set phy as s2");
     return set_phy_masks_(g_peer_bda,
                           ESP_BLE_GAP_PHY_CODED_PREF_MASK,
                           ESP_BLE_GAP_PHY_CODED_PREF_MASK,
@@ -130,6 +134,7 @@ esp_err_t set_phy_coded_s2(void)
 /* --- Uzun menzil (coded, S=8 – en dayanıklı) --- */
 esp_err_t set_phy_coded_s8(void)
 {
+    ESP_LOGI(TAG, "Try to set phy as s8");
     return set_phy_masks_(g_peer_bda,
                           ESP_BLE_GAP_PHY_CODED_PREF_MASK,
                           ESP_BLE_GAP_PHY_CODED_PREF_MASK,
@@ -147,28 +152,34 @@ esp_err_t set_phy_coded_any(void)
 
 static link_prof_t choose_profile(int8_t rssi) {
     if (rssi >= -60) return PROF_REALLY_GOOD;
-    if (rssi < -60 && rssi >= - 68) return PROF_REALLY_GOOD;
-    if (rssi < -68 && rssi >= - 76) return PROF_FAIR;
-    if (rssi < -76 && rssi >= - 84) return PROF_POOR;
-    if (rssi < -84 && rssi >= - 92) return PROF_VERY_POOR;
-    return PROF_WORST; 
+    if (rssi >= -68)  return PROF_GOOD;
+    if (rssi >= -76)  return PROF_FAIR;
+    if (rssi >= -84)  return PROF_POOR;
+    if (rssi >= -92)  return PROF_VERY_POOR;
+    return PROF_WORST;
 }
+
 
 static bool has_peer(void) {
     static const uint8_t zero[6] = {0};
     return memcmp(g_peer_bda, zero, 6) != 0;
 }
 
-static void request_conn_interval_ms(uint16_t target_ms, uint16_t timeout) {
+void request_conn_interval_ms(uint16_t target_ms) {
     if (!has_peer()) {
         ESP_LOGW(TAG, "No peer BDA yet; skip conn param update");
         return;
     }
+    ESP_LOGI(TAG, "Try to set connection interval as %u", target_ms);
+
+    uint16_t min_ms = target_ms * 9 / 10;
+    uint16_t max_ms = target_ms * 11 / 10;
+
     esp_ble_conn_update_params_t prm = {
-        .min_int = ms_to_conn_int(target_ms),
-        .max_int = ms_to_conn_int(target_ms),
-        .latency = 0,
-        .timeout = 1000
+        .min_int = ms_to_conn_int(min_ms),
+        .max_int = ms_to_conn_int(max_ms),
+        .latency = 4,
+        .timeout = 1500
     };
     memcpy(prm.bda, g_peer_bda, sizeof(esp_bd_addr_t));
     esp_err_t err = esp_ble_gap_update_conn_params(&prm);
@@ -178,8 +189,15 @@ static void request_conn_interval_ms(uint16_t target_ms, uint16_t timeout) {
 }
 
 static void apply_profile(link_prof_t p) {
-    uint16_t connection_interval = 24;
+    //uint16_t connection_interval = 24;
     switch (p) {
+        case PROF_REALLY_GOOD: { ESP_LOGI(TAG, "PROF_REALLY_GOOD"); break; }
+        case PROF_GOOD:        { ESP_LOGI(TAG, "PROF_GOOD");        break; }
+        case PROF_FAIR:        { ESP_LOGI(TAG, "PROF_FAIR");        break; }
+        case PROF_POOR:        { ESP_LOGI(TAG, "PROF_POOR");        break; }
+        case PROF_VERY_POOR:   { ESP_LOGI(TAG, "PROF_VERY_POOR");   break; }
+        case PROF_WORST:       { ESP_LOGI(TAG, "PROF_WORST");       break; }
+        /*
         case PROF_GOOD: {
             connection_interval = 24;
             ESP_LOGI(TAG, "PROF_GOOD");
@@ -219,6 +237,7 @@ static void apply_profile(link_prof_t p) {
         default: {
             break;
         }
+        */
     }
 }
 
@@ -276,6 +295,7 @@ struct gatts_profile_inst {
     uint16_t app_id;
     uint16_t conn_id;
     uint16_t service_handle;
+    uint16_t auth_handle;
     uint16_t records_handle;
     uint16_t timer_state_handle;
     uint16_t measurement_handle;
@@ -297,20 +317,66 @@ static struct gatts_profile_inst gl_profile_tab[PROFILE_NUM] = {
 };
 
 static uint8_t s_adv_handle = 0;
-static bool    s_ext_adv_started = false;
+static bool s_ext_adv_started = false;
 
 static uint8_t s_adv_raw[31];
 static uint8_t s_adv_len = 0;
 
+//Android tarafında Service UUID filtrelemek için çok yararlı.
 static void build_adv_data(void) {
     const char *name = "BLE-DA";
     uint8_t n = (uint8_t)strlen(name);
     s_adv_len = 0;
-    s_adv_raw[s_adv_len++] = (uint8_t)(n + 1); // length
-    s_adv_raw[s_adv_len++] = 0x09;             // AD Type: Complete Local Name
+
+    // AD Flags (genelde eklemek iyi pratik: LE General Discoverable + BR/EDR not supported)
+    s_adv_raw[s_adv_len++] = 2;        // length
+    s_adv_raw[s_adv_len++] = 0x01;     // Flags
+    s_adv_raw[s_adv_len++] = 0x06;     // LE General + BR/EDR not supported
+
+    // Complete Local Name
+    s_adv_raw[s_adv_len++] = (uint8_t)(n + 1);
+    s_adv_raw[s_adv_len++] = 0x09;
     memcpy(&s_adv_raw[s_adv_len], name, n);
     s_adv_len += n;
+
+    // Complete List of 16-bit Service UUIDs (0x03)
+    s_adv_raw[s_adv_len++] = 3;        // len = 1(type) + 2(uuid)
+    s_adv_raw[s_adv_len++] = 0x03;     // Complete 16-bit UUIDs
+    s_adv_raw[s_adv_len++] = (uint8_t)(GATTS_SERVICE_UUID16 & 0xFF);
+    s_adv_raw[s_adv_len++] = (uint8_t)(GATTS_SERVICE_UUID16 >> 8);
+
+    // Manufacturer Specific Data (0xFF): [CompanyID LSB][CompanyID MSB][flags...]
+    // CompanyID: 0xFFFF (test/placeholder) – ürün için kendi ID'ni kullan
+    s_adv_raw[s_adv_len++] = 3;        // len = 1(type) + 2(data) -> burada 1 bayt flag kullanıyoruz
+    s_adv_raw[s_adv_len++] = 0xFF;     // Manufacturer specific
+    s_adv_raw[s_adv_len++] = 0xFF;     // Company ID LSB (placeholder)
+    s_adv_raw[s_adv_len++] = 0xFF;     // Company ID MSB (placeholder)
+    // (Opsiyonel) 1 bayt flag (kritik veri var)
+    // Eğer ek alan ihtiyacın olursa length'i artırıp ekstra bayt koyabilirsin
+    // s_adv_raw[s_adv_len++] = s_adv_mfg_flags; // uzunluk 4 olmalıydı; basit tutmak için şimdilik CompanyID ile yetinelim.
+
+    // NOT: Legacy ADV 31 byte sınırı var. İleride ek alan koyarsan s_adv_len'i kontrol et.
 }
+
+static void setup_ble_security(void) {
+    uint8_t auth = ESP_LE_AUTH_REQ_SC_MITM_BOND; // SC + MITM + Bond
+    esp_ble_gap_set_security_param(ESP_BLE_SM_AUTHEN_REQ_MODE, &auth, sizeof(auth));
+
+    uint8_t iocap = ESP_IO_CAP_OUT; // LED/ekran varsa OUT; tuş takımı varsa KEYBOARD imkanına göre OUT/IN/KEYBOARD/DISPLAY/NO_INPUT_NO_OUTPUT
+    esp_ble_gap_set_security_param(ESP_BLE_SM_IOCAP_MODE, &iocap, sizeof(iocap));
+
+    uint8_t key_size = 16;
+    esp_ble_gap_set_security_param(ESP_BLE_SM_MAX_KEY_SIZE, &key_size, sizeof(key_size));
+
+    uint8_t init_key = ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK;
+    uint8_t resp_key = ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK;
+    esp_ble_gap_set_security_param(ESP_BLE_SM_SET_INIT_KEY, &init_key, sizeof(init_key));
+    esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY,  &resp_key, sizeof(resp_key));
+
+    uint32_t passkey = 123456;
+    esp_ble_gap_set_security_param(ESP_BLE_SM_SET_STATIC_PASSKEY, &passkey, sizeof(passkey));
+}
+
 
 static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 {
@@ -327,6 +393,7 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
                 link_prof_t p = choose_profile(g_rssi_ema);
                 if (p != g_prof) {
                     g_prof = p;
+                    ESP_LOGW(TAG, "RSSI changed");
                     apply_profile(p);
                 }
             }
@@ -391,6 +458,7 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
         break;
 
     case ESP_GAP_BLE_ADV_TERMINATED_EVT:
+        s_ext_adv_started = false;
         ESP_LOGW(TAG, "Ext adv terminated.");
         break;
 
@@ -422,6 +490,26 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
         }
         break;
     }
+
+    case ESP_GAP_BLE_PASSKEY_NOTIF_EVT:
+        ESP_LOGW(TAG, "PASSKEY: %06lu", param->ble_security.key_notif.passkey);
+        break;
+
+    case ESP_GAP_BLE_KEY_EVT:
+        ESP_LOGI(TAG, "KEY_EVT: key type=0x%02x", param->ble_security.ble_key.key_type);
+        break;
+
+    case ESP_GAP_BLE_SEC_REQ_EVT:
+        esp_ble_gap_security_rsp(param->ble_security.ble_req.bd_addr, true);
+        break;
+
+    case ESP_GAP_BLE_AUTH_CMPL_EVT:
+        if (param->ble_security.auth_cmpl.success) {
+            ESP_LOGI(TAG, "Bond OK");
+        } else {
+            ESP_LOGW(TAG, "Bond fail reason=0x%02x", param->ble_security.auth_cmpl.fail_reason);
+        }
+        break;
 
     default:
         ESP_LOGW(TAG, "Unhandled GAP event: %d", event);
@@ -471,10 +559,49 @@ static void add_cccd_for_char(uint16_t *cccd_out_handle) {
     ESP_LOGI(TAG, "Adding CCCD (0x2902)...");
 
     esp_err_t err = esp_ble_gatts_add_char_descr(gl_profile_tab[PROFILE_A_APP_ID].service_handle, &cccd_uuid,
-                      ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, NULL, NULL);
+                        //ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, NULL, NULL);
+                      ESP_GATT_PERM_READ_ENC_MITM | ESP_GATT_PERM_WRITE_ENC_MITM, NULL, NULL);
     if (err != ESP_OK) ESP_LOGE(TAG, "add CCCD failed: %s", esp_err_to_name(err));
 }
 
+
+static volatile bool g_ind_inflight = false;
+
+static esp_err_t read_current_phy(void) {
+    if (memcmp(g_peer_bda, "\0\0\0\0\0\0", 6) == 0) {
+        ESP_LOGW(TAG, "No peer BDA yet; can't read PHY");
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = esp_ble_gap_read_phy(g_peer_bda);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "esp_ble_gap_read_phy failed: %s", esp_err_to_name(err));
+    }
+    return err;
+}
+
+static esp_err_t ble_send_message(uint16_t char_handle, uint8_t* data, size_t data_length)
+{
+    esp_err_t ret = esp_ble_gatts_send_indicate(
+        gl_profile_tab[PROFILE_A_APP_ID].gatts_if,  // GATT interface
+        gl_profile_tab[PROFILE_A_APP_ID].conn_id,   // Connection ID
+        char_handle,                                // Characteristic handle
+        data_length,                                // Data length
+        data,                                       // Pointer to the data
+        false                                        // Need confirmation?
+    );
+
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to send: %s", esp_err_to_name(ret));
+    } else {
+        ESP_LOGI(TAG, "Successfully sent.");
+    }
+    return ret;
+}
+
+static esp_err_t ble_send_auth_message() {
+    uint8_t data = 0x01;
+    return ble_send_message(gl_profile_tab[PROFILE_A_APP_ID].auth_handle, &data, 1);
+}
 
 static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param) {
     switch (event) {
@@ -495,8 +622,12 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
     case ESP_GATTS_ADD_CHAR_EVT:
         ESP_LOGI(TAG, "Characteristic added, handle: %d, UUID: 0x%04X",
         param->add_char.attr_handle, param->add_char.char_uuid.uuid.uuid16);
-
-        if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_RECORDS) {
+        
+        if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_AUTH) {
+            gl_profile_tab[PROFILE_A_APP_ID].auth_handle = param->add_char.attr_handle;
+            ESP_LOGI(TAG, "Auth Characteristic Handle: %d", param->add_char.attr_handle);
+        }
+        else if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_RECORDS) {
             gl_profile_tab[PROFILE_A_APP_ID].records_handle = param->add_char.attr_handle;
             ESP_LOGI(TAG, "Records Info Characteristic Handle: %d", param->add_char.attr_handle);
         } 
@@ -549,7 +680,19 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
         ESP_LOGI(TAG, "CREATE_SERVICE_EVT, status %d, service_handle %d", param->create.status, param->create.service_handle);
         gl_profile_tab[PROFILE_A_APP_ID].service_handle = param->create.service_handle;
     
+
         esp_err_t add_char_ret =
+        esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
+            &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_AUTH},
+                               ESP_GATT_PERM_READ_ENC_MITM,
+                               ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY,
+                               NULL,
+                               NULL);
+        if (add_char_ret){
+            ESP_LOGE(TAG, "adding auth info char failed, error code =%x", add_char_ret);
+        }
+
+        add_char_ret =
         esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
             &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_RECORDS},
                                ESP_GATT_PERM_READ,
@@ -759,14 +902,13 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
         memset(g_peer_bda, 0, sizeof(g_peer_bda));
         if (on_disconnect_callback) on_disconnect_callback();
 
-        if (!s_ext_adv_started) {
-            esp_ble_gap_ext_adv_t start = { .instance = s_adv_handle, .duration = 0, .max_events = 0 };
-            esp_err_t err = esp_ble_gap_ext_adv_start(1, &start);
-            if (err != ESP_OK) ESP_LOGE(TAG, "ext_adv_start (re) failed: %s", esp_err_to_name(err));
-        }
+        esp_ble_gap_ext_adv_t start = { .instance = s_adv_handle, .duration = 0, .max_events = 0 };
+        err = esp_ble_gap_ext_adv_start(1, &start);
+        if (err != ESP_OK) ESP_LOGE(TAG, "ext_adv_start (re) failed: %s", esp_err_to_name(err));
 
         if (s_conf_sem) { vSemaphoreDelete(s_conf_sem); s_conf_sem = NULL; }
         notif_ind_enabled = false;
+        g_ind_inflight = false;
         break;
     
     case ESP_GATTS_CONNECT_EVT:
@@ -783,6 +925,10 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
         // RSSI poll’u başlat
         xTaskCreate(rssi_poll_task, "rssi_poll", 2048, NULL, 5, NULL);
 
+        esp_ble_gap_set_pkt_data_len(param->connect.remote_bda, 251);
+
+        read_current_phy();
+        ble_send_auth_message();
         if (on_connect_callback) on_connect_callback();
         if (!s_conf_sem) {
             s_conf_sem = xSemaphoreCreateBinary();
@@ -827,7 +973,12 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
             notif_ind_cccd_handle = param->add_char_descr.attr_handle;
             ESP_LOGI(TAG, "CCCD (0x2902) added: handle=%u", notif_ind_cccd_handle);
         }
-        break;  
+        break;
+    case ESP_GATTS_MTU_EVT: {
+        g_cur_mtu = param->mtu.mtu;
+        ESP_LOGW(TAG, "MTU updated: %u", g_cur_mtu);
+        break;
+    }
     default:
         break;
     }
@@ -837,8 +988,6 @@ static void drain_conf_sem(void) {
     if (!s_conf_sem) return;
     while (xSemaphoreTake(s_conf_sem, 0) == pdTRUE) {}
 }
-
-static volatile bool g_ind_inflight = false;
 
 static esp_err_t send_notification_char_as_indication(const uint8_t *data, size_t len, uint32_t timeout_ms) {
 
@@ -883,26 +1032,6 @@ static esp_err_t send_notification_char_as_indication(const uint8_t *data, size_
     g_ind_inflight = false;
 
     return (s_last_conf_status == ESP_GATT_OK) ? ESP_OK : ESP_FAIL;
-}
-
-
-static esp_err_t ble_send_message(uint16_t char_handle, uint8_t* data, size_t data_length)
-{
-    esp_err_t ret = esp_ble_gatts_send_indicate(
-        gl_profile_tab[PROFILE_A_APP_ID].gatts_if,  // GATT interface
-        gl_profile_tab[PROFILE_A_APP_ID].conn_id,   // Connection ID
-        char_handle,                                // Characteristic handle
-        data_length,                                // Data length
-        data,                                       // Pointer to the data
-        false                                        // Need confirmation?
-    );
-
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to send: %s", esp_err_to_name(ret));
-    } else {
-        ESP_LOGI(TAG, "Successfully sent.");
-    }
-    return ret;
 }
 
 esp_err_t init_bluetooth() {
@@ -996,6 +1125,8 @@ void register_dynamic_period_change_callback(void (*callback)(uint16_t)) {
 
 esp_err_t start_registering_and_advertising()
 {
+    setup_ble_security();
+
     esp_err_t ret;
 
     ret = esp_ble_gatts_register_callback(gatts_event_handler);
@@ -1012,18 +1143,17 @@ esp_err_t start_registering_and_advertising()
         ESP_LOGE(TAG, "set local MTU failed, error code = %x", local_mtu_ret);
     }
 
-
     esp_ble_gap_ext_adv_params_t p = {
         .type           = ESP_BLE_GAP_SET_EXT_ADV_PROP_LEGACY_IND, // opsiyonel
         .interval_min   = 0x20,
-        .interval_max   = 0x40,
+        .interval_max   = 0x30,
         .channel_map    = ADV_CHNL_ALL,
         .own_addr_type  = BLE_ADDR_TYPE_PUBLIC,
         .filter_policy  = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
-        .primary_phy    = ESP_BLE_GAP_PHY_1M,   // uyumluluk için 1M öneririm
-        .secondary_phy  = ESP_BLE_GAP_PHY_1M,   // bağlantı sonrası PHY’ı coded’a alacağız
+        .primary_phy    = ESP_BLE_GAP_PHY_1M,
+        .secondary_phy  = ESP_BLE_GAP_PHY_1M,
         .max_skip       = 0,
-        .tx_power       = 0x7F,                 // host seçsin (opsiyonel)
+        .tx_power       = 0x7F,
     };
 
     ret = esp_ble_gap_ext_adv_set_params(s_adv_handle, &p);
