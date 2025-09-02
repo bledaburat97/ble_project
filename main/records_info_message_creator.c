@@ -2,7 +2,7 @@
 
 #include "storage/log_types.h"
 #include "esp_log.h"
-#include "ble_control.h"
+#include "ble/include/ble_controller.h"
 #include "message_queue_manager.h"
 #include "therapy_counter.h"
 #include "matching_message_encoder.h"

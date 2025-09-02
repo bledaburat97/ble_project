@@ -1,6 +1,6 @@
 #include <string.h>
 #include <stdint.h>
-#include "ble_control.h"
+#include "ble/include/ble_controller.h"
 #include <stdbool.h>
 
 #ifndef MESSAGE_QUEUE_MANAGER_H

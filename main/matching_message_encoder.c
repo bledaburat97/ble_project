@@ -14,7 +14,7 @@
 #define RECORD_TYPE_MEASUREMENT     0x03
 #define RECORD_TYPE_NOTIFICATION    0x04
 #define RECORD_TYPE_BRIGHTNESS      0x05
-#define MAX_FRAGMENT_SIZE 30
+#define MAX_FRAGMENT_SIZE 244
 #define MAX_FRAGMENT_COUNT 100
 
 static const char *TAG = "MatchingMessageEncoder";
@@ -24,7 +24,25 @@ uint16_t current_fragment_id = UINT16_MAX;
 uint8_t fragments[MAX_FRAGMENT_COUNT][MAX_FRAGMENT_SIZE];
 size_t fragment_lengths[MAX_FRAGMENT_COUNT];
 
+static uint16_t fragment_size = 30;
+static inline uint16_t FRAGMENT_CAPACITY(void) { return fragment_size; }
+
+void fragments_set_capacity(size_t cap) {
+    if (cap > MAX_FRAGMENT_SIZE) cap = MAX_FRAGMENT_SIZE;
+    //fragment_size = cap;
+}
+
+void fragments_set_capacity_from_mtu(uint16_t mtu) {
+    size_t payload = (mtu > 3) ? (mtu - 3) : 20;
+    fragments_set_capacity(payload);
+}
+
 static void start_new_fragment(uint16_t therapy_id) {
+    if (FRAGMENT_CAPACITY() < 4) {
+        ESP_LOGE(TAG, "Fragment capacity too small (%u)", (unsigned)FRAGMENT_CAPACITY());
+        return;
+    }
+    ESP_LOGW(TAG, "Fragment Max Capacity: %u", (uint16_t)FRAGMENT_CAPACITY());
     current_fragment_id++;
     //ESP_LOGI(TAG, "updated current_fragment_id: %u", current_fragment_id);
     if(current_fragment_id >= MAX_FRAGMENT_COUNT) {
@@ -73,45 +91,39 @@ static void append_records_to_fragment(uint16_t count, uint8_t record_type, size
     
 }
 
-void encode_records_of_therapy(uint16_t therapy_id, uint8_t record_type, size_t record_size, size_t record_count, const uint8_t *records) {
+void encode_records_of_therapy(uint16_t therapy_id, uint8_t record_type,
+                               size_t record_size, size_t record_count,
+                               const uint8_t *records) {
+    const size_t section_header = 1 + 2; // type + count
+    const size_t min_required   = section_header + record_size;
+
+    if (FRAGMENT_CAPACITY() < (4 /*frag hdr*/ + min_required)) {
+        ESP_LOGE(TAG, "Fragment capacity (%u) too small for record_size=%u",
+                 (unsigned)FRAGMENT_CAPACITY(), (unsigned)record_size);
+        return;
+    }
+
     size_t index = 0;
-
-    while(record_count > 0) {
-        //ESP_LOGI(TAG, "record_count: %u.", record_count);
-
-        if(((fragments[current_fragment_id][2] << 8) | fragments[current_fragment_id][3]) != therapy_id) {
+    while (record_count > 0) {
+        if (((fragments[current_fragment_id][2] << 8) | fragments[current_fragment_id][3]) != therapy_id) {
             ESP_LOGE(TAG, "Encoding for new therapy must have been started.");
-            //ASSERT
             return;
         }
 
-        size_t header_size = 1 + 2;
-
-        size_t remaining = MAX_FRAGMENT_SIZE - fragment_lengths[current_fragment_id];
-        //ESP_LOGI(TAG, "current fragment length: %u, remaining: %u", fragment_lengths[current_fragment_id], remaining);
-
-        if (remaining < header_size + record_size) {
-            //ESP_LOGI(TAG, "start new fragment.");
+        size_t remaining = FRAGMENT_CAPACITY() - fragment_lengths[current_fragment_id];
+        if (remaining < min_required) {
             start_new_fragment(therapy_id);
-            remaining = MAX_FRAGMENT_SIZE - fragment_lengths[current_fragment_id];
-            //ESP_LOGI(TAG, "new fragment length: %u, remaining: %u", fragment_lengths[current_fragment_id], remaining);
+            remaining = FRAGMENT_CAPACITY() - fragment_lengths[current_fragment_id];
         }
 
-        size_t max_records_here = (remaining - header_size) / record_size;
+        size_t max_records_here = (remaining - section_header) / record_size;
         uint16_t appending_record_count = (record_count < max_records_here) ? record_count : max_records_here;
 
         append_records_to_fragment(appending_record_count, record_type, record_size, records, index);
-        //ESP_LOGI(TAG, "append_records_to_fragment: appending_record_count: %u, record_type: %u, record_size: %u, index: %u, record_count: %u"
-        //     ,appending_record_count, record_type, record_size, index, record_count);
-
-        //ESP_LOGI(TAG, "current fragment length: %u", fragment_lengths[current_fragment_id]);
-
 
         record_count -= appending_record_count;
-        index += appending_record_count;
+        index        += appending_record_count;
     }
-    
-    //ESP_LOGI(TAG, "All records are appended.");
 }
 
 const uint8_t* get_fragment(uint16_t fragment_id) {
@@ -134,6 +146,6 @@ void init_fragments()
 
     for (int i = 0; i < MAX_FRAGMENT_COUNT; i++) {
         fragment_lengths[i] = 0;
-        memset(fragments[i], 0, MAX_FRAGMENT_SIZE);
+        memset(fragments[i], 0, FRAGMENT_CAPACITY());
     }
 }

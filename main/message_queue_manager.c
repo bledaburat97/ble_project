@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include "message_queue_manager.h"
-#include "ble_control.h"
-#include "ble/ble_state_manager.h"
+#include "ble/include/ble_controller.h"
+#include "ble/include/ble_connection_state_manager.h"
 
 #include <stdio.h>
 #include <stdlib.h>

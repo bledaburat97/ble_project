@@ -11,7 +11,7 @@
 #include "fake_semphr.h"
 #endif
 
-static const char* TAG = "StatusController";
+static const char* TAG = "StateManager";
 
 static DeviceState current_state = STATE_IDLE;
 static bool helmet_state = false;

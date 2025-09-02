@@ -1,5 +1,5 @@
 #include "cJSON.h"
-#include "json_encoder.h"
+#include "message_encoder.h"
 #include <stdio.h>
 
 char* encode_device_info_message(const DeviceInfoMessage *message) {

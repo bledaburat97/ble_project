@@ -1,4 +1,4 @@
-#include "ble_state_manager.h"
+#include "../include/ble_connection_state_manager.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
@@ -10,7 +10,7 @@
 
 static SemaphoreHandle_t ble_mutex = NULL;
 static bool ble_connection_status = false;
-static const char *TAG = "BLEStateManager";
+static const char *TAG = "BLEConnectionStateManager";
 
 void set_ble_connection_status(bool status) {
     if (ble_mutex == NULL) {

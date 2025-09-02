@@ -7,7 +7,7 @@
 #include "freertos/semphr.h"
 #include "esp_log.h"
 #include "transaction_manager.h"
-#include "json_encoder.h"
+#include "message_encoder.h"
 #include "notification_info_message_creator.h"
 #include "records_info_message_creator.h"
 

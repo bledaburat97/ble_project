@@ -109,7 +109,7 @@ static bool is_lp_prox_sensor_active = false;
 static bool is_therapy_counter_partition_active = true;
 static bool is_log_partition_active = true;
 static bool is_laser_and_led_drivers_active = true;
-static bool is_temperature_sensor_active = false;
+static bool is_temperature_sensor_active = true;
 static bool is_hp_prox_sensor_active = false;
 static bool is_boot_button_control_active = false;
 static bool is_default_sleep_active = false;
@@ -187,7 +187,7 @@ void app_main() {
         }
 
         //test_add_log_flow();
-        //xTaskCreate(periodic_message_sender_task, "PeriodicMsgSender", 2048, NULL, 5, NULL);
+        xTaskCreate(periodic_message_sender_task, "PeriodicMsgSender", 2048, NULL, 5, NULL);
 
         /*
             read_and_set_records(0);

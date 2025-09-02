@@ -1,0 +1,78 @@
+#include "message_encoder.h"
+#include <string.h>
+
+size_t encode_device_info_message_binary(const DeviceInfoMessage *m, uint8_t out[DEVICE_INFO_SIZE])
+{
+    // 0..5: MAC
+    memcpy(&out[0], m->device_id, 6);
+
+    // 6..10: current_time (sen 5 bayt planlamışsın; YY,MM,DD,hh,mm gibi)
+    memcpy(&out[6], m->current_time, 5);
+
+    // 11..12: last_saved_therapy_id (LE)
+    out[11] = (uint8_t)(m->last_saved_therapy_id & 0xFF);
+    out[12] = (uint8_t)(m->last_saved_therapy_id >> 8);
+
+    // 13..14: message_id (LE)
+    out[13] = (uint8_t)(m->message_id & 0xFF);
+    out[14] = (uint8_t)(m->message_id >> 8);
+
+    // 15..16: passed_seconds (LE)
+    out[15] = (uint8_t)(m->passed_seconds & 0xFF);
+    out[16] = (uint8_t)(m->passed_seconds >> 8);
+
+    return DEVICE_INFO_SIZE;
+}
+
+size_t encode_timer_state_info_message_binary(const TimerStateInfoMessage *m, uint8_t out[TIMER_STATE_INFO_SIZE])
+{
+    if (!m || !out) return 0;
+
+    out[0] = m->type;
+
+    out[1] = (uint8_t)(m->therapy_id & 0xFF);
+    out[2] = (uint8_t)(m->therapy_id >> 8);
+
+    out[3] = (uint8_t)(m->duration & 0xFF);
+    out[4] = (uint8_t)(m->duration >> 8);
+
+    out[5] = (uint8_t)(m->message_id & 0xFF);
+    out[6] = (uint8_t)(m->message_id >> 8);
+
+    out[7] = (uint8_t)(m->passed_seconds & 0xFF);
+    out[8] = (uint8_t)(m->passed_seconds >> 8);
+
+    return TIMER_STATE_INFO_SIZE;
+}
+
+
+size_t encode_measurement_info_message_binary(const MeasurementInfoMessage *m, uint8_t out[MEASUREMENT_INFO_SIZE])
+{
+    if (!m || !out) return 0;
+
+    out[0] = (uint8_t)(m->temperature & 0xFF);
+    out[1] = (uint8_t)((uint16_t)m->temperature >> 8);
+
+    out[2] = (uint8_t)(m->humidity & 0xFF);
+    out[3] = (uint8_t)(m->humidity >> 8);
+
+    out[4] = (uint8_t)(m->message_id & 0xFF);
+    out[5] = (uint8_t)(m->message_id >> 8);
+
+    out[6] = (uint8_t)(m->passed_seconds & 0xFF);
+    out[7] = (uint8_t)(m->passed_seconds >> 8);
+
+    return MEASUREMENT_INFO_SIZE;
+}
+
+
+size_t encode_notification_message_binary(const NotificationMessage *m, uint8_t out[NOTIFICATION_INFO_SIZE])
+{
+    out[0] = m->type;
+    out[1] = (uint8_t)(m->message_id & 0xFF);
+    out[2] = (uint8_t)(m->message_id >> 8);
+    out[3] = (uint8_t)(m->passed_seconds & 0xFF);
+    out[4] = (uint8_t)(m->passed_seconds >> 8);
+    return NOTIFICATION_INFO_SIZE;
+}
+

@@ -3,7 +3,7 @@
 #include "storage/log_types.h"
 #include "esp_log.h"
 #include "timer_management.h"
-#include "json_encoder.h"
+#include "message_encoder.h"
 #include "storage/log_writer.h"
 #include "message_queue_manager.h"
 #include "state_manager.h"
@@ -82,16 +82,25 @@ void add_and_send_new_other_state_info(NotificationType notification_type) {
     message.passed_seconds = passed_seconds;
     message.message_id = get_message_id();
 
-    char *json_str = encode_timer_state_info_message(&message);
-    if (json_str == NULL) {
-        ESP_LOGE(TAG, "JSON encode failed");
-        return;
+    bool isMessageJson = false;
+
+    if(isMessageJson) {
+        char *json_str = encode_timer_state_info_message(&message);
+        if (json_str == NULL) {
+            ESP_LOGE(TAG, "JSON encode failed");
+            return;
+        }
+
+        size_t len = strlen(json_str);
+        send_info_message_to_queue(TIMER_STATE_INFO_MESSAGE, (uint8_t*)json_str, len, message.message_id);
+
+        free(json_str);
     }
-
-    size_t len = strlen(json_str);
-    send_info_message_to_queue(TIMER_STATE_INFO_MESSAGE, (uint8_t*)json_str, len, message.message_id);
-
-    free(json_str);
+    else {
+        uint8_t buf[TIMER_STATE_INFO_SIZE];
+        size_t len = encode_timer_state_info_message_binary(&message, buf);
+        send_info_message_to_queue(TIMER_STATE_INFO_MESSAGE, buf, len, message.message_id);
+    }
 }
 
 void add_and_send_new_therapy_state_info(NotificationType notification_type) {

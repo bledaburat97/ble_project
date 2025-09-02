@@ -11,14 +11,14 @@
 #include "timer_management.h"
 #include "json_parser.h"
 #include "state_manager.h"
-#include "ble_control.h"
+#include "ble/include/ble_controller.h"
 #include "transaction_manager.h"
 #include "transaction_message_encoder.h"
-#include "json_encoder.h"
+#include "message_encoder.h"
 #include "storage/log_writer.h"
 #include "therapy_counter.h"
 #include "matching_message_encoder.h"
-#include "ble/ble_state_manager.h"
+#include "ble/include/ble_connection_state_manager.h"
 #include "message_queue_manager.h"
 #include "notification_info_message_creator.h"
 #include "records_info_message_creator.h"
@@ -186,293 +186,18 @@ static void periodic_message_sender_task(void *pvParameters) {
     const TickType_t delay = pdMS_TO_TICKS(15 * 1000); 
     const TickType_t gap_yield = pdMS_TO_TICKS(1500);
     uint8_t byte_data = 0xAB;
+    vTaskDelay(delay * 3);
+    request_conn_interval_ms(200);
+    vTaskDelay(gap_yield);
+
+    set_phy_2m();
+    vTaskDelay(gap_yield);
     while(1) {
-
-        vTaskDelay(delay * 3);
-
-    ////////////////
-
-        request_conn_interval_ms(200);
-        vTaskDelay(gap_yield);
-
-        set_phy_2m();
-        vTaskDelay(gap_yield);
-
         send_notification_info(NOTIF_HELMET_ON, 0);
         vTaskDelay(delay);
 
         send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
         vTaskDelay(delay);
-
-        set_phy_1m();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-        set_phy_coded_s2();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-        set_phy_coded_s8();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-
-    ////////////////
-
-        request_conn_interval_ms(300);
-        vTaskDelay(gap_yield);
-
-        set_phy_2m();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-        set_phy_1m();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-        set_phy_coded_s2();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-        set_phy_coded_s8();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-
-    ////////////////
-
-        request_conn_interval_ms(24);
-        vTaskDelay(gap_yield);
-
-        set_phy_2m();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-        set_phy_1m();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-        set_phy_coded_s2();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-        set_phy_coded_s8();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-    //////////////////
-
-        request_conn_interval_ms(36);
-        vTaskDelay(gap_yield);
-
-        set_phy_2m();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-        set_phy_1m();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-        set_phy_coded_s2();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-        set_phy_coded_s8();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-    ///////////////////////////
-
-        request_conn_interval_ms(80);
-        vTaskDelay(gap_yield);
-
-        set_phy_2m();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-        set_phy_1m();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-        set_phy_coded_s2();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-        set_phy_coded_s8();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-    ///////////////////////////
-
-        request_conn_interval_ms(120);
-        vTaskDelay(gap_yield);
-
-        set_phy_2m();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-        set_phy_1m();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-        set_phy_coded_s2();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-        set_phy_coded_s8();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-    ///////////////////////////
-
-        request_conn_interval_ms(200);
-        vTaskDelay(gap_yield);
-
-        set_phy_2m();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-        set_phy_1m();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-        set_phy_coded_s2();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
-        vTaskDelay(delay);
-
-        set_phy_coded_s8();
-        vTaskDelay(gap_yield);
-
-        send_notification_info(NOTIF_HELMET_ON, 0);
-        vTaskDelay(delay);
-
-        send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
     }
 }
 
