@@ -234,9 +234,15 @@ void read_proximity_of_sensors() {
         uint8_t highProximityByte;
         read_register(VCNL_3020_ADDRESS, PROXIMITY_RESULT_REG_HIGH, &highProximityByte, 1, I2C_FIRST_MASTER_NUM);
         if(highProximityByte > 10) {
-            ESP_LOGI(TAG, "Proximity Measured: high byte: %u", highProximityByte);
-            add_and_send_notification_info(NOTIF_HELMET_ON); //for test
+            change_helmet_state(true);
+            //add_and_send_notification_info(NOTIF_HELMET_ON); //for test
         }
+
+        if(highProximityByte < 9) {
+            change_helmet_state(false);
+            //add_and_send_notification_info(NOTIF_HELMET_ON); //for test
+        }
+
         uint8_t lowProximityByte;
         read_register(VCNL_3020_ADDRESS, PROXIMITY_RESULT_REG_LOW, &lowProximityByte, 1, I2C_FIRST_MASTER_NUM);
 

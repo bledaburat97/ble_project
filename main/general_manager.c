@@ -6,22 +6,25 @@
 #include "esp_log.h"
 #include "laser_driver_control.h"
 #include "timer_state_info_message_creator.h"
+#include "current_therapy_info_manager.h"
 
 static const char *TAG = "GeneralManager";
 
 static void on_state_changed(DeviceState new_state){
     if (new_state == STATE_TEMPERATURE_ALERT) {
-        set_laser_drivers_gpio_pin_status(false);
+        //set_laser_drivers_gpio_pin_status(false);
         set_laser_drivers_status(false);
     }
     else if (new_state == STATE_INACTIVE) {
+        ESP_LOGI(TAG, "State inactive.");
+        set_laser_drivers_status(false);
         if (get_helmet_state()) {
-            set_laser_drivers_gpio_pin_status(false);
-            set_laser_drivers_status(true); //lazeri çalıştırmak demek değil. lazerin çalışabilir durumda olması.
+            //set_laser_drivers_status(true); //lazeri çalıştırmak demek değil. lazerin çalışabilir durumda olması.
         }
     }
     else if (new_state == STATE_ACTIVE) {
-        set_laser_drivers_gpio_pin_status(true);
+        ESP_LOGI(TAG, "State active.");
+        set_laser_drivers_status(true);
     }
 }
 
@@ -30,9 +33,7 @@ void start_device() {
         enter_deep_sleep();
     }
     else{
-        if(start_inactivity_timer()) {
-            set_device_state(STATE_INACTIVE);
-        }
+        start_inactivity_timer();
     }
 }
 
@@ -44,62 +45,39 @@ static void on_timer_end(NotificationType notification_type) {
             enter_deep_sleep();
         }
         else{
-            if(is_alert_timer_running()) {
-                stop_alert_timer();
-                start_inactivity_timer();
-                set_device_state(STATE_INACTIVE);
-            }
-            else {
-                //ERROR
-            }
+            set_inactivity_after_alert_expires();
         }
     }
     else if(notification_type == NOTIF_INACTIVITY_TIMER_EXPIRED) {
         ESP_LOGI(TAG, "Inactivity timer expired!");
-        if (!stop_inactivity_timer()) {
-            return;
-        }
-        set_device_state(STATE_IDLE);
+        turn_off_device_because_of_inactivity();
         add_and_send_notification_info(notification_type);
         enter_deep_sleep();
     }
 
     else if(notification_type == NOTIF_THERAPY_COMPLETED) {
         ESP_LOGI(TAG, "Therapy timer expired!");
-        
-        if(is_therapy_timer_running()) {
-            stop_therapy_timer();
-            start_inactivity_timer();
-            set_device_state(STATE_INACTIVE);
-        }
-        else {
-            //ERROR
-        }
-
-        reset_passed_therapy_duration();
+        terminate_therapy();
         add_and_send_notification_info(notification_type);
     }
 }
 
 void change_helmet_state(bool helmet_state) {
+    if(helmet_state == get_helmet_state()) {
+        return;
+    }
+
     if(!set_helmet_state(helmet_state)){
         ESP_LOGE(TAG, "Helmet state can not be set.");
     }
 
     if (helmet_state) {
+        ESP_LOGI(TAG, "Helmet is on.");
         add_and_send_notification_info(NOTIF_HELMET_ON);
     }
     else {
         if (get_device_state() == STATE_ACTIVE) {
-            if(is_therapy_timer_running()) {
-                stop_therapy_timer();
-                start_inactivity_timer();
-                set_device_state(STATE_INACTIVE);
-            }
-            else {
-                //ERROR
-            }
-            update_passed_therapy_duration();
+            pause_therapy();
         }
         add_and_send_notification_info(NOTIF_HELMET_OFF);
     }
@@ -107,6 +85,9 @@ void change_helmet_state(bool helmet_state) {
 
 void throw_alert_for_temperature(uint8_t sensor_index) {
     if (get_device_state() != STATE_TEMPERATURE_ALERT){
+        if(get_device_state() == STATE_ACTIVE) {
+            pause_therapy_because_of_alert();
+        }
         start_alert_timer(sensor_index);
     }
 }
@@ -139,7 +120,7 @@ static void on_timer_start(NotificationType notification_type) {
 void init_general_manager()
 {
     init_state_manager();
-    init_timer_manager();
+    //init_timer_manager();
     register_state_change_callback(on_state_changed);
     register_timer_end_callback(on_timer_end);
     register_timer_state_change_callback(on_timer_start);

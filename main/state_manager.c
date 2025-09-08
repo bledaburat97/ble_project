@@ -93,7 +93,7 @@ void set_device_state(DeviceState new_state) {
             current_state = new_state;
             ESP_LOGI(TAG, "Device state changed: %s -> %s", get_device_state_str(prev_state), get_device_state_str(new_state));
 
-            xQueueSend(state_event_queue, &new_state, 0);
+            xQueueSend(state_event_queue, &new_state, portMAX_DELAY);
         }
         xSemaphoreGive(state_mutex);
     }

@@ -12,18 +12,23 @@
 bool is_inactivity_timer_running();
 bool is_therapy_timer_running();
 bool is_alert_timer_running();
+bool stop_inactivity_timer();
+bool stop_therapy_timer();
+bool stop_alert_timer();
+void start_therapy_timer(uint16_t duration, NotificationType notification_type);
+void register_timer_end_callback(void (*callback)(NotificationType));
+void register_timer_state_change_callback(void (*callback)(NotificationType));
+void start_alert_timer(int sensor_index);
+bool start_inactivity_timer();
+uint16_t get_therapy_passed_seconds_direct(void);
+
+/*
 void start_new_therapy(uint16_t duration);
 void start_therapy(bool is_by_app);
-bool start_inactivity_timer();
-void start_alert_timer(int sensor_index);
-void register_timer_state_change_callback(void (*callback)(NotificationType));
 void register_timer_start_callback(void (*callback)(DeviceState));
-void register_timer_end_callback(void (*callback)(NotificationType));
 void init_timer_manager();
 uint16_t get_passed_duration();
 void update_passed_therapy_duration();
 void reset_passed_therapy_duration();
-bool stop_inactivity_timer();
-bool stop_therapy_timer();
-bool stop_alert_timer();
+*/
 #endif 

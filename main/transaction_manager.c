@@ -25,6 +25,7 @@
 #include "measurement_info_message_creator.h"
 #include "timer_state_info_message_creator.h"
 #include "device_info_message_creator.h"
+#include "current_therapy_info_manager.h"
 
 #ifndef UNIT_TESTING
 #include "freertos/FreeRTOS.h"
@@ -54,49 +55,18 @@ static void on_disconnect_ble() {
 static void handle_status_change_message(const StatusChangeMessage *msg)
 {
     if(strcmp(msg->type, "STOP") == 0) {
-        if(get_device_state() != STATE_ACTIVE) {
-            return;
-        }
-        if(is_therapy_timer_running()) {
-            stop_therapy_timer();
-            start_inactivity_timer();
-            set_device_state(STATE_INACTIVE);
-        }
-        else {
-            //ERROR
-        }
-        
+        ESP_LOGI(TAG, "STOP therapy");
+        terminate_therapy();
         add_and_send_notification_info(NOTIF_THERAPY_STOPPED_BY_APP);
-        reset_passed_therapy_duration();
 
     } else if(strcmp(msg->type, "PAUSE") == 0) {
-        if(get_device_state() != STATE_ACTIVE) {
-            return;
-        }
-
-        if(is_therapy_timer_running()) {
-            stop_therapy_timer();
-            start_inactivity_timer();
-            set_device_state(STATE_INACTIVE);
-        }
-        else {
-            //ERROR
-        }
-
+        ESP_LOGI(TAG, "PAUSE therapy");
+        pause_therapy();
         add_and_send_notification_info(NOTIF_THERAPY_PAUSED_BY_APP);
-        update_passed_therapy_duration();
+
     } else if(strcmp(msg->type, "CONTINUE") == 0) {
-        if(get_device_state() != STATE_INACTIVE) {
-            return;
-        }
-        if(is_inactivity_timer_running()) {
-            stop_inactivity_timer();
-            start_therapy(true);
-            set_device_state(STATE_ACTIVE);
-        }
-        else{
-            //ERROR
-        }
+        ESP_LOGI(TAG, "CONTINUE therapy");
+        continue_therapy();
     }
 }
 
@@ -123,33 +93,12 @@ static void on_write_of_feedback_message(const char *data) {
 
 static void handle_activation_message(const ActivationMessage *msg)
 {
-    for(int i=0;i<6;i++) {
-        set_brightness_of_region(i + 1, msg->brightness[i]);
-    }
-
     if(msg->duration > 0) {
-        if(get_device_state() == STATE_ACTIVE) {
-            if(is_therapy_timer_running()) {
-                stop_therapy_timer();        
-                set_device_state(STATE_IDLE);
-                start_new_therapy(msg->duration);
-                set_device_state(STATE_ACTIVE);
-            }
-            else{
-                //ERROR
-            }
-        }
-        else if(get_device_state() == STATE_INACTIVE && get_helmet_state()) {
-            if(is_inactivity_timer_running()) {
-                stop_inactivity_timer();
-                start_new_therapy(msg->duration);
-                set_device_state(STATE_ACTIVE);
-            }
-            else{
-                //ERROR
-            }
-        }
-    } else if(get_device_state() == STATE_ACTIVE) {
+        try_start_new_therapy_by_activation(msg->duration);
+    } 
+
+    for(int i = 0; i < TOTAL_REGION_COUNT; i++) {
+        set_brightness_of_region(i + 1, msg->brightness[i]);
         add_and_send_notification_info(NOTIF_BRIGHTNESS_UPDATED);
     }
 }
@@ -193,11 +142,37 @@ static void periodic_message_sender_task(void *pvParameters) {
     set_phy_2m();
     vTaskDelay(gap_yield);
     while(1) {
+
+        ActivationMessage activationMsg;
+        activationMsg.brightness[0] = 10;
+        activationMsg.brightness[1] = 10;
+        activationMsg.brightness[2] = 10;
+        activationMsg.brightness[3] = 10;
+        activationMsg.duration = 40;
+
+        handle_activation_message(&activationMsg);
+        
+        vTaskDelay(2 * delay);
+
+        ActivationMessage activationMsg2;
+        activationMsg2.brightness[0] = 10;
+        activationMsg2.brightness[1] = 20;
+        activationMsg2.brightness[2] = 20;
+        activationMsg2.brightness[3] = 0;
+        activationMsg2.duration = 0;
+
+        handle_activation_message(&activationMsg2);
+
+        vTaskDelay(2 * delay);
+
+
+        /*
         send_notification_info(NOTIF_HELMET_ON, 0);
         vTaskDelay(delay);
 
         send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
         vTaskDelay(delay);
+        */
     }
 }
 

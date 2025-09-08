@@ -321,7 +321,7 @@ void initialize_laser_drivers()
 
     initialize_laser_driver_gpio();
     set_laser_drivers_gpio_pin_status(true);
-    set_laser_drivers_status(true);
+    //set_laser_drivers_status(true);
     vTaskDelay(pdMS_TO_TICKS(100));
     set_banked_leds();
 }

@@ -18,12 +18,55 @@ static const char *TAG = "RecordsInfoMessageCreator";
 static uint8_t MAX_RECORDS_TO_BE_SENT = 20;
 static uint16_t final_therapy_id_to_be_sent;
 
-void send_records_info_message(uint16_t therapy_id) {
-    set_records(therapy_id);
+static void set_records(uint16_t therapy_id) {
+    ESP_LOGI(TAG, "Set records");
+    if(get_current_therapy_state() == NONE && therapy_id == read_therapy_count()) {
+        ESP_LOGE(TAG, "HATA.");
+        return;
+    }
+    if(therapy_id == 0) {
+        ESP_LOGE(TAG, "There should be a saved therapy.");
+        return;
+    }
+    ReadTherapyLogs read_therapy_logs;
+    if(read_records(therapy_id, &read_therapy_logs)) {
+        init_fragments();
+
+        ReadTherapyInfo therapy_info;
+        if(read_therapy_info(therapy_id, &therapy_info)) {
+            if(therapy_id == get_current_therapy_id()) {
+                start_encoding_for_new_therapy(therapy_id, get_current_therapy_duration(), get_current_therapy_passed_duration());
+            }
+
+            else {
+                start_encoding_for_new_therapy(therapy_id, therapy_info.therapy_duration, therapy_info.passed_duration);
+            }
+
+            if (read_therapy_logs.count_measurements > 0) {
+                //ESP_LOGI(TAG, "count_measurements: %u", read_therapy_logs.count_measurements);
+                encode_records_of_therapy(therapy_id, 0x03, 4, read_therapy_logs.count_measurements, read_therapy_logs.measurements);
+            }
+            if (read_therapy_logs.count_notifications > 0) {
+                //ESP_LOGI(TAG, "count_notifications: %u", read_therapy_logs.count_notifications);
+                encode_records_of_therapy(therapy_id, 0x04, 3, read_therapy_logs.count_notifications, read_therapy_logs.notifications);
+            }
+            if (read_therapy_logs.count_brightness > 0) {
+                //ESP_LOGI(TAG, "count_brightness: %u", read_therapy_logs.count_brightness);
+                encode_records_of_therapy(therapy_id, 0x05, 8, read_therapy_logs.count_brightness, read_therapy_logs.brightness_updates);
+            }
+        }
+    }
+    
+    free(read_therapy_logs.measurements);
+    free(read_therapy_logs.notifications);
+    free(read_therapy_logs.brightness_updates);
+}
+
+static void send_fragments(uint16_t therapy_id) {
     uint16_t fragment_count = get_fragment_count();
     ESP_LOGI(TAG, "therapy_id: %d, fragment_count: %d", therapy_id, fragment_count);
 
-    for (uint16_t i = 0; i <= fragment_count; i++) {
+    for (uint16_t i = 0; i < fragment_count; i++) {
         const uint8_t* frag = get_fragment(i);
         size_t len = get_fragment_length(i);
         ESP_LOGI(TAG, "---------------------------------------");
@@ -32,15 +75,21 @@ void send_records_info_message(uint16_t therapy_id) {
         if (frag != NULL && len > 0) {
             ESP_LOGI(TAG, "Sending fragment for therapy_id: %d, fragment_index: %d", therapy_id, i);
             ESP_LOG_BUFFER_HEX(TAG, frag, len);
-            send_records_info_message_to_queue(therapy_id, (uint8_t*)frag, len,  i == fragment_count);
+            bool is_last = (i == fragment_count - 1);
+            send_records_info_message_to_queue(therapy_id, (uint8_t*)frag, len, is_last);
             vTaskDelay(pdMS_TO_TICKS(10));  //TODO Gerekirse bu süre MTU'ya göre ayarlanabilir
         }
     }
 }
 
+void send_records_info_message(uint16_t therapy_id) {
+    set_records(therapy_id);
+    send_fragments(therapy_id);
+}
+
 static void on_active_or_paused_therapy_existed()
 {
-    send_records_info_message(read_therapy_count());
+    send_records_info_message(get_current_therapy_id());
 }
 
 void on_write_of_record_request_message(const char *data) {
@@ -57,7 +106,11 @@ void on_write_of_record_request_message(const char *data) {
     ESP_LOGI(TAG, "last saved therapy_id: %d", last_saved_therapy_id);
 
     //active therapy'nin bilgilerini zaten aktif terapi bilgi mesajında göndermiş olmalıyız.
-    final_therapy_id_to_be_sent = get_device_state() == STATE_ACTIVE ? (last_saved_therapy_id - 1) : last_saved_therapy_id;
+    if (get_device_state() == STATE_ACTIVE) {
+        final_therapy_id_to_be_sent = (last_saved_therapy_id > 0) ? (last_saved_therapy_id - 1) : 0;
+    } else {
+        final_therapy_id_to_be_sent = last_saved_therapy_id;
+    }
 
     uint16_t therapy_id = (last_therapy_id_saved_in_app >= (final_therapy_id_to_be_sent - MAX_RECORDS_TO_BE_SENT) || final_therapy_id_to_be_sent < MAX_RECORDS_TO_BE_SENT)  ? last_therapy_id_saved_in_app + 1 : final_therapy_id_to_be_sent - MAX_RECORDS_TO_BE_SENT + 1;
     if (therapy_id > final_therapy_id_to_be_sent) {
@@ -98,16 +151,9 @@ static void on_record_pending_approval_timeout(const uint16_t therapy_id) {
 
 void init_records_info_message_creator() {
     register_active_or_paused_therapy_info(on_active_or_paused_therapy_existed);
-    ESP_LOGI(TAG, "1111");
-
     register_on_write_records_feedback_callback(on_records_feedback);
-    ESP_LOGI(TAG, "222");
-
     register_on_write_updating_records_callback(on_write_of_record_request_message);
-    ESP_LOGI(TAG, "333");
-
     register_on_record_pending_approval_timeout_callback(on_record_pending_approval_timeout);
-    ESP_LOGI(TAG, "4444");
 
     final_therapy_id_to_be_sent = read_therapy_count();
     ESP_LOGI(TAG, "final_therapy_id_to_be_sent: %u", final_therapy_id_to_be_sent);

@@ -10,10 +10,6 @@
 #define SECOND_PJ85775_ADDRESS 0x4C
 #define THIRD_PJ85775_ADDRESS 0x4A
 
-#define FIRST_ALERT_GPIO GPIO_NUM_3
-#define SECOND_ALERT_GPIO GPIO_NUM_2
-#define THIRD_ALERT_GPIO GPIO_NUM_5
-
 #define NVS_KEY_TEMPERATURE "last_temp"
 #define TEMPERATURE_SENSOR_COUNT 1 //TODO: Değiştir.
 #define LOW_THRESHOLD_IN_NORMAL 25.5
@@ -25,7 +21,6 @@
 
 static const char *TAG = "TemperatureControl";
 static const uint8_t sensor_addresses[] = {SECOND_PJ85775_ADDRESS, FIRST_PJ85775_ADDRESS, THIRD_PJ85775_ADDRESS};
-static const uint8_t alarm_gpios[] = {SECOND_ALERT_GPIO, FIRST_ALERT_GPIO, THIRD_ALERT_GPIO};
 static float current_temperature;
 static void (*temp_update_callback)(uint8_t) = NULL;
 
@@ -151,7 +146,7 @@ void initialize_temperature_sensor() {
     config.altm = ALERT_COMPARATOR_MODE;
     config.sd = NORMAL_MODE;
     set_alert_pin_normal_status(config.pol != ALERT_ACTIVE_HIGH);
-    set_alarm_gpios(alarm_gpios, TEMPERATURE_SENSOR_COUNT);
+    set_active_temp_sensor_count(TEMPERATURE_SENSOR_COUNT);
     register_temperature_alert(on_temp_alert_callback);
     register_temperature_normal(on_temp_normal_callback);
     set_i2c_master_num(I2C_FIRST_MASTER_NUM);

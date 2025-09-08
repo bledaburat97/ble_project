@@ -130,7 +130,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         add_char_ret =
         esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
             &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_RECORDS},
-                               ESP_GATT_PERM_READ,
+                               ESP_GATT_PERM_READ_ENC_MITM,
                                ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY,
                                NULL,
                                NULL);
@@ -141,7 +141,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         add_char_ret =
         esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
             &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_TIMER_STATE},
-                               ESP_GATT_PERM_READ,
+                               ESP_GATT_PERM_READ_ENC_MITM,
                                ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY,
                                NULL,
                                NULL);
@@ -152,7 +152,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         add_char_ret =
         esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
             &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_MEASUREMENT},
-                               ESP_GATT_PERM_READ,
+                               ESP_GATT_PERM_READ_ENC_MITM,
                                ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY,
                                NULL,
                                NULL);
@@ -163,7 +163,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         add_char_ret =
         esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
             &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_NOTIFICATION},
-                               ESP_GATT_PERM_READ,
+                               ESP_GATT_PERM_READ_ENC_MITM,
                                ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_INDICATE,
                                NULL,
                                NULL);
@@ -176,7 +176,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         add_char_ret =
         esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
             &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_DEVICE},
-                               ESP_GATT_PERM_READ,
+                               ESP_GATT_PERM_READ_ENC_MITM,
                                ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY,
                                NULL,
                                NULL);
@@ -187,7 +187,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         add_char_ret =
         esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
             &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_ACTIVATION},
-                               ESP_GATT_PERM_WRITE,
+                               ESP_GATT_PERM_WRITE_ENC_MITM,
                                ESP_GATT_CHAR_PROP_BIT_WRITE,
                                NULL,
                                NULL);
@@ -198,7 +198,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         add_char_ret =
         esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
             &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_UPDATING_RECORDS},
-                               ESP_GATT_PERM_WRITE,
+                               ESP_GATT_PERM_WRITE_ENC_MITM,
                                ESP_GATT_CHAR_PROP_BIT_WRITE,
                                NULL,
                                NULL);
@@ -209,7 +209,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         add_char_ret =
         esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
             &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_FEEDBACK},
-                               ESP_GATT_PERM_WRITE,
+                               ESP_GATT_PERM_WRITE_ENC_MITM,
                                ESP_GATT_CHAR_PROP_BIT_WRITE,
                                NULL,
                                NULL);
@@ -220,7 +220,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         add_char_ret =
         esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
             &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_UPDATING_THERAPY_STATE},
-                               ESP_GATT_PERM_WRITE,
+                               ESP_GATT_PERM_WRITE_ENC_MITM,
                                ESP_GATT_CHAR_PROP_BIT_WRITE,
                                NULL,
                                NULL);
@@ -231,7 +231,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         add_char_ret =
         esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
             &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_RECORDS_FEEDBACK},
-                               ESP_GATT_PERM_WRITE,
+                               ESP_GATT_PERM_WRITE_ENC_MITM,
                                ESP_GATT_CHAR_PROP_BIT_WRITE,
                                NULL,
                                NULL);

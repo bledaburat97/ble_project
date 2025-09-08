@@ -11,8 +11,6 @@ static link_prof_t choose_profile(int8_t rssi) {
     return PROF_WORST;
 }
 
-
-
 void apply_profile(link_prof_t p) {
     switch (p) {
         case PROF_REALLY_GOOD: ESP_LOGI(TAG, "PROF_REALLY_GOOD"); break;
@@ -171,6 +169,3 @@ void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
         break;
     }
 }
-
-// Bağlantı kurulduğunda GAP dışındaki işler profile/gatts tarafında hallediliyor.
-// RSSI task’ı profile connect event’inde başlatılıyor (aynı şekilde korunacak).
