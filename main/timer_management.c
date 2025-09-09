@@ -29,6 +29,17 @@ static uint16_t active_therapy_timer_duration = DEFAULT_THERAPY_DURATION;
 static void (*timer_state_change_callback)(NotificationType) = NULL;
 static void (*timer_end_callback)(NotificationType) = NULL;
 static void (*timer_start_callback)(DeviceState) = NULL;
+static TimerHandle_t update_watchdog_timer = NULL;
+static const uint32_t WATCHDOG_TIMEOUT_MS = 10 * 1000; // 10 saniye
+static uint16_t passed_duration_before_last_pause = 0;
+
+void set_passed_duration_before_last_pause(uint16_t duration) {
+    passed_duration_before_last_pause = duration;
+}
+
+uint16_t get_passed_duration_before_last_pause() {
+    return passed_duration_before_last_pause;
+}
 
 bool is_inactivity_timer_running()
 {
@@ -60,6 +71,18 @@ bool is_alert_timer_running()
     return true;
 }
 
+static void stop_duration_update_watchdog_timer() {
+    if (update_watchdog_timer == NULL) {
+        ESP_LOGD(TAG, "No watchdog to stop.");
+        return;
+    }
+    if (xTimerIsTimerActive(update_watchdog_timer)) {
+        xTimerStop(update_watchdog_timer, 0);
+    }
+    xTimerDelete(update_watchdog_timer, 0);
+    update_watchdog_timer = NULL;
+}
+
 static void therapy_timer_expiry_callback(TimerHandle_t xTimer) {
     if (timer_end_callback) {
         timer_end_callback(NOTIF_THERAPY_COMPLETED);
@@ -87,6 +110,7 @@ bool stop_therapy_timer()
         ESP_LOGI(TAG, "Therapy timer can not be stopped.");
         return false;
     }
+    stop_duration_update_watchdog_timer();
 }
 
 bool stop_alert_timer()
@@ -104,7 +128,9 @@ bool stop_alert_timer()
 void start_therapy_timer(uint16_t duration, NotificationType notification_type) {
     active_therapy_timer_duration = duration;
     therapy_timer = create_and_start_timer(STATE_ACTIVE, duration * 1000, therapy_timer_expiry_callback);
-    timer_state_change_callback(notification_type);
+    if (timer_state_change_callback) {
+        timer_state_change_callback(notification_type);
+    }
     set_device_state(STATE_ACTIVE);
     //if(timer_start_callback) {
     //    timer_start_callback(STATE_ACTIVE);
@@ -187,6 +213,32 @@ uint16_t get_therapy_passed_seconds_direct(void) {
     uint16_t total = active_therapy_timer_duration; // saniye
     uint16_t rem   = get_therapy_remaining_seconds_direct();
     return (rem >= total) ? 0 : (total - rem);
+}
+
+static void update_watchdog_timeout_callback(TimerHandle_t xTimer) {
+    if(get_device_state() == STATE_ACTIVE) {
+        add_notification_log(PASSED_DURATION_UPDATED, get_current_therapy_passed_duration());
+    }
+}
+
+uint16_t get_current_therapy_passed_duration() {
+    if (get_device_state() == STATE_ACTIVE) {
+        if (update_watchdog_timer == NULL) {
+            update_watchdog_timer = xTimerCreate(
+                "UpdateWatchdog",
+                pdMS_TO_TICKS(WATCHDOG_TIMEOUT_MS),
+                pdFALSE,
+                NULL,
+                update_watchdog_timeout_callback
+            );
+        }
+        if (xTimerIsTimerActive(update_watchdog_timer)) {
+            xTimerStop(update_watchdog_timer, 0);
+        }
+        xTimerStart(update_watchdog_timer, 0);
+    }
+
+    return passed_duration_before_last_pause + get_therapy_passed_seconds_direct();
 }
 
 /*

@@ -26,6 +26,7 @@
 #include "timer_state_info_message_creator.h"
 #include "device_info_message_creator.h"
 #include "current_therapy_info_manager.h"
+#include "general_manager.h"
 
 #ifndef UNIT_TESTING
 #include "freertos/FreeRTOS.h"
@@ -61,12 +62,23 @@ static void handle_status_change_message(const StatusChangeMessage *msg)
 
     } else if(strcmp(msg->type, "PAUSE") == 0) {
         ESP_LOGI(TAG, "PAUSE therapy");
-        pause_therapy();
+        if (get_device_state() == STATE_ACTIVE) {
+            pause_therapy();
+            start_inactivity_timer();
+        }
+        else {
+            ESP_LOGE(TAG, "Big error.");
+        }
         add_and_send_notification_info(NOTIF_THERAPY_PAUSED_BY_APP);
 
     } else if(strcmp(msg->type, "CONTINUE") == 0) {
         ESP_LOGI(TAG, "CONTINUE therapy");
-        continue_therapy();
+        if(get_device_state() == STATE_INACTIVE) {
+            continue_therapy();
+        }
+        else {
+            ESP_LOGE(TAG, "Big error.");
+        }
     }
 }
 
@@ -99,8 +111,9 @@ static void handle_activation_message(const ActivationMessage *msg)
 
     for(int i = 0; i < TOTAL_REGION_COUNT; i++) {
         set_brightness_of_region(i + 1, msg->brightness[i]);
-        add_and_send_notification_info(NOTIF_BRIGHTNESS_UPDATED);
     }
+    add_and_send_notification_info(NOTIF_BRIGHTNESS_UPDATED);
+
 }
 
 static void on_write_of_activation_message(const char *data) {

@@ -9,18 +9,23 @@
 #define DEFAULT_THERAPY_DURATION 1500
 #define MAX_THERAPY_DURATION 3600
 
-bool is_inactivity_timer_running();
-bool is_therapy_timer_running();
-bool is_alert_timer_running();
-bool stop_inactivity_timer();
-bool stop_therapy_timer();
-bool stop_alert_timer();
-void start_therapy_timer(uint16_t duration, NotificationType notification_type);
-void register_timer_end_callback(void (*callback)(NotificationType));
-void register_timer_state_change_callback(void (*callback)(NotificationType));
+bool start_inactivity_timer(void);
 void start_alert_timer(int sensor_index);
-bool start_inactivity_timer();
-uint16_t get_therapy_passed_seconds_direct(void);
+void start_therapy_timer(uint16_t duration, NotificationType notif);
+bool stop_inactivity_timer(void);
+bool stop_alert_timer(void);
+bool stop_therapy_timer(void);
+
+bool is_inactivity_timer_running(void);
+bool is_alert_timer_running(void);
+bool is_therapy_timer_running(void);
+
+uint16_t get_therapy_passed_seconds_direct(void); // Sadece ACTIVE aralığı
+void register_timer_end_callback(void (*)(NotificationType));
+void register_timer_state_change_callback(void (*)(NotificationType));
+void set_passed_duration_before_last_pause(uint16_t duration);
+uint16_t get_passed_duration_before_last_pause();
+uint16_t get_current_therapy_passed_duration(void);
 
 /*
 void start_new_therapy(uint16_t duration);

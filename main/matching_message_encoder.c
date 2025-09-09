@@ -29,7 +29,7 @@ static inline uint16_t FRAGMENT_CAPACITY(void) { return fragment_size; }
 
 void fragments_set_capacity(size_t cap) {
     if (cap > MAX_FRAGMENT_SIZE) cap = MAX_FRAGMENT_SIZE;
-    //fragment_size = cap;
+    fragment_size = cap;
 }
 
 void fragments_set_capacity_from_mtu(uint16_t mtu) {
@@ -57,7 +57,7 @@ static void start_new_fragment(uint16_t therapy_id) {
     fragment_lengths[current_fragment_id] = 4;
 }
 
-void start_encoding_for_new_therapy(uint16_t therapy_id, uint16_t therapy_duration, uint16_t remaining_duration) {
+void start_encoding_for_new_therapy(uint16_t therapy_id, uint16_t therapy_duration, uint16_t passed_therapy_duration) {
     start_new_fragment(therapy_id);
     //ESP_LOGI(TAG, "start_encoding_for_new_therapy: therapy id: %u", therapy_id);
 
@@ -66,10 +66,10 @@ void start_encoding_for_new_therapy(uint16_t therapy_id, uint16_t therapy_durati
     fragments[current_fragment_id][fragment_lengths[current_fragment_id]++] = (therapy_duration >> 8) & 0xFF;
     fragments[current_fragment_id][fragment_lengths[current_fragment_id]++] = therapy_duration & 0xFF;
 
-    // Record Type: Remaining Time (0x02)
+    // Record Type: Passed Therapy Duration (0x02)
     fragments[current_fragment_id][fragment_lengths[current_fragment_id]++] = 0x02;
-    fragments[current_fragment_id][fragment_lengths[current_fragment_id]++] = (remaining_duration >> 8) & 0xFF;
-    fragments[current_fragment_id][fragment_lengths[current_fragment_id]++] = remaining_duration & 0xFF;
+    fragments[current_fragment_id][fragment_lengths[current_fragment_id]++] = (passed_therapy_duration >> 8) & 0xFF;
+    fragments[current_fragment_id][fragment_lengths[current_fragment_id]++] = passed_therapy_duration & 0xFF;
 }
 
 static void append_records_to_fragment(uint16_t count, uint8_t record_type, size_t record_size, const uint8_t *records, size_t start_index)

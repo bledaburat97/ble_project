@@ -18,6 +18,6 @@ void setup_ble_security(void) {
     esp_ble_gap_set_security_param(ESP_BLE_SM_SET_INIT_KEY, &init_key, sizeof(init_key));
     esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY,  &resp_key, sizeof(resp_key));
 
-    uint32_t passkey = 123456;
+    uint32_t passkey = 1234;
     esp_ble_gap_set_security_param(ESP_BLE_SM_SET_STATIC_PASSKEY, &passkey, sizeof(passkey));
 }

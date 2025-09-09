@@ -11,6 +11,7 @@
 #include <string.h>
 #include "message_queue_manager.h"
 #include "current_therapy_info_manager.h"
+#include "timer_management.h"
 
 static const char *TAG = "TimerStateInfoMessageCreator";
 static void (*active_or_paused_therapy_callback)() = NULL;

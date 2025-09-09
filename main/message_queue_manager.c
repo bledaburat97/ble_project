@@ -60,7 +60,9 @@ static void check_pending_timeouts()
         if (pending_approval_records[i].therapy_id > 0) {
             if (now - pending_approval_records[i].send_timestamp > MAX_TIMEOUT_DURATION) {
                 ESP_LOGE(TAG, "Records timeout (therapy id=%d)", pending_approval_records[i].therapy_id);
-                record_pending_approval_timeout_callback(pending_approval_records[i].therapy_id);
+                if (record_pending_approval_timeout_callback) {
+                    record_pending_approval_timeout_callback(pending_approval_records[i].therapy_id);
+                }
                 clear_pending_record(i);
             }
         }

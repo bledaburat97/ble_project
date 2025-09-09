@@ -1,12 +1,14 @@
+#include "general_manager.h"
+
 #include "state_manager.h"
+#include "timer_management.h"
+#include "current_therapy_info_manager.h"
 #include "temperature_alarm_control.h"
 #include "deep_sleep_manager.h"
-#include "timer_management.h"
-#include "notification_info_message_creator.h"
-#include "esp_log.h"
 #include "laser_driver_control.h"
+#include "notification_info_message_creator.h"
 #include "timer_state_info_message_creator.h"
-#include "current_therapy_info_manager.h"
+#include "esp_log.h"
 
 static const char *TAG = "GeneralManager";
 
@@ -37,6 +39,23 @@ void start_device() {
     }
 }
 
+static void turn_off_device_because_of_inactivity() {
+    if (!stop_inactivity_timer()) {
+        return;
+    }
+    set_device_state(STATE_IDLE);
+}
+
+void set_inactivity_after_alert_expires() {
+    if(is_alert_timer_running()) {
+        stop_alert_timer();
+        start_inactivity_timer();
+    }
+    else {
+        //ERROR
+    }
+}
+
 static void on_timer_end(NotificationType notification_type) {
     if(notification_type == NOTIF_ALERT_TIMER_EXPIRED)
     {
@@ -57,7 +76,14 @@ static void on_timer_end(NotificationType notification_type) {
 
     else if(notification_type == NOTIF_THERAPY_COMPLETED) {
         ESP_LOGI(TAG, "Therapy timer expired!");
-        terminate_therapy();
+        if(get_device_state() == STATE_ACTIVE) {
+            terminate_therapy();
+            start_inactivity_timer();
+        }
+        else{
+            ESP_LOGE(TAG, "Big error.");
+            return;
+        }
         add_and_send_notification_info(notification_type);
     }
 }
@@ -76,10 +102,11 @@ void change_helmet_state(bool helmet_state) {
         add_and_send_notification_info(NOTIF_HELMET_ON);
     }
     else {
+        add_and_send_notification_info(NOTIF_HELMET_OFF);
         if (get_device_state() == STATE_ACTIVE) {
             pause_therapy();
+            start_inactivity_timer();
         }
-        add_and_send_notification_info(NOTIF_HELMET_OFF);
     }
 }
 
@@ -114,6 +141,29 @@ static void on_timer_start(NotificationType notification_type) {
             break;
         default:
             ESP_LOGE(TAG, "This notification type: %u shouldn't have start a timer.", notification_type);
+    }
+}
+
+void try_start_new_therapy_by_activation(uint16_t duration) {
+    if(get_device_state() == STATE_ACTIVE) {
+        if(is_therapy_timer_running()) {
+            ESP_LOGI(TAG, "On activate when state active");
+            stop_therapy_timer();
+            set_device_state(STATE_IDLE);
+            start_new_therapy(duration);
+        }
+        else{
+            ESP_LOGE(TAG, "On activate when state active but therapy timer is not running.");
+        }
+    } else if(get_device_state() == STATE_INACTIVE && get_helmet_state()) {
+        if(is_inactivity_timer_running()) {
+            ESP_LOGI(TAG, "On activate when state inactive");
+            stop_inactivity_timer();
+            start_new_therapy(duration);
+        }
+        else{
+            ESP_LOGE(TAG, "On activate when state inactive but inactivity timer is not running.");
+        }
     }
 }
 

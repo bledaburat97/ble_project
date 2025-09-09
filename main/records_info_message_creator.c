@@ -13,6 +13,7 @@
 #include "json_parser.h"
 #include "state_manager.h"
 #include "current_therapy_info_manager.h"
+#include "timer_management.h"
 
 static const char *TAG = "RecordsInfoMessageCreator";
 static uint8_t MAX_RECORDS_TO_BE_SENT = 20;
@@ -55,11 +56,11 @@ static void set_records(uint16_t therapy_id) {
                 encode_records_of_therapy(therapy_id, 0x05, 8, read_therapy_logs.count_brightness, read_therapy_logs.brightness_updates);
             }
         }
+
+        free(read_therapy_logs.measurements);
+        free(read_therapy_logs.notifications);
+        free(read_therapy_logs.brightness_updates);
     }
-    
-    free(read_therapy_logs.measurements);
-    free(read_therapy_logs.notifications);
-    free(read_therapy_logs.brightness_updates);
 }
 
 static void send_fragments(uint16_t therapy_id) {
@@ -142,7 +143,6 @@ static void on_records_feedback(const char *data){
     else {
         send_records_info_message(records_feedback_message.therapy_id);
     }
-    clear_pending_approval_record(records_feedback_message.therapy_id);
 }
 
 static void on_record_pending_approval_timeout(const uint16_t therapy_id) {
