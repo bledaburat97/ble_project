@@ -120,10 +120,14 @@ void throw_alert_for_temperature(uint8_t sensor_index) {
 }
 
 static void on_timer_start(NotificationType notification_type) {
-
     switch(notification_type) {
         case TIMER_STATE_INACTIVE:
-            add_and_send_new_other_state_info(notification_type);
+            if(get_current_therapy_state() == PAUSED){
+                add_and_send_new_other_state_info(TIMER_STATE_PAUSED_THERAPY);
+            }
+            else{
+                add_and_send_new_other_state_info(notification_type);
+            }
             break;
         case TIMER_STATE_NEW_THERAPY_BY_BUTTON:
         case TIMER_STATE_NEW_THERAPY_BY_APP:

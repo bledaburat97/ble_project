@@ -10,13 +10,14 @@
 #include <string.h>
 #include "message_queue_manager.h"
 #include "timer_management.h"
+#include "current_therapy_info_manager.h"
 
 static const char *TAG = "MeasurementInfoMessageCreator";
 
 static void add_and_send_measurement_info(uint8_t temperature) {
     uint8_t humidity = 0; //URGENT
     uint8_t data[] = {temperature, humidity}; //URGENT eğer temp veya hum değişmişse.
-    uint16_t passed_seconds = 0; //TODO: get_passed_duration();
+    uint16_t passed_seconds = get_current_therapy_passed_duration();
     add_log(MEASUREMENT_CHANGED, data, sizeof(data), passed_seconds);
 
     MeasurementInfoMessage message;
@@ -24,8 +25,6 @@ static void add_and_send_measurement_info(uint8_t temperature) {
     ESP_LOGI(TAG, "Sent Temperature: %u", message.temperature);
     message.humidity = humidity;
     message.passed_seconds = passed_seconds;
-    message.message_id = get_message_id();
-    ESP_LOGI(TAG, "Sent Message Id: %u", message.message_id);
 
     bool isMessageJson = false;
 
@@ -37,14 +36,14 @@ static void add_and_send_measurement_info(uint8_t temperature) {
         }
 
         size_t len = strlen(json_str);
-        send_info_message_to_queue(MEASUREMENT_INFO_MESSAGE, (uint8_t*)json_str, len, message.message_id);
+        send_info_message_to_queue(MEASUREMENT_INFO_MESSAGE, (uint8_t*)json_str, len);
 
         free(json_str);
     }
     else {
         uint8_t buf[MEASUREMENT_INFO_SIZE];
         size_t len = encode_measurement_info_message_binary(&message, buf);
-        send_info_message_to_queue(MEASUREMENT_INFO_MESSAGE, buf, len, message.message_id);
+        send_info_message_to_queue(MEASUREMENT_INFO_MESSAGE, buf, len);
     }
 }
 

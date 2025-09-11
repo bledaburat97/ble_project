@@ -11,6 +11,7 @@
 #include "state_manager.h"
 #include <string.h>
 #include "message_queue_manager.h"
+#include "current_therapy_info_manager.h"
 
 static const char *TAG = "NotificationInfoMessageCreator";
 
@@ -23,7 +24,6 @@ void send_notification_info(NotificationType type, uint16_t passed_seconds) {
     NotificationMessage message;
     message.type = type;
     message.passed_seconds = passed_seconds;
-    message.message_id = get_message_id();
     bool isMessageJson = false;
 
     if(isMessageJson) {
@@ -34,19 +34,19 @@ void send_notification_info(NotificationType type, uint16_t passed_seconds) {
         }
 
         size_t len = strlen(json_str);
-        send_info_message_to_queue(NOTIFICATION_INFO_MESSAGE, (uint8_t*)json_str, len, message.message_id);
+        send_info_message_to_queue(NOTIFICATION_INFO_MESSAGE, (uint8_t*)json_str, len);
 
         free(json_str);
     }
     else {
         uint8_t buf[NOTIFICATION_INFO_SIZE];
         size_t len = encode_notification_message_binary(&message, buf);
-        send_info_message_to_queue(NOTIFICATION_INFO_MESSAGE, buf, len, message.message_id);
+        send_info_message_to_queue(NOTIFICATION_INFO_MESSAGE, buf, len);
     }
 }
 
 void add_and_send_notification_info(NotificationType notification_type) {
-    uint16_t passed_seconds = 0; //get_passed_duration();
+    uint16_t passed_seconds = get_current_therapy_passed_duration();
     add_notification_log(notification_type, passed_seconds);
     send_notification_info(notification_type, passed_seconds);
 }

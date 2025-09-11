@@ -49,18 +49,18 @@ static const char *TAG = "TransactionManager";
 
 static void on_disconnect_ble() {
     set_ble_connection_status(false);
-    //uint16_t passed_seconds = get_passed_duration();
-    //add_notification_log(BLE_DISCONNECTED, passed_seconds);
+    uint16_t passed_seconds = get_current_therapy_passed_duration();
+    add_notification_log(BLE_DISCONNECTED, passed_seconds);
 }
 
 static void handle_status_change_message(const StatusChangeMessage *msg)
 {
-    if(strcmp(msg->type, "STOP") == 0) {
+    if(msg->type == STOP) {
         ESP_LOGI(TAG, "STOP therapy");
         terminate_therapy();
         add_and_send_notification_info(NOTIF_THERAPY_STOPPED_BY_APP);
-
-    } else if(strcmp(msg->type, "PAUSE") == 0) {
+        start_inactivity_timer();
+    } else if(msg->type == PAUSE) {
         ESP_LOGI(TAG, "PAUSE therapy");
         if (get_device_state() == STATE_ACTIVE) {
             pause_therapy();
@@ -71,7 +71,7 @@ static void handle_status_change_message(const StatusChangeMessage *msg)
         }
         add_and_send_notification_info(NOTIF_THERAPY_PAUSED_BY_APP);
 
-    } else if(strcmp(msg->type, "CONTINUE") == 0) {
+    } else if(msg->type == CONTINUE) {
         ESP_LOGI(TAG, "CONTINUE therapy");
         if(get_device_state() == STATE_INACTIVE) {
             continue_therapy();
@@ -82,19 +82,19 @@ static void handle_status_change_message(const StatusChangeMessage *msg)
     }
 }
 
-static void on_write_of_therapy_state(const char *data) {
+static void on_write_of_therapy_state(const uint8_t *buf, size_t len) {
     StatusChangeMessage status_change_message;
-    if(!decode_status_change_message(data, &status_change_message)) {
+    if(!decode_status_change_message_bin(buf, &status_change_message)) {
         ESP_LOGE(TAG, "StatusChangeMessage decode failed");
         return;
     }
 
-    ESP_LOGI(TAG, "Therapy status change received: type=%s, therapy_id=%u",
-         status_change_message.type, status_change_message.therapy_id);
+    ESP_LOGI(TAG, "Therapy status change received: type=%u",
+         status_change_message.type);
 
     handle_status_change_message(&status_change_message);
 }
-
+/*
 static void on_write_of_feedback_message(const char *data) {
     FeedbackMessage feedback_message;
     if(!decode_feedback_message(data, &feedback_message)) {
@@ -102,7 +102,7 @@ static void on_write_of_feedback_message(const char *data) {
     }
     process_feedback_message(feedback_message.message_id);
 }
-
+*/
 static void handle_activation_message(const ActivationMessage *msg)
 {
     if(msg->duration > 0) {
@@ -116,9 +116,9 @@ static void handle_activation_message(const ActivationMessage *msg)
 
 }
 
-static void on_write_of_activation_message(const char *data) {
+static void on_write_of_activation_message(const uint8_t *buf, size_t len) {
     ActivationMessage activation_message;
-    if(!decode_activation_message(data, &activation_message)) {
+    if(!decode_activation_message_bin(buf, &activation_message)) {
         return;
     }
 
@@ -193,7 +193,7 @@ void init_transaction_manager(){
     init_ble();
     init_message_queue_manager();
     register_on_write_activation_callback(on_write_of_activation_message);
-    register_on_write_feedback_callback(on_write_of_feedback_message);
+    //register_on_write_feedback_callback(on_write_of_feedback_message);
     register_on_write_updating_therapy_state_callback(on_write_of_therapy_state);
     register_on_disconnect_callback(on_disconnect_ble);
     init_message_creators();

@@ -24,7 +24,7 @@
 #define GATTS_CHAR_UUID_DEVICE                  0x2A5A
 #define GATTS_CHAR_UUID_ACTIVATION              0x2A5B
 #define GATTS_CHAR_UUID_UPDATING_RECORDS        0x2A5C
-#define GATTS_CHAR_UUID_FEEDBACK                0x2A5D
+#define GATTS_CHAR_UUID_UPDATING_PASSKEY        0x2A5D
 #define GATTS_CHAR_UUID_UPDATING_THERAPY_STATE  0x2A5E
 #define GATTS_CHAR_UUID_RECORDS_FEEDBACK        0x2A5F
 #define ESP_GATT_UUID_CHAR_CLIENT_CONFIG        0x2902
@@ -48,8 +48,9 @@ struct gatts_profile_inst {
     uint16_t device_handle;
     uint16_t activation_handle;
     uint16_t updating_records_handle;
-    uint16_t feedback_handle;
-    uint16_t updating_therapy_state_handle;        
+    //uint16_t feedback_handle;
+    uint16_t updating_therapy_state_handle;
+    uint16_t updating_passkey_handle;
     uint16_t records_feedback_handle;
     esp_bt_uuid_t char_uuid;
 };
@@ -60,11 +61,12 @@ extern struct gatts_profile_inst gl_profile_tab[PROFILE_NUM];
 
 extern void (*on_connect_callback)(void);
 extern void (*on_disconnect_callback)(void);
-extern void (*on_write_activation_callback)(const char*);
-extern void (*on_write_updating_records_callback)(const char*);
-extern void (*on_write_feedback_callback)(const char*);
-extern void (*on_write_updating_therapy_state_callback)(const char*);
-extern void (*on_write_records_feedback_callback)(const char*);
+extern void (*on_write_activation_callback)(const uint8_t *buf, size_t len);
+extern void (*on_write_updating_records_callback)(const uint8_t *buf, size_t len);
+//extern void (*on_write_feedback_callback)(const char*);
+extern void (*on_write_updating_therapy_state_callback)(const uint8_t *buf, size_t len);
+extern void (*on_write_records_feedback_callback)(const uint8_t *buf, size_t len);
+extern void (*on_write_updating_passkey_callback)(const uint8_t *buf, size_t len);
 extern void (*on_dynamic_period_change_callback)(uint16_t);
 
 extern esp_bd_addr_t g_peer_bda;

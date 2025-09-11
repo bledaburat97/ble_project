@@ -162,7 +162,7 @@ void register_timer_state_change_callback(void (*callback)(NotificationType)) {
 
 void start_alert_timer(int sensor_index) {
     if (!alert_timer) {
-        alert_timer = create_and_start_timer(STATE_TEMPERATURE_ALERT, ALARM_THRESHOLD_SECONDS * 1000, alert_timer_expiry_callback);
+        alert_timer = create_and_start_timer(STATE_TEMPERATURE_ALERT, ALERT_THRESHOLD_SECONDS * 1000, alert_timer_expiry_callback);
         if(timer_start_callback) {
             timer_start_callback(STATE_TEMPERATURE_ALERT);
         }
@@ -192,13 +192,14 @@ bool start_inactivity_timer() {
     set_device_state(STATE_INACTIVE);
 
     ESP_LOGI(TAG, "Set state as inactive.");
+
     if (timer_state_change_callback) {
         timer_state_change_callback(TIMER_STATE_INACTIVE);
     }
     return true;
 }
 
-static uint16_t get_therapy_remaining_seconds_direct(void) {
+uint16_t get_therapy_remaining_seconds(void) {
     if (!therapy_timer) return 0;
     TickType_t now = xTaskGetTickCount();
     TickType_t expiry = xTimerGetExpiryTime(therapy_timer);  // bir sonraki timeout tick’i
@@ -211,8 +212,36 @@ static uint16_t get_therapy_remaining_seconds_direct(void) {
 uint16_t get_therapy_passed_seconds_direct(void) {
     // Sadece AKTİF iken güvenilir: passed = total - remaining
     uint16_t total = active_therapy_timer_duration; // saniye
-    uint16_t rem   = get_therapy_remaining_seconds_direct();
+    uint16_t rem = get_therapy_remaining_seconds();
     return (rem >= total) ? 0 : (total - rem);
+}
+
+uint16_t get_inactivity_duration(void) {
+    return INACTIVITY_THRESHOLD_SECONDS;
+}
+
+uint16_t get_inactivity_remaining_seconds(void) {
+    if (!inactivity_timer) return 0;
+    TickType_t now = xTaskGetTickCount();
+    TickType_t expiry = xTimerGetExpiryTime(inactivity_timer);
+    if (expiry <= now) return 0;
+    TickType_t remain_ticks = expiry - now;
+    uint32_t remain_ms = remain_ticks * portTICK_PERIOD_MS;
+    return (uint16_t)(remain_ms / 1000);
+}
+
+uint16_t get_alert_duration(void) {
+    return ALERT_THRESHOLD_SECONDS;
+}
+
+uint16_t get_alert_remaining_seconds(void) {
+    if (!alert_timer) return 0;
+    TickType_t now = xTaskGetTickCount();
+    TickType_t expiry = xTimerGetExpiryTime(alert_timer);
+    if (expiry <= now) return 0;
+    TickType_t remain_ticks = expiry - now;
+    uint32_t remain_ms = remain_ticks * portTICK_PERIOD_MS;
+    return (uint16_t)(remain_ms / 1000);
 }
 
 static void update_watchdog_timeout_callback(TimerHandle_t xTimer) {
@@ -240,97 +269,3 @@ uint16_t get_current_therapy_passed_duration() {
 
     return passed_duration_before_last_pause + get_therapy_passed_seconds_direct();
 }
-
-/*
-
-static void update_watchdog_timeout_callback(TimerHandle_t xTimer) {
-    if(get_device_state() == STATE_ACTIVE) {
-        add_notification_log(PASSED_DURATION_UPDATED, get_passed_duration());
-    }
-}
-
-
-void reset_passed_therapy_duration() {
-    ESP_LOGI(TAG, "Reset passed therapy duration!");
-    //passed_duration = 0;
-    //active_therapy_duration = DEFAULT_THERAPY_DURATION;
-    last_upd_passed_dur_time = 0;
-    last_upd_passed_dur_carry_us = 0;
-}
-
-
-void init_timer_manager()
-{
-    reset_passed_therapy_duration();
-}
-
-
-uint16_t get_passed_timer_duration(){
-    if(get_device_state() == STATE_ACTIVE) {
-        update_passed_therapy_duration();
-    }
-    return passed_duration;
-}
-
-
-
-void update_passed_therapy_duration() {
-    ESP_LOGI(TAG, "Update passed therapy duration!");
-
-    int64_t current_time = esp_timer_get_time();
-    if (last_upd_passed_dur_time == 0) {
-        last_upd_passed_dur_time = current_time;
-        return;
-    }
-
-    int64_t time_diff = current_time - last_upd_passed_dur_time;
-    if (time_diff <= 0) {
-        // Saat geri gidemez ama teoride overflow/yeniden başlat gibi durumlarda korunma:
-        last_upd_passed_dur_time = current_time;
-        return;
-    }
-
-    uint64_t total_time_diff_us = (uint64_t)time_diff + (uint64_t)last_upd_passed_dur_carry_us;
-
-    uint32_t add_secs = (uint32_t)(total_time_diff_us / 1000000ULL);
-    last_upd_passed_dur_carry_us = (uint32_t)(total_time_diff_us % 1000000ULL);
-
-    if (add_secs == 0) {
-        // Henüz 1 saniye dolmadı
-        return;
-    }
-
-    if (add_secs > MAX_THERAPY_DURATION) {
-        ESP_LOGE(TAG, "Time is miscalculated. Time diff (s): %lu", add_secs);
-        last_upd_passed_dur_time = current_time;
-        return;
-    }
-
-    if ((uint32_t)passed_duration + add_secs > MAX_THERAPY_DURATION) {
-        ESP_LOGE(TAG, "Passed duration is miscalculated. Total (s): %lu", (uint32_t)passed_duration + add_secs);
-        last_upd_passed_dur_time = current_time;
-        return;
-    }
-
-    passed_duration += add_secs;
-    last_upd_passed_dur_time = current_time;
-
-    if (get_device_state() == STATE_ACTIVE) {
-        if (update_watchdog_timer == NULL) {
-            update_watchdog_timer = xTimerCreate(
-                "UpdateWatchdog",
-                pdMS_TO_TICKS(WATCHDOG_TIMEOUT_MS),
-                pdFALSE,
-                NULL,
-                update_watchdog_timeout_callback
-            );
-        }
-        if (xTimerIsTimerActive(update_watchdog_timer)) {
-            xTimerStop(update_watchdog_timer, 0);
-        }
-        xTimerStart(update_watchdog_timer, 0);
-    }
-}
-
-
-*/

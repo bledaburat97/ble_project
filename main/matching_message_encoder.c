@@ -23,6 +23,7 @@ uint16_t current_fragment_id = UINT16_MAX;
 
 uint8_t fragments[MAX_FRAGMENT_COUNT][MAX_FRAGMENT_SIZE];
 size_t fragment_lengths[MAX_FRAGMENT_COUNT];
+static uint16_t fragment_count_index = 0;
 
 static uint16_t fragment_size = 30;
 static inline uint16_t FRAGMENT_CAPACITY(void) { return fragment_size; }
@@ -43,13 +44,12 @@ static void start_new_fragment(uint16_t therapy_id) {
         return;
     }
     ESP_LOGW(TAG, "Fragment Max Capacity: %u", (uint16_t)FRAGMENT_CAPACITY());
-    current_fragment_id++;
-    //ESP_LOGI(TAG, "updated current_fragment_id: %u", current_fragment_id);
-    if(current_fragment_id >= MAX_FRAGMENT_COUNT) {
-        ESP_LOGE(TAG, "Maximum number of fragment is created.");
-        //ASSERT
+    if (current_fragment_id + 1 > MAX_FRAGMENT_COUNT) {
+        ESP_LOGE(TAG, "Too many fragments");
         return;
     }
+    current_fragment_id++;
+
     fragments[current_fragment_id][0] = (current_fragment_id >> 8) & 0xFF;
     fragments[current_fragment_id][1] = current_fragment_id & 0xFF;
     fragments[current_fragment_id][2] = (therapy_id >> 8) & 0xFF;
@@ -60,6 +60,11 @@ static void start_new_fragment(uint16_t therapy_id) {
 void start_encoding_for_new_therapy(uint16_t therapy_id, uint16_t therapy_duration, uint16_t passed_therapy_duration) {
     start_new_fragment(therapy_id);
     //ESP_LOGI(TAG, "start_encoding_for_new_therapy: therapy id: %u", therapy_id);
+
+    // Record Type: Fragment Count (0x06)
+    fragments[current_fragment_id][fragment_lengths[current_fragment_id]++] = 0x06;
+    fragment_count_index = fragment_lengths[current_fragment_id];
+    fragments[current_fragment_id][fragment_lengths[current_fragment_id]++] = 0; // sonradan doldurulacak.
 
     // Record Type: Therapy Duration (0x01)
     fragments[current_fragment_id][fragment_lengths[current_fragment_id]++] = 0x01;
@@ -140,12 +145,17 @@ uint16_t get_fragment_count() {
     return current_fragment_id + 1;
 }
 
+void add_fragment_count(void) {
+    uint16_t total = get_fragment_count();
+    fragments[0][fragment_count_index] = (uint8_t)total;
+}
+
 void init_fragments()
 {
     current_fragment_id = UINT16_MAX;
 
     for (int i = 0; i < MAX_FRAGMENT_COUNT; i++) {
         fragment_lengths[i] = 0;
-        memset(fragments[i], 0, FRAGMENT_CAPACITY());
+        memset(fragments[i], 0, MAX_FRAGMENT_SIZE);
     }
 }

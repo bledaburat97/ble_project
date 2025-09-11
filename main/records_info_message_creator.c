@@ -55,6 +55,8 @@ static void set_records(uint16_t therapy_id) {
                 //ESP_LOGI(TAG, "count_brightness: %u", read_therapy_logs.count_brightness);
                 encode_records_of_therapy(therapy_id, 0x05, 8, read_therapy_logs.count_brightness, read_therapy_logs.brightness_updates);
             }
+
+            add_fragment_count();
         }
 
         free(read_therapy_logs.measurements);
@@ -90,14 +92,22 @@ void send_records_info_message(uint16_t therapy_id) {
 
 static void on_active_or_paused_therapy_existed()
 {
+    if(is_record_pending()) {
+        ESP_LOGE(TAG, "is_record_pending true");
+        return;
+    }
     send_records_info_message(get_current_therapy_id());
 }
 
-void on_write_of_record_request_message(const char *data) {
+void on_write_of_record_request_message(const uint8_t *buf, size_t len) {
+    if(is_record_pending()) {
+        ESP_LOGI(TAG, "is_record_pending true");
+        return;
+    }
     ESP_LOGI(TAG, "on_write_of_record_request_message");
 
     UpdateRecordRequestMessage record_request_message;
-    if(!decode_update_record_request_message(data, &record_request_message)) {
+    if(!decode_update_record_request_message_bin(buf, &record_request_message)) {
         return;
     }
 
@@ -107,24 +117,38 @@ void on_write_of_record_request_message(const char *data) {
     ESP_LOGI(TAG, "last saved therapy_id: %d", last_saved_therapy_id);
 
     //active therapy'nin bilgilerini zaten aktif terapi bilgi mesajında göndermiş olmalıyız.
-    if (get_device_state() == STATE_ACTIVE) {
+    if (get_current_therapy_state() == ACTIVE || get_current_therapy_state() == PAUSED) {
         final_therapy_id_to_be_sent = (last_saved_therapy_id > 0) ? (last_saved_therapy_id - 1) : 0;
     } else {
         final_therapy_id_to_be_sent = last_saved_therapy_id;
     }
 
-    uint16_t therapy_id = (last_therapy_id_saved_in_app >= (final_therapy_id_to_be_sent - MAX_RECORDS_TO_BE_SENT) || final_therapy_id_to_be_sent < MAX_RECORDS_TO_BE_SENT)  ? last_therapy_id_saved_in_app + 1 : final_therapy_id_to_be_sent - MAX_RECORDS_TO_BE_SENT + 1;
-    if (therapy_id > final_therapy_id_to_be_sent) {
-        ESP_LOGE(TAG, "There is not therapy record to be sent");
+    if (final_therapy_id_to_be_sent == 0) {
+        ESP_LOGI(TAG, "No finished therapy to send");
         return;
     }
-    send_records_info_message(therapy_id);
+
+    uint16_t window_start = 1;
+    if (final_therapy_id_to_be_sent >= MAX_RECORDS_TO_BE_SENT) {
+        window_start = final_therapy_id_to_be_sent - MAX_RECORDS_TO_BE_SENT + 1;
+    }
+
+    // gerçek başlangıç (app’in last_saved+1’inden geriye düşme)
+    uint16_t start_id = last_therapy_id_saved_in_app + 1;
+    if (start_id < window_start) {
+        start_id = window_start;
+    }
+
+    if (start_id > final_therapy_id_to_be_sent) {
+        ESP_LOGI(TAG, "Nothing to send in window (start_id=%u, final=%u)", start_id, final_therapy_id_to_be_sent);
+        return;
+    }
 }
 
-static void on_records_feedback(const char *data){
+static void on_records_feedback(const uint8_t *buf, size_t len){
     RecordsFeedbackMessage records_feedback_message;
 
-    if(!decode_records_feedback_message(data, &records_feedback_message)) {
+    if(!decode_records_feedback_message_bin(buf, &records_feedback_message)) {
         return;
     }
     if (!clear_pending_approval_record(records_feedback_message.therapy_id)) {
@@ -145,17 +169,39 @@ static void on_records_feedback(const char *data){
     }
 }
 
-static void on_record_pending_approval_timeout(const uint16_t therapy_id) {
+static void send_record_again(const uint16_t therapy_id) {
     send_records_info_message(therapy_id);
+}
+
+static void send_new_record(const uint16_t therapy_id) {
+    if(therapy_id == get_current_therapy_id()){
+        return;
+    }
+
+    uint16_t new_therapy_id = therapy_id + 1;
+    if(new_therapy_id > final_therapy_id_to_be_sent) {
+        ESP_LOGI(TAG, "There is not therapy record to be sent");
+        return;
+    }
+    else {
+        send_records_info_message(new_therapy_id);
+    }
 }
 
 void init_records_info_message_creator() {
     register_active_or_paused_therapy_info(on_active_or_paused_therapy_existed);
     register_on_write_records_feedback_callback(on_records_feedback);
     register_on_write_updating_records_callback(on_write_of_record_request_message);
-    register_on_record_pending_approval_timeout_callback(on_record_pending_approval_timeout);
 
-    final_therapy_id_to_be_sent = read_therapy_count();
+    register_send_record_again_callback(send_record_again);
+    register_send_new_record_callback(send_new_record);
+
+    if(get_current_therapy_state() == NONE) {
+        final_therapy_id_to_be_sent = read_therapy_count();
+    }
+    else {
+        final_therapy_id_to_be_sent = read_therapy_count() - 1;
+    }
     ESP_LOGI(TAG, "final_therapy_id_to_be_sent: %u", final_therapy_id_to_be_sent);
 }
 

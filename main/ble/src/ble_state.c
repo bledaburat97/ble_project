@@ -2,11 +2,12 @@
 
 void (*on_connect_callback)(void) = NULL;
 void (*on_disconnect_callback)(void) = NULL;
-void (*on_write_activation_callback)(const char*) = NULL;
-void (*on_write_updating_records_callback)(const char*) = NULL;
-void (*on_write_feedback_callback)(const char*) = NULL;
-void (*on_write_updating_therapy_state_callback)(const char*) = NULL;
-void (*on_write_records_feedback_callback)(const char*) = NULL;
+void (*on_write_activation_callback)(const uint8_t *buf, size_t len) = NULL;
+void (*on_write_updating_records_callback)(const uint8_t *buf, size_t len) = NULL;
+//void (*on_write_feedback_callback)(const char*) = NULL;
+void (*on_write_updating_therapy_state_callback)(const uint8_t *buf, size_t len) = NULL;
+void (*on_write_records_feedback_callback)(const uint8_t *buf, size_t len) = NULL;
+void (*on_write_updating_passkey_callback)(const uint8_t *buf, size_t len) = NULL;
 void (*on_dynamic_period_change_callback)(uint16_t) = NULL;
 
 esp_bd_addr_t g_peer_bda = {0};

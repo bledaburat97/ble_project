@@ -90,13 +90,19 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
             gl_profile_tab[PROFILE_A_APP_ID].updating_records_handle = param->add_char.attr_handle;
             ESP_LOGI(TAG, "Updating Records Info Characteristic Handle: %d", param->add_char.attr_handle);
         }
+        /*
         else if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_FEEDBACK) {
             gl_profile_tab[PROFILE_A_APP_ID].feedback_handle = param->add_char.attr_handle;
             ESP_LOGI(TAG, "Feedback Info Characteristic Handle: %d", param->add_char.attr_handle);
         }
+        */
         else if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_UPDATING_THERAPY_STATE) {
             gl_profile_tab[PROFILE_A_APP_ID].updating_therapy_state_handle = param->add_char.attr_handle;
             ESP_LOGI(TAG, "Updating Therapy State Info Characteristic Handle: %d", param->add_char.attr_handle);
+        }
+        else if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_UPDATING_PASSKEY) {
+            gl_profile_tab[PROFILE_A_APP_ID].updating_passkey_handle = param->add_char.attr_handle;
+            ESP_LOGI(TAG, "Updating Passkey Characteristic Handle: %d", param->add_char.attr_handle);
         }
         else if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_RECORDS_FEEDBACK) {
             gl_profile_tab[PROFILE_A_APP_ID].records_feedback_handle = param->add_char.attr_handle;
@@ -142,7 +148,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
             &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_TIMER_STATE},
                                ESP_GATT_PERM_READ_ENC_MITM,
-                               ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY,
+                               ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_INDICATE,
                                NULL,
                                NULL);
         if (add_char_ret){
@@ -177,7 +183,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
             &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_DEVICE},
                                ESP_GATT_PERM_READ_ENC_MITM,
-                               ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY,
+                               ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_INDICATE,
                                NULL,
                                NULL);
         if (add_char_ret){
@@ -206,6 +212,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
             ESP_LOGE(TAG, "adding updating records info char failed, error code =%x",add_char_ret);
         }
 
+        /*
         add_char_ret =
         esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
             &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_FEEDBACK},
@@ -215,6 +222,17 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
                                NULL);
         if (add_char_ret){
             ESP_LOGE(TAG, "adding feedback info char failed, error code =%x",add_char_ret);
+        }
+        */
+        add_char_ret =
+        esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
+            &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_UPDATING_PASSKEY},
+                               ESP_GATT_PERM_WRITE_ENC_MITM,
+                               ESP_GATT_CHAR_PROP_BIT_WRITE,
+                               NULL,
+                               NULL);
+        if (add_char_ret){
+            ESP_LOGE(TAG, "adding passkey char failed, error code =%x",add_char_ret);
         }
 
         add_char_ret =
@@ -256,12 +274,12 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         }
 
         else if (param->write.handle == gl_profile_tab[PROFILE_A_APP_ID].activation_handle) {
-            if(param->write.value != NULL && param->write.len > 0 && param->write.len < MAX_JSON_STRING_SIZE) {
-                char json_str[MAX_JSON_STRING_SIZE];
-                memcpy(json_str, param->write.value, param->write.len);
-                json_str[param->write.len] = '\0';
+            if(param->write.value != NULL && param->write.len == 8) {
+                //char json_str[MAX_JSON_STRING_SIZE];
+                //memcpy(json_str, param->write.value, param->write.len);
+                //json_str[param->write.len] = '\0';
                 if (on_write_activation_callback) {
-                    on_write_activation_callback(json_str);
+                    on_write_activation_callback(param->write.value, param->write.len);
                 }
                 esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
             }
@@ -270,12 +288,12 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
             }
         }
         else if (param->write.handle == gl_profile_tab[PROFILE_A_APP_ID].updating_records_handle) {
-            if(param->write.value != NULL && param->write.len > 0 && param->write.len < MAX_JSON_STRING_SIZE) {
-                char json_str[MAX_JSON_STRING_SIZE];
-                memcpy(json_str, param->write.value, param->write.len);
-                json_str[param->write.len] = '\0';
+            if(param->write.value != NULL && param->write.len == 2) {
+                //char json_str[MAX_JSON_STRING_SIZE];
+                //memcpy(json_str, param->write.value, param->write.len);
+                //json_str[param->write.len] = '\0';
                 if (on_write_updating_records_callback) {
-                    on_write_updating_records_callback(json_str);
+                    on_write_updating_records_callback(param->write.value, param->write.len);
                 }
                 esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
             }
@@ -283,6 +301,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
                 esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_INVALID_PDU, NULL);
             }
         }
+        /*
         else if (param->write.handle == gl_profile_tab[PROFILE_A_APP_ID].feedback_handle) {
             if(param->write.value != NULL && param->write.len > 0 && param->write.len < MAX_JSON_STRING_SIZE) {
                 char json_str[MAX_JSON_STRING_SIZE];
@@ -297,15 +316,32 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
                 esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_INVALID_PDU, NULL);
             }
         }
+        */
         else if (param->write.handle == gl_profile_tab[PROFILE_A_APP_ID].updating_therapy_state_handle) {
-            if(param->write.value != NULL && param->write.len > 0 && param->write.len < MAX_JSON_STRING_SIZE) {
-                char json_str[MAX_JSON_STRING_SIZE];
-                memcpy(json_str, param->write.value, param->write.len);
-                json_str[param->write.len] = '\0';
-                ESP_LOGI(TAG, "Write therapy state as %s", json_str);
+            if(param->write.value != NULL && param->write.len == 1) {
+                //char json_str[MAX_JSON_STRING_SIZE];
+                //memcpy(json_str, param->write.value, param->write.len);
+                //json_str[param->write.len] = '\0';
+                //ESP_LOGI(TAG, "Write therapy state as %s", json_str);
 
                 if (on_write_updating_therapy_state_callback) {
-                    on_write_updating_therapy_state_callback(json_str);
+                    on_write_updating_therapy_state_callback(param->write.value, param->write.len);
+                }
+                esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
+            }
+            else {
+                esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_INVALID_PDU, NULL);
+            }
+        }
+        else if (param->write.handle == gl_profile_tab[PROFILE_A_APP_ID].updating_passkey_handle) {
+            if(param->write.value != NULL && param->write.len == 2) {
+                //char json_str[MAX_JSON_STRING_SIZE];
+                //memcpy(json_str, param->write.value, param->write.len);
+                //json_str[param->write.len] = '\0';
+                //ESP_LOGI(TAG, "Write therapy state as %s", json_str);
+
+                if (on_write_updating_passkey_callback) {
+                    on_write_updating_passkey_callback(param->write.value, param->write.len);
                 }
                 esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
             }
@@ -314,13 +350,13 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
             }
         }
         else if (param->write.handle == gl_profile_tab[PROFILE_A_APP_ID].records_feedback_handle) {
-            if(param->write.value != NULL && param->write.len > 0 && param->write.len < MAX_JSON_STRING_SIZE) {
-                char json_str[MAX_JSON_STRING_SIZE];
-                memcpy(json_str, param->write.value, param->write.len);
-                json_str[param->write.len] = '\0';
+            if(param->write.value != NULL && param->write.len == 3) {
+                //char json_str[MAX_JSON_STRING_SIZE];
+                //memcpy(json_str, param->write.value, param->write.len);
+                //json_str[param->write.len] = '\0';
                 
                 if (on_write_records_feedback_callback) {
-                    on_write_records_feedback_callback(json_str);
+                    on_write_records_feedback_callback(param->write.value, param->write.len);
                 }
                 esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
             }
@@ -420,3 +456,11 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
     }
 }
 
+bool ble_wait_for_indication_conf(esp_gatt_status_t *out_status, uint32_t timeout_ms){
+    if (!s_conf_sem) return false;
+    if (xSemaphoreTake(s_conf_sem, pdMS_TO_TICKS(timeout_ms)) == pdTRUE) {
+        if (out_status) *out_status = s_last_conf_status;
+        return true;
+    }
+    return false; // timeout
+}

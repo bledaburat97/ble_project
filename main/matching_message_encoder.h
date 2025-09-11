@@ -12,4 +12,5 @@ size_t get_fragment_length(uint16_t fragment_id);
 void init_fragments();
 void fragments_set_capacity(size_t cap);
 void fragments_set_capacity_from_mtu(uint16_t mtu);
+void add_fragment_count(void);
 #endif 

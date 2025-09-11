@@ -22,11 +22,12 @@ esp_err_t ble_send_info_message_with_type(MessageType message_type, uint8_t* dat
 
 void register_on_connect_callback(void (*callback)(void));
 void register_on_disconnect_callback(void (*callback)(void));
-void register_on_write_activation_callback(void (*callback)(const char*));
-void register_on_write_updating_records_callback(void (*callback)(const char*));
-void register_on_write_feedback_callback(void (*callback)(const char*));
-void register_on_write_updating_therapy_state_callback(void (*callback)(const char*));
-void register_on_write_records_feedback_callback(void (*callback)(const char*));
+void register_on_write_activation_callback(void (*callback)(const uint8_t *buf, size_t len));
+void register_on_write_updating_records_callback(void (*callback)(const uint8_t *buf, size_t len));
+//void register_on_write_feedback_callback(void (*callback)(const char*));
+void register_on_write_updating_therapy_state_callback(void (*callback)(const uint8_t *buf, size_t len));
+void register_on_write_records_feedback_callback(void (*callback)(const uint8_t *buf, size_t len));
+void register_on_write_updating_passkey_callback(void (*callback)(const uint8_t *buf, size_t len));
 void register_dynamic_period_change_callback(void (*callback)(uint16_t));
 
 void request_conn_interval_ms(uint16_t target_ms);
@@ -41,3 +42,5 @@ void set_send_period_ms(uint16_t ms);
 void set_bundle_size(uint8_t n);
 void use_indication(bool on);
 void use_indication_for_critical(bool on);
+
+bool ble_wait_for_indication_conf(esp_gatt_status_t *out_status, uint32_t timeout_ms);

@@ -5,7 +5,7 @@
 #ifndef TIMER_MANAGEMENT_H
 #define TIMER_MANAGEMENT_H
 #define INACTIVITY_THRESHOLD_SECONDS 500
-#define ALARM_THRESHOLD_SECONDS 60
+#define ALERT_THRESHOLD_SECONDS 60
 #define DEFAULT_THERAPY_DURATION 1500
 #define MAX_THERAPY_DURATION 3600
 
@@ -26,14 +26,10 @@ void register_timer_state_change_callback(void (*)(NotificationType));
 void set_passed_duration_before_last_pause(uint16_t duration);
 uint16_t get_passed_duration_before_last_pause();
 uint16_t get_current_therapy_passed_duration(void);
+uint16_t get_therapy_remaining_seconds(void);
+uint16_t get_inactivity_duration(void);
+uint16_t get_inactivity_remaining_seconds(void);
+uint16_t get_alert_duration(void);
+uint16_t get_alert_remaining_seconds(void);
 
-/*
-void start_new_therapy(uint16_t duration);
-void start_therapy(bool is_by_app);
-void register_timer_start_callback(void (*callback)(DeviceState));
-void init_timer_manager();
-uint16_t get_passed_duration();
-void update_passed_therapy_duration();
-void reset_passed_therapy_duration();
-*/
 #endif 
