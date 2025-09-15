@@ -3,16 +3,16 @@
 #include <stdint.h>
 #include "esp_log.h"
 #include "timer_management.h"
+#include "therapy_counter.h"
 
 static const char *TAG = "CurrentTherapyInfoManager";
 
 static CurrentTherapyState current_therapy_state = NONE;
 static uint16_t current_therapy_duration = 0;
-static uint16_t current_therapy_id = 0;
 
 static void clear_current_therapy() {
-    current_therapy_id = 0;
     current_therapy_duration = 0;
+    current_therapy_state = NONE;
     set_passed_duration_before_last_pause(0);
 }
 
@@ -48,7 +48,6 @@ void terminate_therapy() {
         return;
     }
     stop_therapy_timer();
-    current_therapy_state = NONE;
     clear_current_therapy();
 }
 
@@ -71,18 +70,19 @@ uint16_t get_current_therapy_duration() {
 }
 
 uint16_t get_current_therapy_id() {
-    return current_therapy_id;
+    if(current_therapy_state == NONE) {
+        return 0;
+    }
+    return read_therapy_count();
 }
 
-void set_new_therapy(uint16_t therapy_id, uint16_t total_duration) {
-    current_therapy_id = therapy_id;
+void set_new_therapy(uint16_t total_duration) {
     current_therapy_duration = total_duration;
     set_passed_duration_before_last_pause(0);
 }
 
 void start_new_therapy(uint16_t duration) {
-    uint16_t therapy_id = 0;//get_therapy_id
-    set_new_therapy(therapy_id, duration);
+    set_new_therapy(duration);
     start_therapy_timer(duration, TIMER_STATE_NEW_THERAPY_BY_APP);
     current_therapy_state = ACTIVE;
 }
@@ -119,8 +119,3 @@ void start_therapy(bool is_by_app) {
 void init_current_therapy_info_manager() {
     clear_current_therapy();
 }
-
-
-
-
-

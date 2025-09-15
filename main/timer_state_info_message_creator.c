@@ -123,6 +123,7 @@ void add_and_send_new_other_state_info(NotificationType notification_type) {
 
     uint16_t passed_seconds = get_current_therapy_passed_duration();
     add_notification_log(notification_type, passed_seconds);
+    restart_duration_update_watchdog_timer();
 
     TimerStateInfoMessage message;
     message.type = notification_type;
@@ -166,6 +167,7 @@ void add_and_send_new_therapy_state_info(NotificationType notification_type) {
 
     uint8_t data[] = {therapy_id >> 8, therapy_id & 0xFF, therapy_duration >> 8, therapy_duration & 0xFF, passed_seconds >> 8, passed_seconds & 0xFF};
     add_log(notification_type, data, sizeof(data), passed_seconds);
+    restart_duration_update_watchdog_timer();
 
     TimerStateInfoMessage message;
     message.type = notification_type;

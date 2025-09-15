@@ -52,7 +52,7 @@ static uint8_t convert_float_to_byte(float temperature) {
 uint8_t log_temperature() {
     ESP_LOGI(TAG, "Log temperature.");
     float temperatureInDegree = read_temperature_of_sensor(sensor_addresses[0]);
-    return (uint8_t)temperatureInDegree;
+    return convert_float_to_byte(temperatureInDegree);
 }
 
 void register_temperature_update(void (*callback)(uint8_t)) {
@@ -145,7 +145,7 @@ void initialize_temperature_sensor() {
     config.pol = ALERT_ACTIVE_HIGH;
     config.altm = ALERT_COMPARATOR_MODE;
     config.sd = NORMAL_MODE;
-    set_alert_pin_normal_status(config.pol != ALERT_ACTIVE_HIGH);
+    set_alert_pin_normal_status(config.pol != ALERT_ACTIVE_HIGH); //TODO: doğrula
     set_active_temp_sensor_count(TEMPERATURE_SENSOR_COUNT);
     register_temperature_alert(on_temp_alert_callback);
     register_temperature_normal(on_temp_normal_callback);

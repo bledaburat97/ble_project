@@ -7,7 +7,7 @@
 #include "state_manager.h"
 
 #define MAX_NUM_OF_SENSORS 2
-#define NORMAL_PIN_STATUS 1  // Default hali HIGH
+#define NORMAL_PIN_STATUS 1  // Default hali HIGH //TODO: (sensörün INT bacağı active-low ise NORMAL=1 doğru; değilse tersle).
 
 static const char *TAG = "ProximityInt";
 const int PROX_SENSOR_INT_GPIO[MAX_NUM_OF_SENSORS] = {18, 4};
@@ -25,8 +25,7 @@ static void checkProximitySensor(uint8_t asserted_sensor_index){
 
 void monitor_proximity_int_task(void *param) {
     while (1) {
-
-        for (int i = 1; i < MAX_NUM_OF_SENSORS; i++) {
+        for (int i = 1; i < MAX_NUM_OF_SENSORS; i++) { //TODO: i= 0'dan başlatmak gerekiyor mu, niye böyle?
             int current_level = gpio_get_level(PROX_SENSOR_INT_GPIO[i]);
 
             if (current_level != NORMAL_PIN_STATUS) {
@@ -43,7 +42,7 @@ void initialize_proximity_int_gpio() {
     io_conf.intr_type = GPIO_INTR_DISABLE;
     io_conf.mode = GPIO_MODE_INPUT; 
     io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
-    io_conf.pull_down_en = GPIO_PULLDOWN_ENABLE;
+    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
 
 
     for (int i = 0; i < MAX_NUM_OF_SENSORS; i++) {

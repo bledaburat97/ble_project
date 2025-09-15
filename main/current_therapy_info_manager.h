@@ -13,7 +13,7 @@ typedef enum {
 
 void init_current_therapy_info_manager();
 
-void set_new_therapy(uint16_t therapy_id, uint16_t total_duration);
+void set_new_therapy(uint16_t total_duration);
 void start_new_therapy(uint16_t duration);            // therapy_id’yi içeride üretmiyorsan, çağıran set_new_therapy() yapsın
 void start_therapy(bool is_by_app);                    // resume/continue
 void pause_therapy(void);

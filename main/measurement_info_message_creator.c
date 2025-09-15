@@ -19,6 +19,7 @@ static void add_and_send_measurement_info(uint8_t temperature) {
     uint8_t data[] = {temperature, humidity}; //URGENT eğer temp veya hum değişmişse.
     uint16_t passed_seconds = get_current_therapy_passed_duration();
     add_log(MEASUREMENT_CHANGED, data, sizeof(data), passed_seconds);
+    restart_duration_update_watchdog_timer();
 
     MeasurementInfoMessage message;
     message.temperature = temperature;

@@ -79,7 +79,8 @@ BaseLogEntry fill_base_log(uint8_t type, const uint8_t* data, size_t data_len, u
     uint8_t crc_input[log.entry_size - 1];
     crc_input[0] = type;
     memcpy(&crc_input[1], data, data_len);
-    crc_input[1 + data_len] = passed_seconds;
+    crc_input[1 + data_len] = (passed_seconds >> 8) & 0xFF;
+    crc_input[1 + data_len + 1] = passed_seconds & 0xFF;
     log.crc = calculate_crc8(crc_input, log.entry_size - 1);
     return log;
 }

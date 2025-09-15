@@ -152,7 +152,7 @@ void try_start_new_therapy_by_activation(uint16_t duration) {
     if(get_device_state() == STATE_ACTIVE) {
         if(is_therapy_timer_running()) {
             ESP_LOGI(TAG, "On activate when state active");
-            stop_therapy_timer();
+            terminate_therapy();
             set_device_state(STATE_IDLE);
             start_new_therapy(duration);
         }

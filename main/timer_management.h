@@ -31,5 +31,5 @@ uint16_t get_inactivity_duration(void);
 uint16_t get_inactivity_remaining_seconds(void);
 uint16_t get_alert_duration(void);
 uint16_t get_alert_remaining_seconds(void);
-
+void restart_duration_update_watchdog_timer(void);
 #endif 

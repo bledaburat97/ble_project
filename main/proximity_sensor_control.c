@@ -328,7 +328,7 @@ void check_interrupt_status(uint8_t status, bool is_lp)
         else {
             reset_interrupt(is_lp, HIGH);
             ESP_LOGE(TAG, "WRONG_THRESHOLD_VALUES.");
-            //add_and_send_notification_info(WRONG_PROX_MEASUREMENT);
+            add_and_send_notification_info(WRONG_PROX_MEASUREMENT);
         }
     }
 
@@ -355,7 +355,7 @@ void check_interrupt_status(uint8_t status, bool is_lp)
         else{
             reset_interrupt(is_lp, LOW);
             ESP_LOGE(TAG, "WRONG_THRESHOLD_VALUES.");
-            //add_and_send_notification_info(WRONG_PROX_MEASUREMENT);
+            add_and_send_notification_info(WRONG_PROX_MEASUREMENT);
         }
     }
 

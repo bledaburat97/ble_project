@@ -43,7 +43,7 @@ void test_add_log_flow();
 void erase_therapy_partition(uint32_t offset);
 uint16_t get_last_saved_passed_duration();
 //esp_err_t read_and_set_records(uint16_t therapy_id);
-bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs);
+bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs, bool is_active_therapy);
 bool read_therapy_info(uint16_t therapy_id, ReadTherapyInfo* therapy_info);
 void read_and_print_test_logs(uint8_t therapy_id);
 #ifdef __cplusplus

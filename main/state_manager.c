@@ -87,21 +87,27 @@ void set_device_state(DeviceState new_state) {
         ESP_LOGI(TAG, "State mutex is accessible!");
     }
 
+    DeviceState to_send = (DeviceState)-1;
+
     if (xSemaphoreTake(state_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
         if (new_state != current_state || new_state == STATE_ACTIVE) {
             DeviceState prev_state = current_state;
             current_state = new_state;
+            to_send = new_state;
             ESP_LOGI(TAG, "Device state changed: %s -> %s", get_device_state_str(prev_state), get_device_state_str(new_state));
-
-            xQueueSend(state_event_queue, &new_state, portMAX_DELAY);
         }
+        
         xSemaphoreGive(state_mutex);
     }
 
     else {
         ESP_LOGE(TAG, "Failed to acquire mutex to set device state");
+        return;
     }
-        
+
+    if ((int)to_send != -1) {
+        xQueueSend(state_event_queue, &to_send, portMAX_DELAY);
+    }
 }
 
 DeviceState get_device_state() {

@@ -49,6 +49,7 @@ void add_and_send_notification_info(NotificationType notification_type) {
     uint16_t passed_seconds = get_current_therapy_passed_duration();
     add_notification_log(notification_type, passed_seconds);
     send_notification_info(notification_type, passed_seconds);
+    restart_duration_update_watchdog_timer();
 }
 
 void init_notification_info_message_creator() {

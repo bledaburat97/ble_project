@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <inttypes.h>
 
+#include "transaction_manager.h"
+
 #include "i2c_control.h"
 #include "laser_driver_control.h"
 #include "temperature_sensor_control.h"
@@ -12,7 +14,6 @@
 #include "json_parser.h"
 #include "state_manager.h"
 #include "ble/include/ble_controller.h"
-#include "transaction_manager.h"
 #include "transaction_message_encoder.h"
 #include "message_encoder.h"
 #include "storage/log_writer.h"
@@ -51,6 +52,7 @@ static void on_disconnect_ble() {
     set_ble_connection_status(false);
     uint16_t passed_seconds = get_current_therapy_passed_duration();
     add_notification_log(BLE_DISCONNECTED, passed_seconds);
+    restart_duration_update_watchdog_timer();
 }
 
 static void handle_status_change_message(const StatusChangeMessage *msg)

@@ -21,16 +21,14 @@ static uint16_t final_therapy_id_to_be_sent;
 
 static void set_records(uint16_t therapy_id) {
     ESP_LOGI(TAG, "Set records");
-    if(get_current_therapy_state() == NONE && therapy_id == read_therapy_count()) {
-        ESP_LOGE(TAG, "HATA.");
-        return;
-    }
     if(therapy_id == 0) {
         ESP_LOGE(TAG, "There should be a saved therapy.");
         return;
     }
     ReadTherapyLogs read_therapy_logs;
-    if(read_records(therapy_id, &read_therapy_logs)) {
+    bool is_active_therapy = (therapy_id == read_therapy_count()) && (get_current_therapy_state() == ACTIVE || get_current_therapy_state() == PAUSED);
+
+    if(read_records(therapy_id, &read_therapy_logs, is_active_therapy)) {
         init_fragments();
 
         ReadTherapyInfo therapy_info;

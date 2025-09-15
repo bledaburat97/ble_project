@@ -54,6 +54,7 @@ static void on_connect_ble() {
     uint16_t passed_seconds = get_current_therapy_passed_duration();
     add_notification_log(BLE_CONNECTED, passed_seconds);
     send_device_info(passed_seconds);
+    restart_duration_update_watchdog_timer();
 }
 
 void init_device_info_message_creator() {
