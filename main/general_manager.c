@@ -4,6 +4,7 @@
 #include "timer_management.h"
 #include "current_therapy_info_manager.h"
 #include "temperature_alarm_control.h"
+#include "temperature_sensor_control.h"
 #include "deep_sleep_manager.h"
 #include "laser_driver_control.h"
 #include "notification_info_message_creator.h"
@@ -49,11 +50,8 @@ static void turn_off_device_because_of_inactivity() {
 void set_inactivity_after_alert_expires() {
     if(is_alert_timer_running()) {
         stop_alert_timer();
-        start_inactivity_timer();
     }
-    else {
-        //ERROR
-    }
+    start_inactivity_timer();
 }
 
 static void on_timer_end(NotificationType notification_type) {
@@ -110,11 +108,14 @@ void change_helmet_state(bool helmet_state) {
     }
 }
 
-void throw_alert_for_temperature(uint8_t sensor_index) {
+static void on_temp_alert(uint8_t sensor_index) {
+    ESP_LOGE(TAG, "On temp alert");
     if (get_device_state() != STATE_TEMPERATURE_ALERT){
+        ESP_LOGI(TAG, "State is not temperature alert.");
         if(get_device_state() == STATE_ACTIVE) {
             pause_therapy_because_of_alert();
         }
+        ESP_LOGI(TAG, "Start alert timer.");
         start_alert_timer(sensor_index);
     }
 }
@@ -178,4 +179,5 @@ void init_general_manager()
     register_state_change_callback(on_state_changed);
     register_timer_end_callback(on_timer_end);
     register_timer_state_change_callback(on_timer_start);
+    register_temp_alert_callback(on_temp_alert);
 }

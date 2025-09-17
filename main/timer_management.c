@@ -91,6 +91,7 @@ static void stop_duration_update_watchdog_timer() {
 
 static void therapy_timer_expiry_callback(TimerHandle_t xTimer) {
     if (timer_end_callback) {
+        stop_therapy_timer();
         timer_end_callback(NOTIF_THERAPY_COMPLETED);
     }
 }
@@ -147,12 +148,15 @@ void start_therapy_timer(uint16_t duration, NotificationType notification_type) 
 
 static void alert_timer_expiry_callback(TimerHandle_t xTimer) {
     if (timer_end_callback) {
+        stop_alert_timer();
+        ESP_LOGE(TAG, "CREATE ALERT EXPIRED");
         timer_end_callback(NOTIF_ALERT_TIMER_EXPIRED);
     }
 }
 
 void start_alert_timer(int sensor_index) {
     if (!alert_timer) {
+        ESP_LOGE(TAG, "CREATE ALERT TIMER");
         alert_timer = create_and_start_timer(STATE_TEMPERATURE_ALERT, ALERT_THRESHOLD_SECONDS * 1000, alert_timer_expiry_callback);
     }
     set_device_state(STATE_TEMPERATURE_ALERT);
@@ -172,6 +176,7 @@ void start_alert_timer(int sensor_index) {
 
 static void inactivity_timer_expiry_callback(TimerHandle_t xTimer) {
     if (timer_end_callback) {
+        stop_inactivity_timer();
         timer_end_callback(NOTIF_INACTIVITY_TIMER_EXPIRED);
     }
 }

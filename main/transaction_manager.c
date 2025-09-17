@@ -105,6 +105,18 @@ static void on_write_of_feedback_message(const char *data) {
     process_feedback_message(feedback_message.message_id);
 }
 */
+
+
+static void add_and_send_brightness_update(const uint8_t brightness[6]) {
+    uint16_t passed_seconds = get_current_therapy_passed_duration();
+
+    // NOTIF_BRIGHTNESS_UPDATED: data_len tam 6 olmalı (log_utils.get_log_entry_size_info ile uyumlu)
+    add_log(NOTIF_BRIGHTNESS_UPDATED, brightness, 6, passed_seconds);
+
+    // Bildirim Mesajı protokol gereği sadece type + passed_seconds içerir (parlaklık değerleri log'da tutuluyor)
+    send_notification_info(NOTIF_BRIGHTNESS_UPDATED, passed_seconds);
+}
+
 static void handle_activation_message(const ActivationMessage *msg)
 {
     if(msg->duration > 0) {
@@ -114,8 +126,7 @@ static void handle_activation_message(const ActivationMessage *msg)
     for(int i = 0; i < TOTAL_REGION_COUNT; i++) {
         set_brightness_of_region(i + 1, msg->brightness[i]);
     }
-    add_and_send_notification_info(NOTIF_BRIGHTNESS_UPDATED);
-
+    add_and_send_brightness_update(msg->brightness);
 }
 
 static void on_write_of_activation_message(const uint8_t *buf, size_t len) {
@@ -147,7 +158,7 @@ static void init_message_creators(){
 
 static void periodic_message_sender_task(void *pvParameters) {
 
-    const TickType_t delay = pdMS_TO_TICKS(15 * 1000); 
+    const TickType_t delay = pdMS_TO_TICKS(5 * 1000); 
     const TickType_t gap_yield = pdMS_TO_TICKS(1500);
     uint8_t byte_data = 0xAB;
     vTaskDelay(delay * 3);
@@ -163,7 +174,7 @@ static void periodic_message_sender_task(void *pvParameters) {
         activationMsg.brightness[1] = 10;
         activationMsg.brightness[2] = 10;
         activationMsg.brightness[3] = 10;
-        activationMsg.duration = 40;
+        activationMsg.duration = 15;
 
         handle_activation_message(&activationMsg);
         

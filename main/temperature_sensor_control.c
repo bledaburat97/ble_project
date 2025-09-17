@@ -23,6 +23,7 @@ static const char *TAG = "TemperatureControl";
 static const uint8_t sensor_addresses[] = {SECOND_PJ85775_ADDRESS, FIRST_PJ85775_ADDRESS, THIRD_PJ85775_ADDRESS};
 static float current_temperature;
 static void (*temp_update_callback)(uint8_t) = NULL;
+static void (*temp_alert_callback)(uint8_t) = NULL;
 
 static uint8_t convert_float_to_byte(float temperature) {
     //6 bit tam sayı (0 - 63)
@@ -98,6 +99,11 @@ void temperature_read_task(void *param) {
         current_temperature = rounded_temperature;
 
         ESP_LOGI(TAG, "Temperature measured: %.2f°C", average_temperature);
+        if(average_temperature > 29) {
+            if (temp_alert_callback) {
+                temp_alert_callback(0);
+            }
+        }
         //ESP_LOGI(TAG, "Saved temperature: %.2f°C", rounded_temperature);
 
         vTaskDelay(pdMS_TO_TICKS(3000));
@@ -135,6 +141,10 @@ static void on_temp_normal_callback(uint8_t sensor_index) {
     set_normal_thresholds(sensor_index);
 }
 
+
+void register_temp_alert_callback(void (*callback)(uint8_t)) {
+    temp_alert_callback = callback;
+}
 
 void initialize_temperature_sensor() {
     ESP_LOGI(TAG, "Initialize temperature sensors.");
