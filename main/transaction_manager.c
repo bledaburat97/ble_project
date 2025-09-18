@@ -50,7 +50,7 @@ static const char *TAG = "TransactionManager";
 
 static void on_disconnect_ble() {
     set_ble_connection_status(false);
-    uint16_t passed_seconds = get_current_therapy_passed_duration();
+    uint16_t passed_seconds = get_session_passed_seconds();
     add_notification_log(BLE_DISCONNECTED, passed_seconds);
     restart_duration_update_watchdog_timer();
 }
@@ -108,10 +108,11 @@ static void on_write_of_feedback_message(const char *data) {
 
 
 static void add_and_send_brightness_update(const uint8_t brightness[6]) {
-    uint16_t passed_seconds = get_current_therapy_passed_duration();
+    uint16_t passed_seconds = get_session_passed_seconds();
 
     // NOTIF_BRIGHTNESS_UPDATED: data_len tam 6 olmalı (log_utils.get_log_entry_size_info ile uyumlu)
     add_log(NOTIF_BRIGHTNESS_UPDATED, brightness, 6, passed_seconds);
+    ESP_LOGE(TAG, "Log of brightness update with passed_seconds: %u", passed_seconds);
 
     // Bildirim Mesajı protokol gereği sadece type + passed_seconds içerir (parlaklık değerleri log'da tutuluyor)
     send_notification_info(NOTIF_BRIGHTNESS_UPDATED, passed_seconds);

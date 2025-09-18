@@ -34,7 +34,7 @@ static void set_records(uint16_t therapy_id) {
         ReadTherapyInfo therapy_info;
         if(read_therapy_info(therapy_id, &therapy_info)) {
             if(therapy_id == get_current_therapy_id()) {
-                start_encoding_for_new_therapy(therapy_id, get_current_therapy_duration(), get_current_therapy_passed_duration());
+                start_encoding_for_new_therapy(therapy_id, get_current_therapy_duration(), get_session_passed_seconds());
             }
 
             else {

@@ -32,6 +32,14 @@ static TimerHandle_t update_watchdog_timer = NULL;
 static const uint32_t WATCHDOG_TIMEOUT_MS = 10 * 1000; // 10 saniye
 static uint16_t passed_duration_before_last_pause = 0;
 
+static int64_t session_start_us = -1; // -1: aktif oturum yok
+
+static inline bool is_session_running(void) { return session_start_us >= 0; }
+
+void reset_session_clock(void) { 
+    session_start_us = esp_timer_get_time();
+}
+
 void set_passed_duration_before_last_pause(uint16_t duration) {
     passed_duration_before_last_pause = duration;
 }
@@ -61,7 +69,7 @@ bool is_alert_timer_running()
 
 static void update_watchdog_timeout_callback(TimerHandle_t xTimer) {
     if(get_device_state() == STATE_ACTIVE) {
-        add_notification_log(PASSED_DURATION_UPDATED, get_current_therapy_passed_duration());
+        add_notification_log(PASSED_DURATION_UPDATED, get_session_passed_seconds());
         xTimerStart(update_watchdog_timer, 0);
     }
 }
@@ -133,11 +141,13 @@ bool stop_alert_timer()
 }
 
 void start_therapy_timer(uint16_t duration, NotificationType notification_type) {
+    ESP_LOGI(TAG, "Start therapy timer with: %u", duration);
     active_therapy_timer_duration = duration;
     if(therapy_timer != NULL) {
         stop_therapy_timer();
         ESP_LOGE(TAG, "Therapy timer should have stopped.");
     }
+    reset_session_clock();
     therapy_timer = create_and_start_timer(STATE_ACTIVE, duration * 1000, therapy_timer_expiry_callback);
     if (timer_state_change_callback) {
         timer_state_change_callback(notification_type);
@@ -256,23 +266,9 @@ void restart_duration_update_watchdog_timer(void) {
     }
 }
 
-uint16_t get_current_therapy_passed_duration() {
-    /*
-    if (get_device_state() == STATE_ACTIVE) {
-        if (update_watchdog_timer == NULL) {
-            update_watchdog_timer = xTimerCreate(
-                "UpdateWatchdog",
-                pdMS_TO_TICKS(WATCHDOG_TIMEOUT_MS),
-                pdFALSE,
-                NULL,
-                update_watchdog_timeout_callback
-            );
-        }
-        if (xTimerIsTimerActive(update_watchdog_timer)) {
-            xTimerStop(update_watchdog_timer, 0);
-        }
-        xTimerStart(update_watchdog_timer, 0);
-    }
-    */
-    return passed_duration_before_last_pause + get_therapy_passed_seconds_direct();
+uint16_t get_session_passed_seconds(void) {
+    if (!is_session_running()) return 0;
+    int64_t diff = esp_timer_get_time() - session_start_us; // us
+    if (diff < 0) diff = 0;
+    return (uint16_t)(diff / 1000000LL); // saniye
 }

@@ -17,8 +17,10 @@ static const char *TAG = "MeasurementInfoMessageCreator";
 static void add_and_send_measurement_info(uint8_t temperature) {
     uint8_t humidity = 0; //URGENT
     uint8_t data[] = {temperature, humidity}; //URGENT eğer temp veya hum değişmişse.
-    uint16_t passed_seconds = get_current_therapy_passed_duration();
+    uint16_t passed_seconds = get_session_passed_seconds();
     add_log(MEASUREMENT_CHANGED, data, sizeof(data), passed_seconds);
+    ESP_LOGE(TAG, "Log of measurement with passed_seconds: %u", passed_seconds);
+
     restart_duration_update_watchdog_timer();
 
     MeasurementInfoMessage message;

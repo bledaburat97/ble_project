@@ -24,5 +24,6 @@ void continue_therapy(void);
 CurrentTherapyState get_current_therapy_state(void);
 uint16_t get_current_therapy_duration(void);
 uint16_t get_current_therapy_id(void);
+uint16_t get_current_therapy_passed_duration(void);
 
 #endif

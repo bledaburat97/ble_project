@@ -404,7 +404,7 @@ esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t p
 
 
 esp_err_t add_notification_log(uint8_t type, uint16_t passed_seconds) {
-    ESP_LOGI(TAG, "Log of notification type of %u is being added.", type);
+    ESP_LOGE(TAG, "Log of notification type of %u is being added with passed_seconds: %u", type, passed_seconds);
     uint8_t* data = NULL;
     return add_log(type, data, 0, passed_seconds);
 }

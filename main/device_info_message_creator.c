@@ -51,7 +51,7 @@ static void send_device_info(uint16_t passed_seconds) {
 
 static void on_connect_ble() {
     set_ble_connection_status(true);
-    uint16_t passed_seconds = get_current_therapy_passed_duration();
+    uint16_t passed_seconds = get_session_passed_seconds();
     add_notification_log(BLE_CONNECTED, passed_seconds);
     send_device_info(passed_seconds);
     restart_duration_update_watchdog_timer();

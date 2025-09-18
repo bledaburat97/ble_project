@@ -2,7 +2,6 @@
 
 #include "storage/log_types.h"
 #include "esp_log.h"
-#include "timer_management.h"
 #include "message_encoder.h"
 #include "storage/log_writer.h"
 #include "message_queue_manager.h"
@@ -121,7 +120,8 @@ static void on_device_info_feedback_callback() {
 void add_and_send_new_other_state_info(NotificationType notification_type) {
     ESP_LOGI(TAG, "add_and_send_new_other_state_info");
 
-    uint16_t passed_seconds = get_current_therapy_passed_duration();
+    uint16_t therapy_passed_seconds = get_current_therapy_passed_duration();
+    uint16_t passed_seconds = get_session_passed_seconds();
     add_notification_log(notification_type, passed_seconds);
     restart_duration_update_watchdog_timer();
 
@@ -129,7 +129,7 @@ void add_and_send_new_other_state_info(NotificationType notification_type) {
     message.type = notification_type;
     message.duration = get_current_therapy_duration();
     message.therapy_id = get_current_therapy_id();
-    message.therapy_passed_seconds = passed_seconds;
+    message.therapy_passed_seconds = therapy_passed_seconds;
 
     if(notification_type == TIMER_STATE_PAUSED_THERAPY || notification_type == TIMER_STATE_INACTIVE) {
         message.remaining_seconds = get_inactivity_remaining_seconds();
@@ -162,11 +162,14 @@ void add_and_send_new_other_state_info(NotificationType notification_type) {
 void add_and_send_new_therapy_state_info(NotificationType notification_type) {
     uint16_t therapy_id = get_current_therapy_id();
     uint16_t therapy_duration = get_current_therapy_duration();
-    uint16_t passed_seconds = get_current_therapy_passed_duration();
+    uint16_t passed_seconds = get_session_passed_seconds();
+    uint16_t therapy_passed_seconds = get_current_therapy_passed_duration();
     uint16_t remaining_seconds = get_therapy_remaining_seconds();
 
-    uint8_t data[] = {therapy_id >> 8, therapy_id & 0xFF, therapy_duration >> 8, therapy_duration & 0xFF, passed_seconds >> 8, passed_seconds & 0xFF};
+    uint8_t data[] = {therapy_id >> 8, therapy_id & 0xFF, therapy_duration >> 8, therapy_duration & 0xFF, therapy_passed_seconds >> 8, therapy_passed_seconds & 0xFF};
     add_log(notification_type, data, sizeof(data), passed_seconds);
+    ESP_LOGE(TAG, "Log of therapy state with type: %u with passed_seconds: %u", notification_type, passed_seconds);
+
     restart_duration_update_watchdog_timer();
 
     TimerStateInfoMessage message;
@@ -174,7 +177,7 @@ void add_and_send_new_therapy_state_info(NotificationType notification_type) {
     message.duration = therapy_duration;
     message.therapy_id = therapy_id;
     message.remaining_seconds = remaining_seconds;
-    message.therapy_passed_seconds = passed_seconds;
+    message.therapy_passed_seconds = therapy_passed_seconds;
 
     bool isMessageJson = false;
 

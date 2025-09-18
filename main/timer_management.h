@@ -25,11 +25,12 @@ void register_timer_end_callback(void (*)(NotificationType));
 void register_timer_state_change_callback(void (*)(NotificationType));
 void set_passed_duration_before_last_pause(uint16_t duration);
 uint16_t get_passed_duration_before_last_pause();
-uint16_t get_current_therapy_passed_duration(void);
 uint16_t get_therapy_remaining_seconds(void);
 uint16_t get_inactivity_duration(void);
 uint16_t get_inactivity_remaining_seconds(void);
 uint16_t get_alert_duration(void);
 uint16_t get_alert_remaining_seconds(void);
 void restart_duration_update_watchdog_timer(void);
+uint16_t get_session_passed_seconds(void);
+void reset_session_clock(void);
 #endif 

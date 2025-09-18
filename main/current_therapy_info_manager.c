@@ -11,6 +11,7 @@ static CurrentTherapyState current_therapy_state = NONE;
 static uint16_t current_therapy_duration = 0;
 
 static void clear_current_therapy() {
+    ESP_LOGI(TAG, "Clear current therapy.");
     current_therapy_duration = 0;
     current_therapy_state = NONE;
     set_passed_duration_before_last_pause(0);
@@ -77,6 +78,7 @@ uint16_t get_current_therapy_id() {
 }
 
 void set_new_therapy(uint16_t total_duration) {
+    ESP_LOGI(TAG, "Set new therapy.");
     current_therapy_duration = total_duration;
     set_passed_duration_before_last_pause(0);
 }
@@ -85,6 +87,7 @@ void start_new_therapy(uint16_t duration) {
     set_new_therapy(duration);
     start_therapy_timer(duration, TIMER_STATE_NEW_THERAPY_BY_APP);
     current_therapy_state = ACTIVE;
+    reset_session_clock();
 }
 
 //bu metottan önce set_new_therapy kesin çağrılmış olmalı.
@@ -98,6 +101,7 @@ void start_therapy(bool is_by_app) {
         if(!is_by_app) {
             start_therapy_timer(current_therapy_duration, TIMER_STATE_NEW_THERAPY_BY_BUTTON);
             current_therapy_state = ACTIVE;
+            reset_session_clock();
         }
         else{
             ESP_LOGE(TAG, "App does not start default therapy.");
@@ -113,6 +117,18 @@ void start_therapy(bool is_by_app) {
             start_therapy_timer(current_therapy_duration - passed_duration_before_last_pause, TIMER_STATE_CONTINUE_THERAPY_BY_APP);
         }
     }
+}
+
+uint16_t get_current_therapy_passed_duration() {
+    ESP_LOGI(TAG, "passed_duration_before_last_pause : %u", get_passed_duration_before_last_pause());
+
+    if (current_therapy_state == ACTIVE) {
+        return get_passed_duration_before_last_pause() + get_therapy_passed_seconds_direct();
+    }
+    else if (current_therapy_state == PAUSED) {
+        return get_passed_duration_before_last_pause();
+    }
+    return 0;
 }
 
 
