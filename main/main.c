@@ -100,6 +100,7 @@
 #include "nvs_flash.h"
 #include "storage/log_partition_manager.h"
 #include "records_info_message_creator.h"
+#include "passkey_handler.h"
 
 static const char *TAG = "Main";
 
@@ -171,6 +172,8 @@ void app_main() {
         if(is_ble_active) {
             init_transaction_manager();
         }
+
+        init_passkey_handler();
 
         if(is_state_and_timer_active) {
             init_general_manager();

@@ -29,9 +29,28 @@ esp_err_t init_nvs() {
     return ret;
 }
 
-esp_err_t save_parameter(const char *key, void *value, size_t value_size) {
-    /*
+esp_err_t save_parameter_u32(const char *key, uint32_t value) {
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &h);
+    if (err != ESP_OK) return err;
 
+    err = nvs_set_u32(h, key, value);
+    if (err == ESP_OK) err = nvs_commit(h);
+    nvs_close(h);
+    return err;
+}
+
+esp_err_t read_parameter_u32(const char *key, uint32_t *out) {
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &h);
+    if (err != ESP_OK) return err;
+
+    err = nvs_get_u32(h, key, out);
+    nvs_close(h);
+    return err;
+}
+
+esp_err_t save_parameter(const char *key, void *value, size_t value_size) {
     nvs_handle_t nvs_handle;
     esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
     if (err != ESP_OK) {
@@ -62,14 +81,11 @@ esp_err_t save_parameter(const char *key, void *value, size_t value_size) {
     }
 
     nvs_close(nvs_handle);
-    return err;
-    */
-   return ESP_OK;
+   return err;
 }
 
 
 esp_err_t read_parameter(const char *key, void *value, size_t value_size) {
-    /*
     nvs_handle_t nvs_handle;
     esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &nvs_handle);
     if (err != ESP_OK) {
@@ -105,6 +121,4 @@ esp_err_t read_parameter(const char *key, void *value, size_t value_size) {
 
     nvs_close(nvs_handle);
     return err;
-    */
-   return ESP_OK;
 }

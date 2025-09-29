@@ -49,6 +49,7 @@ idf_component_register(SRCS "therapy_counter.c" "timer_utils.c" "proximity_senso
                             "therapy_message_counter.c"
                             "current_therapy_info_manager.c"
                             "general_manager.c"
+                            "passkey_handler.c"
                             "lp_core_main.c"
                             "lp_core/main.c"
                     INCLUDE_DIRS "." 

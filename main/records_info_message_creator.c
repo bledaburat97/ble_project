@@ -3,6 +3,7 @@
 #include "storage/log_types.h"
 #include "esp_log.h"
 #include "ble/include/ble_controller.h"
+#include "ble/include/ble_internal.h"
 #include "message_queue_manager.h"
 #include "therapy_counter.h"
 #include "matching_message_encoder.h"
@@ -190,7 +191,6 @@ void init_records_info_message_creator() {
     register_active_or_paused_therapy_info(on_active_or_paused_therapy_existed);
     register_on_write_records_feedback_callback(on_records_feedback);
     register_on_write_updating_records_callback(on_write_of_record_request_message);
-
     register_send_record_again_callback(send_record_again);
     register_send_new_record_callback(send_new_record);
 
