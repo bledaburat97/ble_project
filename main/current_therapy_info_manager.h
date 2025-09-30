@@ -19,7 +19,7 @@ void start_therapy(bool is_by_app);                    // resume/continue
 void pause_therapy(void);
 void pause_therapy_because_of_alert(void);
 void terminate_therapy(void);
-void continue_therapy(void);
+void start_or_continue_therapy(bool is_by_app);
 
 CurrentTherapyState get_current_therapy_state(void);
 uint16_t get_current_therapy_duration(void);

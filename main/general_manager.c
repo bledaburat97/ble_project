@@ -100,10 +100,10 @@ void change_helmet_state(bool helmet_state) {
         add_and_send_notification_info(NOTIF_HELMET_ON);
     }
     else {
+        ESP_LOGI(TAG, "Helmet state gets off");
         add_and_send_notification_info(NOTIF_HELMET_OFF);
         if (get_device_state() == STATE_ACTIVE) {
             pause_therapy();
-            start_inactivity_timer();
         }
     }
 }

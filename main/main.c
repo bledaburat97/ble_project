@@ -101,6 +101,7 @@
 #include "storage/log_partition_manager.h"
 #include "records_info_message_creator.h"
 #include "passkey_handler.h"
+#include "timer_management.h"
 
 static const char *TAG = "Main";
 
@@ -176,6 +177,7 @@ void app_main() {
         init_passkey_handler();
 
         if(is_state_and_timer_active) {
+            init_timer_manager_task();
             init_general_manager();
         }
 
@@ -202,7 +204,6 @@ void app_main() {
 
         if(is_laser_and_led_drivers_active) {
             initialize_laser_drivers();
-            set_laser_drivers_status(true);
             //set_brightness_of_region(1, 20);
             set_brightness_of_region(2, 20);
             set_brightness_of_region(3, 20);

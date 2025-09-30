@@ -8,8 +8,26 @@
 #include "timer_management.h"
 #include "transaction_manager.h"
 #include "notification_info_message_creator.h"
+#include "current_therapy_info_manager.h"
 
 static const char *TAG = "MainButtonController";
+
+void do_short_press(void) {
+    if (get_device_state() == STATE_INACTIVE) {
+        start_or_continue_therapy(false);
+    } else if (get_device_state() == STATE_ACTIVE) {
+        pause_therapy();
+        add_and_send_notification_info(NOTIF_THERAPY_PAUSED_BY_BUTTON);
+    } else {
+        ESP_LOGW(TAG, "SHORT: Beklenmeyen state!");
+    }
+}
+
+void do_long_press(void) {
+    ESP_LOGI(TAG, "LONG: Enter deep sleep");
+    enter_deep_sleep();
+}
+
 
 void wait_for_button_to_sleep(void *pvParameters) {
     TickType_t press_start = 0;
@@ -33,39 +51,16 @@ void wait_for_button_to_sleep(void *pvParameters) {
                 uint32_t duration_ms = press_duration * portTICK_PERIOD_MS;
 
                 ESP_LOGI(TAG, "Button is released, the passed duration: %lu ms", duration_ms);
-                /*
+                
                 if (duration_ms >= PRESS_DURATION_TO_SLEEP_MS) {
-                    ESP_LOGI(TAG, "Entering deep sleep.");
-                    enter_deep_sleep();
+                    do_long_press();
                 } else {
-                 
-                    if(get_device_state() == STATE_INACTIVE) {
-                        if(is_inactivity_timer_running()) {
-                            stop_inactivity_timer();
-                            start_therapy(false);
-                            set_device_state(STATE_ACTIVE);
-                        }
-                        else{
-                            //ERROR
-                        }
-                    }
-                    else if(get_device_state() == STATE_ACTIVE) {
-                        if(is_therapy_timer_running()) {
-                            stop_therapy_timer();
-                            start_inactivity_timer();
-                            set_device_state(STATE_INACTIVE);
-                        }
-                        else{
-                            //ERROR
-                        }
-                        add_and_send_notification_info(NOTIF_THERAPY_PAUSED_BY_BUTTON);
-                        update_passed_therapy_duration();
-                    }
+                    do_short_press();
                 }
-                    */
+                    
             }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(200));
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }

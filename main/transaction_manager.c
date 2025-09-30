@@ -28,6 +28,8 @@
 #include "device_info_message_creator.h"
 #include "current_therapy_info_manager.h"
 #include "general_manager.h"
+#include "main_button_controller.h"
+
 
 #ifndef UNIT_TESTING
 #include "freertos/FreeRTOS.h"
@@ -66,7 +68,6 @@ static void handle_status_change_message(const StatusChangeMessage *msg)
         ESP_LOGI(TAG, "PAUSE therapy");
         if (get_device_state() == STATE_ACTIVE) {
             pause_therapy();
-            start_inactivity_timer();
         }
         else {
             ESP_LOGE(TAG, "Big error.");
@@ -76,7 +77,7 @@ static void handle_status_change_message(const StatusChangeMessage *msg)
     } else if(msg->type == CONTINUE) {
         ESP_LOGI(TAG, "CONTINUE therapy");
         if(get_device_state() == STATE_INACTIVE) {
-            continue_therapy();
+            start_or_continue_therapy(true);
         }
         else {
             ESP_LOGE(TAG, "Big error.");
@@ -159,6 +160,15 @@ static void init_message_creators(){
 
 static void periodic_message_sender_task(void *pvParameters) {
 
+    vTaskDelay(pdMS_TO_TICKS(10000));
+    ESP_LOGI(TAG, "SIM: short-press (software)");
+    while(1) {
+        ESP_LOGI(TAG, "Do short press");
+        do_short_press();
+    
+        vTaskDelay(2000);
+    }
+    /*
     const TickType_t delay = pdMS_TO_TICKS(5 * 1000); 
     const TickType_t gap_yield = pdMS_TO_TICKS(1500);
     uint8_t byte_data = 0xAB;
@@ -193,14 +203,15 @@ static void periodic_message_sender_task(void *pvParameters) {
         vTaskDelay(2 * delay);
 
 
-        /*
+        
         send_notification_info(NOTIF_HELMET_ON, 0);
         vTaskDelay(delay);
 
         send_info_message_to_queue( NOTIFICATION_INFO_MESSAGE, &byte_data, 1, 0);
         vTaskDelay(delay);
-        */
+        
     }
+        */
 }
 
 void init_transaction_manager(){

@@ -104,8 +104,8 @@ LogEntrySizeInfo get_log_entry_size_info(uint8_t type) {
         case TIMER_STATE_NEW_THERAPY_BY_APP:
         case TIMER_STATE_CONTINUE_THERAPY_BY_BUTTON:
         case TIMER_STATE_CONTINUE_THERAPY_BY_APP:
-            size_info.total_length = 8;
-            size_info.data_length = 4; //uint16_t therapy_id;uint16_t therapy_duration;
+            size_info.total_length = 10;
+            size_info.data_length = 6; //uint16_t therapy_id;uint16_t therapy_duration; uint16_t therapy_passed_duration
             break;
         case RTC_TIME_SAVED:
             size_info.total_length = 9;

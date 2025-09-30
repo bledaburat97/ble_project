@@ -89,6 +89,7 @@ static void send_and_track(const MessageQueueEntry *entry)
 {
     if (!get_ble_connection_status()) {
         ESP_LOGW(TAG, "No active BLE connection, cannot send message.");
+        vTaskDelay(pdMS_TO_TICKS(50));
         return;
     }
 
@@ -169,7 +170,7 @@ static void queue_sender_task(void *pvParameters)
         TickType_t inter_message_delay = pdMS_TO_TICKS(dynamic_period);
 
         if (xQueueReceive(high_priority_queue, &entry, pdMS_TO_TICKS(100)) == pdTRUE) {
-            ESP_LOGI(TAG, "Received high priority message in the queue.");
+            //ESP_LOGI(TAG, "Received high priority message in the queue.");
             send_and_track(&entry);
             free(entry.data);
             
@@ -187,6 +188,7 @@ static void queue_sender_task(void *pvParameters)
         }
 
         check_pending_timeouts();
+        vTaskDelay(1);
     }
 }
 
@@ -245,8 +247,9 @@ void send_info_message_to_queue(MessageType message_type, uint8_t* data, size_t 
         .wait_for_response = false
     };
     
-    if(xQueueSend(high_priority_queue, &entry, portMAX_DELAY) != pdTRUE) {
-        ESP_LOGE(TAG, "Failed to send message to queue");
+    TickType_t time_out = 0; // asla block etme
+    if(xQueueSend(high_priority_queue, &entry, time_out) != pdTRUE) {
+        ESP_LOGW(TAG, "Queue full, dropping message type=%u", (unsigned)message_type);
         free(data_copy);
     }
 }

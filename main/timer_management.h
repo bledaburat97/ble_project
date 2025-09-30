@@ -9,6 +9,8 @@
 #define DEFAULT_THERAPY_DURATION 1500
 #define MAX_THERAPY_DURATION 3600
 
+void init_timer_manager_task();
+
 bool start_inactivity_timer(void);
 void start_alert_timer(int sensor_index);
 void start_therapy_timer(uint16_t duration, NotificationType notif);

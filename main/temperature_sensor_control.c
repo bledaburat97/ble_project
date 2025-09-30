@@ -86,7 +86,7 @@ void temperature_read_task(void *param) {
         float rounded_temperature = round_down_to_half(average_temperature);
 
         if (fabsf(current_temperature - rounded_temperature) >= 0.5f) {
-            ESP_LOGI(TAG,"Temperature changed.");
+            //ESP_LOGI(TAG,"Temperature changed.");
             
             if(temp_update_callback) {
                 temp_update_callback(convert_float_to_byte(average_temperature));
@@ -99,7 +99,7 @@ void temperature_read_task(void *param) {
         current_temperature = rounded_temperature;
 
         ESP_LOGI(TAG, "Temperature measured: %.2f°C", average_temperature);
-        if(average_temperature > 29) {
+        if(average_temperature > 28) {
             if (temp_alert_callback) {
                 temp_alert_callback(0);
             }

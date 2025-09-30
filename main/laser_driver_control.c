@@ -232,30 +232,29 @@ void set_brightness_of_region(uint8_t region_id, uint8_t brightness_percentage)
     }
 }
 
-void set_laser_drivers_status(bool status)
-{
-    for(uint8_t lp5036_index = 0; lp5036_index < NUM_OF_LP5036; lp5036_index++){
-        set_laser_driver_status(lp5036_index, status);
-    }
-}
-
-void set_laser_driver_status(uint8_t laser_driver_index, bool status) {
+static void set_laser_driver_status(uint8_t laser_driver_index, bool status) {
     if(laser_driver_index >= NUM_OF_LP5036){
         return;
     } 
     uint8_t chip_en = status ? 0x40 : 0x00;
-    ESP_LOGI(LASER_TAG, "set_laser_drivers_status write_register() called with:");
-    ESP_LOGI(LASER_TAG, "  device_address: 0x%02X", lp5036Infos[laser_driver_index].address);
-    ESP_LOGI(LASER_TAG, "  reg_address: 0x%02X", DEVICE_CONFIG0_REG);
-    ESP_LOGI(LASER_TAG, "  data: 0x%02X", chip_en);
-    ESP_LOGI(LASER_TAG, "  length: %d", 1);
-    ESP_LOGI(LASER_TAG, "  i2c_master_number: %d", lp5036Infos[laser_driver_index].i2c_master_num);
+    //ESP_LOGI(LASER_TAG, "set_laser_drivers_status write_register() called with:");
+    //ESP_LOGI(LASER_TAG, "  device_address: 0x%02X", lp5036Infos[laser_driver_index].address);
+    //ESP_LOGI(LASER_TAG, "  reg_address: 0x%02X", DEVICE_CONFIG0_REG);
+    //ESP_LOGI(LASER_TAG, "  data: 0x%02X", chip_en);
+    //ESP_LOGI(LASER_TAG, "  length: %d", 1);
+    //ESP_LOGI(LASER_TAG, "  i2c_master_number: %d", lp5036Infos[laser_driver_index].i2c_master_num);
     if (write_register(lp5036Infos[laser_driver_index].address, DEVICE_CONFIG0_REG, &chip_en, 1, lp5036Infos[laser_driver_index].i2c_master_num) != ESP_OK) {
         ESP_LOGE(LASER_TAG, "Failed to write DEVICE_CONFIG0_REG for address 0x%02X, for status: %d", lp5036Infos[laser_driver_index].address, status);
     }
     vTaskDelay(pdMS_TO_TICKS(100)); 
 }
 
+void set_laser_drivers_status(bool status)
+{
+    for(uint8_t lp5036_index = 0; lp5036_index < NUM_OF_LP5036; lp5036_index++){
+        set_laser_driver_status(lp5036_index, status);
+    }
+}
 
 void initialize_laser_driver_gpio(){
     gpio_config_t io_conf_led_driver = {
@@ -321,7 +320,7 @@ void initialize_laser_drivers()
 
     initialize_laser_driver_gpio();
     set_laser_drivers_gpio_pin_status(true);
-    //set_laser_drivers_status(true);
+    set_laser_drivers_status(false);
     vTaskDelay(pdMS_TO_TICKS(100));
     set_banked_leds();
 }

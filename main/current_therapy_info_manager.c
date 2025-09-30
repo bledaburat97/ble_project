@@ -41,6 +41,7 @@ void pause_therapy() {
     if (new_total > current_therapy_duration) new_total = current_therapy_duration;
     set_passed_duration_before_last_pause((uint16_t)new_total);
     stop_therapy_timer();
+    start_inactivity_timer();
 }
 
 void terminate_therapy() {
@@ -52,14 +53,19 @@ void terminate_therapy() {
     clear_current_therapy();
 }
 
-void continue_therapy() {
+void start_or_continue_therapy(bool is_by_app) {
     if(!is_inactivity_timer_running()) {
         ESP_LOGE(TAG, "Big error.");
         return;
     }
+
+    if(!get_helmet_state()) {
+        ESP_LOGE(TAG, "Helmet is not on.");
+        return;
+    }
     current_therapy_state = ACTIVE;
     stop_inactivity_timer();
-    start_therapy(true);
+    start_therapy(is_by_app);
 }
 
 CurrentTherapyState get_current_therapy_state() {
@@ -90,22 +96,28 @@ void start_new_therapy(uint16_t duration) {
     reset_session_clock();
 }
 
-//bu metottan önce set_new_therapy kesin çağrılmış olmalı.
+
 void start_therapy(bool is_by_app) {
     uint16_t passed_duration_before_last_pause = get_passed_duration_before_last_pause();
-    if(passed_duration_before_last_pause >= current_therapy_duration) {
-        ESP_LOGE(TAG, "Passed duration: %u is more than therapy duration: %u", passed_duration_before_last_pause, current_therapy_duration);
-        return;
-    }
+
     if(passed_duration_before_last_pause == 0) {
         if(!is_by_app) {
+            if(current_therapy_duration == 0) {
+                ESP_LOGE(TAG, "Set default therapy");
+                set_new_therapy(DEFAULT_THERAPY_DURATION);
+                reset_session_clock();
+            }
+            ESP_LOGE(TAG, "Set therapy timer");
             start_therapy_timer(current_therapy_duration, TIMER_STATE_NEW_THERAPY_BY_BUTTON);
             current_therapy_state = ACTIVE;
-            reset_session_clock();
         }
         else{
             ESP_LOGE(TAG, "App does not start default therapy.");
         }
+    }
+    else if(passed_duration_before_last_pause >= current_therapy_duration) {
+        ESP_LOGE(TAG, "Passed duration: %u is more than therapy duration: %u", passed_duration_before_last_pause, current_therapy_duration);
+        return;
     }
     else {
         current_therapy_state = ACTIVE;

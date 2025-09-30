@@ -37,5 +37,4 @@ void initialize_laser_drivers();
 void update_device_config1(bool status, DeviceConfig1UpdateType type);
 void set_laser_drivers_gpio_pin_status(bool status);
 void set_laser_drivers_status(bool status);
-void set_laser_driver_status(uint8_t laser_driver_index, bool status);
 #endif 

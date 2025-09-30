@@ -56,7 +56,7 @@ static void on_device_info_feedback_callback() {
 }
 
 static void on_temperature_update(uint8_t temperature) {
-    ESP_LOGI(TAG, "On temperature update of temperature: %u.", temperature);
+    //ESP_LOGI(TAG, "On temperature update of temperature: %u.", temperature);
     add_and_send_measurement_info(temperature);
 }
 
