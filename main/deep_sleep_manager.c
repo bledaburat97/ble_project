@@ -6,11 +6,11 @@
 #include "freertos/task.h"
 #include "deep_sleep_manager.h"
 #include "state_manager.h"
+#include "device_configuration.h"
 
 static const char *TAG = "DeepSleepManager";
 
 void set_deep_sleep_button() {
-    // GPIO0 pull-up + input mod
     gpio_config_t io_conf = {
         .pin_bit_mask = BUTTON_PIN_BITMASK,
         .mode = GPIO_MODE_INPUT,
@@ -22,12 +22,10 @@ void set_deep_sleep_button() {
 }
 
 void enter_deep_sleep() {
-    ESP_LOGI(TAG, "Deep sleep'e geçiliyor...");
+    ESP_LOGI(TAG, "Entering to deep sleep");
     
     set_deep_sleep_button();
-
     esp_sleep_enable_ext1_wakeup(BUTTON_PIN_BITMASK, ESP_EXT1_WAKEUP_ANY_LOW);
-
     esp_deep_sleep_start();
 }
 

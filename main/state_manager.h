@@ -1,7 +1,5 @@
 #include <stdbool.h>
 
-#define MAX_STATE_LISTENERS 5
-
 #ifndef STATE_MANAGER_H
 #define STATE_MANAGER_H
 

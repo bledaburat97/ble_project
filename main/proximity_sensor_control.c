@@ -8,6 +8,7 @@
 #include "transaction_manager.h"
 #include "notification_info_message_creator.h"
 #include "general_manager.h"
+#include "device_configuration.h"
 
 #define DEFAULT_LED_CURRENT 20
 #define DEFAULT_INTERRUPT_CONTROL_BIT_COUNT 2
@@ -18,10 +19,6 @@ static bool hp_prox_sensor_detection_status = false;
 static bool lp_prox_sensor_detection_status = false;
 
 static const char *TAG = "ProximitySensorControl";
-
-static uint16_t lower_threshold = 1792;
-static uint16_t max_lower_threshold = 2304;
-static uint16_t higher_threshold = 2688;
 
 static void add_lp_read_command_to_queue(uint8_t device_address, uint8_t reg_address) {
     uint32_t lp_core_device_address = 0x00000000 | (device_address & 0xFF);
@@ -204,13 +201,13 @@ static void set_sensor_detection_status(bool is_lp, bool status) {
 }
 
 static void set_default_thresholds(bool is_lp) {
-    set_high_threshold(higher_threshold, is_lp);
-    set_low_threshold(lower_threshold, is_lp);
+    set_high_threshold(PROXIMITY_HIGHER_THRESHOLD, is_lp);
+    set_low_threshold(PROXIMITY_LOWER_THRESHOLD, is_lp);
 }
 
 static void increase_thresholds(bool is_lp) {
     set_high_threshold(0xFFFF, is_lp);
-    set_low_threshold(max_lower_threshold, is_lp);
+    set_low_threshold(PROXIMITY_MAX_LOWER_THRESHOLD, is_lp);
 }
 
 static void reset_interrupt(bool is_lp, ProximityThresholdType type) {
@@ -277,12 +274,12 @@ void initialize_proximity_sensors(bool hp_prox_sensor_exist, bool lp_prox_sensor
 
     if(is_hp_prox_sensor){
         ESP_LOGI(TAG, "Proximity Threshold is set.");
-        set_high_threshold(higher_threshold, false);
-        set_low_threshold(lower_threshold, false);
+        set_high_threshold(PROXIMITY_HIGHER_THRESHOLD, false);
+        set_low_threshold(PROXIMITY_LOWER_THRESHOLD, false);
     }
     if(is_lp_prox_sensor){
-        set_high_threshold(higher_threshold, true);
-        set_low_threshold(lower_threshold, true);
+        set_high_threshold(PROXIMITY_HIGHER_THRESHOLD, true);
+        set_low_threshold(PROXIMITY_LOWER_THRESHOLD, true);
     }
 
     set_sensor_detection_status(false, false);

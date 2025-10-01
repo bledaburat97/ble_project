@@ -11,7 +11,7 @@
 #include "temperature_sensor_control.h"
 #include "proximity_sensor_control.h"
 #include "timer_management.h"
-#include "json_parser.h"
+#include "binary_message_parser.h"
 #include "state_manager.h"
 #include "ble/include/ble_controller.h"
 #include "transaction_message_encoder.h"

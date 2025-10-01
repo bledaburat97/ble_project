@@ -9,6 +9,7 @@
 #include "transaction_manager.h"
 #include "notification_info_message_creator.h"
 #include "current_therapy_info_manager.h"
+#include "device_configuration.h"
 
 static const char *TAG = "MainButtonController";
 

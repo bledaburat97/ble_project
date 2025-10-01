@@ -8,7 +8,7 @@
 #include <stddef.h>
 
 #include "laser_driver_control.h"
-#include "json_parser.h"
+#include "binary_message_parser.h"
 
 static inline uint16_t be16(const uint8_t *p) {
     return (uint16_t)((p[0] << 8) | p[1]);

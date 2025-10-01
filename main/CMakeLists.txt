@@ -7,7 +7,7 @@ set(app_sources "lp_core_main.c")
 idf_component_register(SRCS "therapy_counter.c" "timer_utils.c" "proximity_sensor_control.c" "temperature_sensor_control.c" 
                             "temperature_sensor.c" 
                             "i2c_control.c" 
-                            "json_parser.c" 
+                            "binary_message_parser.c" 
                             "laser_driver_control.c" 
                             "main.c" 
                             "timer_management.c" 

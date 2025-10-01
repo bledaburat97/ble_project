@@ -6,11 +6,8 @@
 #include "driver/gpio.h"
 #include "state_manager.h"
 #include "general_manager.h"
+#include "device_configuration.h"
 
-#define MAX_TEMP_SENSORS 3
-#define FIRST_ALERT_GPIO GPIO_NUM_3
-#define SECOND_ALERT_GPIO GPIO_NUM_2
-#define THIRD_ALERT_GPIO GPIO_NUM_5
 
 static const char *TAG = "TemperatureAlertController";
 

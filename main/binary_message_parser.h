@@ -2,8 +2,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#ifndef JSON_PARSER_H
-#define JSON_PARSER_H
+#ifndef BINARY_MESSAGE_PARSER_H
+#define BINARY_MESSAGE_PARSER_H
 
 typedef enum {
     PAUSE = 0x01,
@@ -23,12 +23,6 @@ typedef struct {
 typedef struct {
     uint16_t last_therapy_id;
 } UpdateRecordRequestMessage;
-
-/*
-typedef struct {
-    uint8_t message_id;
-} FeedbackMessage;
-*/
 
 typedef struct {
     uint16_t therapy_id;

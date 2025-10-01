@@ -2,6 +2,7 @@
 #include "message_queue_manager.h"
 #include "ble/include/ble_controller.h"
 #include "ble/include/ble_connection_state_manager.h"
+#include "device_configuration.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,18 +16,14 @@
 #include "freertos/queue.h"
 #include "esp_log.h"
 
-#define MAX_PENDING_MESSAGES 100
-#define MAX_MESSAGE_DATA_SIZE 500
 
 static const char *TAG = "MessageQueueManager";
-static uint16_t MAX_TIMEOUT_DURATION = 50000;
-static uint16_t dynamic_period = 1000;
 static void (*timer_state_info_feedback_callback)() = NULL;
 static void (*record_pending_approval_timeout_callback)(uint16_t) = NULL;
 static void (*send_record_again_callback)(uint16_t) = NULL;
 static void (*send_new_record_callback)(uint16_t) = NULL;
 
-const static uint8_t max_retry_count = 2;
+static int dynamic_period = DYNAMIC_PERIOD;
 
 QueueHandle_t high_priority_queue;
 QueueHandle_t low_priority_queue;
@@ -55,7 +52,7 @@ static void check_pending_timeouts()
         if (now - pending_record.send_timestamp > MAX_TIMEOUT_DURATION) {
             ESP_LOGE(TAG, "Records timeout (therapy id=%d)", pending_record.therapy_id);
             pending_record.active = false;
-            if (pending_record.retry_count < max_retry_count) {
+            if (pending_record.retry_count < MAX_MESSAGE_RETRY_COUNT) {
                 if (send_record_again_callback) {
                     send_record_again_callback(pending_record.therapy_id);
                 }
@@ -93,15 +90,13 @@ static void send_and_track(const MessageQueueEntry *entry)
         return;
     }
 
-    const int max_retries = 2;
-    const int retry_delay_ms = 100;
     SemaphoreHandle_t ble_mutex = get_ble_mutex_handle();
     const uint32_t conf_timeout_ms = 3000;
     const bool need_conf = requires_conf(entry->type);
 
-    for (int attempt = 1; attempt <= max_retries; attempt++) {
+    for (int attempt = 1; attempt <= MAX_MESSAGE_RETRY_COUNT; attempt++) {
         if (xSemaphoreTake(ble_mutex, pdMS_TO_TICKS(300)) != pdTRUE) {
-            vTaskDelay(pdMS_TO_TICKS(retry_delay_ms));
+            vTaskDelay(pdMS_TO_TICKS(RETRY_DELAY_DURATION));
             continue;
         }
 
@@ -110,13 +105,12 @@ static void send_and_track(const MessageQueueEntry *entry)
 
         if (ret != ESP_OK) {
             ESP_LOGW(TAG, "Send fail (type=%d, len=%u), attempt %d/%d: %s",
-                     entry->type, (unsigned)entry->data_length, attempt, max_retries, esp_err_to_name(ret));
-            vTaskDelay(pdMS_TO_TICKS(retry_delay_ms));
+                     entry->type, (unsigned)entry->data_length, attempt, MAX_MESSAGE_RETRY_COUNT, esp_err_to_name(ret));
+            vTaskDelay(pdMS_TO_TICKS(RETRY_DELAY_DURATION));
             continue;
         }
 
         if (!need_conf) {
-            // Notify: gönderim başarılıysa bitti.
             if (entry->wait_for_response && entry->type == RECORDS_INFO_MESSAGE) {
                 //add_pending_records(entry->id);  // son fragment ise app feedback bekle
                 set_record_pending(entry->id);
@@ -149,9 +143,9 @@ static void send_and_track(const MessageQueueEntry *entry)
         }
 
         ESP_LOGW(TAG, "CONF %s (status=%d) attempt %d/%d",
-                 got_conf ? "NOK" : "TIMEOUT", (int)st, attempt, max_retries);
+                 got_conf ? "NOK" : "TIMEOUT", (int)st, attempt, MAX_MESSAGE_RETRY_COUNT);
 
-        vTaskDelay(pdMS_TO_TICKS(retry_delay_ms));
+        vTaskDelay(pdMS_TO_TICKS(RETRY_DELAY_DURATION));
     }
 
     ESP_LOGE(TAG, "All attempts failed for type=%d", entry->type);
@@ -159,7 +153,7 @@ static void send_and_track(const MessageQueueEntry *entry)
 
 static void on_dynamic_period_change(uint16_t period) {
     ESP_LOGI(TAG, "Dynamic period is changed: %u", period);
-    dynamic_period = period;
+    dynamic_period = (int)period;
 }
 
 static void queue_sender_task(void *pvParameters)

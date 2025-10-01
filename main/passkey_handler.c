@@ -3,7 +3,7 @@
 #include "esp_bt_defs.h"
 #include "esp_gap_ble_api.h"
 #include "esp_log.h"
-#include "json_parser.h"
+#include "binary_message_parser.h"
 #include "storage_management.h"
 
 static const char *TAG = "PasskeyHandler";

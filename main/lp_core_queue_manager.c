@@ -4,6 +4,7 @@
 #include "proximity_sensor_control.h"
 #include "lp_core_main.h"
 #include "esp_log.h"
+#include "device_configuration.h"
 
 QueueHandle_t lp_core_queue = NULL;
 static const char *TAG = "LPCoreQueue";

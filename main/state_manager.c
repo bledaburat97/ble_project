@@ -11,6 +11,8 @@
 #include "fake_semphr.h"
 #endif
 
+#define MAX_STATE_LISTENERS 5
+
 static const char* TAG = "StateManager";
 
 static DeviceState current_state = STATE_IDLE;

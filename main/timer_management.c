@@ -13,6 +13,7 @@
 #include "storage/log_utils.h"
 #include "esp_timer.h"
 #include "freertos/queue.h"
+#include "device_configuration.h"
 
 static const char *TAG = "TimerManagement";
 

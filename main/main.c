@@ -223,12 +223,12 @@ void app_main() {
             xTaskCreate(monitor_proximity_int_task, "Monitor Proximity Int Task", 2048, NULL, 1, NULL);
             xTaskCreate(proximity_read_task, "ProximityReadTask", 2048, NULL, 5, NULL);
         }
-                        
+/* can be deleted                   
         if(is_boot_button_control_active) {
             initialize_boot_button_gpio();
             xTaskCreate(monitor_boot_button_task, "Monitor Boot Botton Task", 2048, NULL, 1, NULL);
         }
-
+*/
         if (is_deep_sleep_button_control_active) {
             set_deep_sleep_button();
             xTaskCreate(wait_for_button_to_sleep, "button_task", 2048, NULL, 1, NULL);

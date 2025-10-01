@@ -5,19 +5,8 @@
 #include "esp_task_wdt.h"
 #include "temperature_alarm_control.h"
 #include <math.h>
+#include "device_configuration.h"
 
-#define FIRST_PJ85775_ADDRESS 0x48
-#define SECOND_PJ85775_ADDRESS 0x4C
-#define THIRD_PJ85775_ADDRESS 0x4A
-
-#define NVS_KEY_TEMPERATURE "last_temp"
-#define TEMPERATURE_SENSOR_COUNT 1 //TODO: Değiştir.
-#define LOW_THRESHOLD_IN_NORMAL 25.5
-#define LOW_THRESHOLD_IN_ALERT 28
-#define HIGH_THRESHOLD_IN_NORMAL 28.5
-#define HIGH_THRESHOLD_IN_ALERT 30
-
-#define TEMPERATURE_DIFF_OFFSET 1
 
 static const char *TAG = "TemperatureControl";
 static const uint8_t sensor_addresses[] = {SECOND_PJ85775_ADDRESS, FIRST_PJ85775_ADDRESS, THIRD_PJ85775_ADDRESS};

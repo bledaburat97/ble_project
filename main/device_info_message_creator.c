@@ -21,7 +21,7 @@ static void send_device_info(uint16_t passed_seconds) {
     //message.current_time; //TODO: set current time when RTC integrated.
     esp_read_mac(message.device_id, ESP_MAC_WIFI_STA);
     if(get_current_therapy_state() == NONE) {
-        message.last_saved_therapy_id = read_therapy_count();
+        message.last_saved_therapy_id = read_therapy_count(); //TODO: direkt therapy count değil de maks therapy_count'u geçerse sıkıntı olur.
     }
     else {
         message.last_saved_therapy_id = read_therapy_count() - 1;

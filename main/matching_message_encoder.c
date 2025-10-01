@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include "matching_message_encoder.h"
+#include "device_configuration.h"
 
 #ifndef UNIT_TESTING
 #include "esp_log.h"
@@ -14,8 +15,7 @@
 #define RECORD_TYPE_MEASUREMENT     0x03
 #define RECORD_TYPE_NOTIFICATION    0x04
 #define RECORD_TYPE_BRIGHTNESS      0x05
-#define MAX_FRAGMENT_SIZE 244
-#define MAX_FRAGMENT_COUNT 100
+
 
 static const char *TAG = "MatchingMessageEncoder";
 
@@ -25,7 +25,7 @@ uint8_t fragments[MAX_FRAGMENT_COUNT][MAX_FRAGMENT_SIZE];
 size_t fragment_lengths[MAX_FRAGMENT_COUNT];
 static uint16_t fragment_count_index = 0;
 
-static uint16_t fragment_size = 30;
+static uint16_t fragment_size = DEFAULT_FRAGMENT_SIZE;
 static inline uint16_t FRAGMENT_CAPACITY(void) { return fragment_size; }
 
 void fragments_set_capacity(size_t cap) {

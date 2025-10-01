@@ -4,8 +4,6 @@
 #ifndef PROXIMITY_SENSOR_CONTROL_H
 #define PROXIMITY_SENSOR_CONTROL_H
 
-#define VCNL_3020_ADDRESS  0x13
-
 typedef enum {
     LOW = 0,
     HIGH = 1

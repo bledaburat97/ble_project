@@ -3,11 +3,11 @@
 #include "esp_partition.h"
 #include "esp_log.h"
 #include <string.h>
+#include "device_configuration.h"
 
 #define TAG "TherapyCounter"
 
 #define COUNTER_PARTITION_NAME "counter_data"
-#define MAX_THERAPY_COUNT 16384
 #define THERAPY_COUNTER_SUBTYPE 0x83
 
 static const esp_partition_t* counter_partition = NULL;
@@ -83,7 +83,7 @@ uint16_t read_therapy_count() {
 }
 
 esp_err_t write_therapy_count(uint16_t new_count) {
-    if (new_count >= 16385 || new_count == 0) {
+    if (new_count > MAX_THERAPY_COUNT || new_count == 0) {
         return ESP_ERR_NO_MEM; // Tüm alan dolmuş
     }
 

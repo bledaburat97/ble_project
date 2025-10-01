@@ -4,6 +4,7 @@
 #include "esp_log.h"
 #include "timer_management.h"
 #include "therapy_counter.h"
+#include "device_configuration.h"
 
 static const char *TAG = "CurrentTherapyInfoManager";
 

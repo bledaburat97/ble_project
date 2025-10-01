@@ -175,7 +175,6 @@ void try_start_new_therapy_by_activation(uint16_t duration) {
 void init_general_manager()
 {
     init_state_manager();
-    //init_timer_manager();
     register_state_change_callback(on_state_changed);
     register_timer_end_callback(on_timer_end);
     register_timer_state_change_callback(on_timer_start);

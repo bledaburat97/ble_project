@@ -6,20 +6,13 @@
 #include "lp_core_firmware.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
-#define I2C_MASTER_SCL_IO_1 GPIO_NUM_14
-#define I2C_MASTER_SDA_IO_1 GPIO_NUM_15
-#define I2C_MASTER_SCL_IO_2 GPIO_NUM_7
-#define I2C_MASTER_SDA_IO_2 GPIO_NUM_6
+#include "device_configuration.h"
 
 static const char *TAG = "I2CControl";
 #define I2C_MASTER_FREQ_HZ 400000
 #define LP_I2C_MASTER_FREQ_HZ 100000
 
-/**
- * @brief I2C Bus tarayıcı görevi.
- * Bulunan I2C cihaz adreslerini seri monitöre yazdırır.
- */
+
 void i2c_scanner_task(void *arg)
 {
     ESP_LOGI(TAG, "I2C Tarama Başlatılıyor...");

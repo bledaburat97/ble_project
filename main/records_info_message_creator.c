@@ -11,13 +11,13 @@
 #include "storage/log_writer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "json_parser.h"
+#include "binary_message_parser.h"
 #include "state_manager.h"
 #include "current_therapy_info_manager.h"
 #include "timer_management.h"
+#include "device_configuration.h"
 
 static const char *TAG = "RecordsInfoMessageCreator";
-static uint8_t MAX_RECORDS_TO_BE_SENT = 20;
 static uint16_t final_therapy_id_to_be_sent;
 
 static void set_records(uint16_t therapy_id) {

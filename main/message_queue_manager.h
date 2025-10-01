@@ -6,7 +6,6 @@
 #ifndef MESSAGE_QUEUE_MANAGER_H
 #define MESSAGE_QUEUE_MANAGER_H
 
-#define MAX_STATE_LISTENERS 5
 
 typedef struct {
     MessageType type;           // Mesaj tipi
@@ -40,7 +39,6 @@ void send_records_info_message_to_queue(uint16_t therapy_id, uint8_t* data, size
 void init_message_queue_manager();
 void register_device_info_feedback_callback(void (*callback)());
 void register_timer_state_info_feedback_callback(void (*callback)());
-//void process_feedback_message(uint16_t ack_message_id);
 bool clear_pending_approval_record(uint16_t therapy_id);
 void register_send_record_again_callback(void (*callback)(uint16_t));
 void register_send_new_record_callback(void (*callback)(uint16_t));
