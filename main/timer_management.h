@@ -31,4 +31,5 @@ uint16_t get_alert_remaining_seconds(void);
 void restart_duration_update_watchdog_timer(void);
 uint16_t get_session_passed_seconds(void);
 void reset_session_clock(void);
+void clear_session_clock(void);
 #endif 

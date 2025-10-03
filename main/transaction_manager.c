@@ -123,7 +123,10 @@ static void handle_activation_message(const ActivationMessage *msg)
 {
     if(msg->duration > 0) {
         try_start_new_therapy_by_activation(msg->duration);
-    } 
+    }
+    else {
+        ESP_LOGW(TAG, "Msg duration is zero: %u", msg->duration);
+    }
 
     for(int i = 0; i < TOTAL_REGION_COUNT; i++) {
         set_brightness_of_region(i + 1, msg->brightness[i]);
@@ -142,6 +145,7 @@ static void on_write_of_activation_message(const uint8_t *buf, size_t len) {
     for(int i = 0; i < 6; i++) {
         ESP_LOGI(TAG, "Laser Data received: %d", activation_message.brightness[i]);
     }
+    ESP_LOGI(TAG, "Activation duration: %u", activation_message.duration);
 }
 
 static void init_ble(){
@@ -162,12 +166,59 @@ static void periodic_message_sender_task(void *pvParameters) {
 
     vTaskDelay(pdMS_TO_TICKS(10000));
     ESP_LOGI(TAG, "SIM: short-press (software)");
+    /*
     while(1) {
         ESP_LOGI(TAG, "Do short press");
         do_short_press();
     
         vTaskDelay(2000);
     }
+    */
+
+    while(1) {
+
+        //terapi başlat.
+        ActivationMessage activationMsg;
+        activationMsg.brightness[0] = 10;
+        activationMsg.brightness[1] = 10;
+        activationMsg.brightness[2] = 10;
+        activationMsg.brightness[3] = 10;
+        activationMsg.duration = 60;
+        handle_activation_message(&activationMsg);
+
+        vTaskDelay(pdMS_TO_TICKS(10000));
+
+        //parlaklık değiştir.
+        ActivationMessage activationMsg2;
+        activationMsg2.brightness[0] = 10;
+        activationMsg2.brightness[1] = 20;
+        activationMsg2.brightness[2] = 20;
+        activationMsg2.brightness[3] = 0;
+        activationMsg2.duration = 0;
+        handle_activation_message(&activationMsg2);
+
+        vTaskDelay(pdMS_TO_TICKS(20000));
+
+        //StatusChangeMessage status_change_message;
+        //status_change_message.type = PAUSE;
+        //handle_status_change_message(&status_change_message);
+        
+        //vTaskDelay(pdMS_TO_TICKS(10000));
+
+        StatusChangeMessage status_change_message2;
+        status_change_message2.type = CONTINUE;
+        handle_status_change_message(&status_change_message2);
+
+        vTaskDelay(pdMS_TO_TICKS(10000));
+
+        StatusChangeMessage status_change_message3;
+        status_change_message3.type = STOP;
+        handle_status_change_message(&status_change_message3);
+
+        vTaskDelay(pdMS_TO_TICKS(22000));
+
+    }
+
     /*
     const TickType_t delay = pdMS_TO_TICKS(5 * 1000); 
     const TickType_t gap_yield = pdMS_TO_TICKS(1500);
@@ -222,5 +273,5 @@ void init_transaction_manager(){
     register_on_write_updating_therapy_state_callback(on_write_of_therapy_state);
     register_on_disconnect_callback(on_disconnect_ble);
     init_message_creators();
-    xTaskCreate(periodic_message_sender_task, "PeriodicMsgSender", 2048, NULL, 5, NULL);
+    xTaskCreate(periodic_message_sender_task, "PeriodicMsgSender", 4096, NULL, 5, NULL);
 }

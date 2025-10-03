@@ -16,8 +16,9 @@ static inline uint16_t be16(const uint8_t *p) {
 
 bool decode_activation_message_bin(const uint8_t *buf, ActivationMessage *out_msg) {
     if (!buf || !out_msg) return false;
-    memcpy(out_msg->brightness, &buf[0], 6);
-    out_msg->duration = be16(&buf[6]);
+
+    out_msg->duration = be16(&buf[0]);
+    memcpy(out_msg->brightness, &buf[2], 6);
     return true;
 }
 

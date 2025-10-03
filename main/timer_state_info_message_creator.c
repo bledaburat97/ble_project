@@ -90,6 +90,9 @@ static void on_device_info_feedback_callback() {
         return;
     }
 
+    ESP_LOGI(TAG, "(Current state) timer state info with type: %u, duration: %u, therapy_id: %u, therapy_passed_seconds: %u, remaining_seconds: %u", message.type, message.duration, message.therapy_id, 
+           message.therapy_passed_seconds, message.remaining_seconds);
+
     bool isMessageJson = false;
 
     if(isMessageJson) {
@@ -138,6 +141,9 @@ void add_and_send_new_other_state_info(NotificationType notification_type) {
         message.remaining_seconds = get_alert_remaining_seconds();
     }
 
+    ESP_LOGI(TAG, "(Other state) timer state info with type: %u, duration: %u, therapy_id: %u, therapy_passed_seconds: %u, remaining_seconds: %u", message.type, message.duration, message.therapy_id, 
+           message.therapy_passed_seconds, message.remaining_seconds);
+
     bool isMessageJson = false;
 
     if(isMessageJson) {
@@ -159,25 +165,17 @@ void add_and_send_new_other_state_info(NotificationType notification_type) {
     }
 }
 
-void add_and_send_new_therapy_state_info(NotificationType notification_type) {
-    uint16_t therapy_id = get_current_therapy_id();
-    uint16_t therapy_duration = get_current_therapy_duration();
+static void add_and_send_new_therapy_state_info(NotificationType notification_type, TimerStateInfoMessage message) {
     uint16_t passed_seconds = get_session_passed_seconds();
-    uint16_t therapy_passed_seconds = get_current_therapy_passed_duration();
-    uint16_t remaining_seconds = get_therapy_remaining_seconds();
 
-    uint8_t data[] = {therapy_id >> 8, therapy_id & 0xFF, therapy_duration >> 8, therapy_duration & 0xFF, therapy_passed_seconds >> 8, therapy_passed_seconds & 0xFF};
+    uint8_t data[] = {message.therapy_id >> 8, message.therapy_id & 0xFF, message.duration >> 8, message.duration & 0xFF, message.therapy_passed_seconds >> 8, message.therapy_passed_seconds & 0xFF};
     add_log(notification_type, data, sizeof(data), passed_seconds);
     ESP_LOGE(TAG, "Log of therapy state with type: %u with passed_seconds: %u", notification_type, passed_seconds);
 
     restart_duration_update_watchdog_timer();
 
-    TimerStateInfoMessage message;
-    message.type = notification_type;
-    message.duration = therapy_duration;
-    message.therapy_id = therapy_id;
-    message.remaining_seconds = remaining_seconds;
-    message.therapy_passed_seconds = therapy_passed_seconds;
+    ESP_LOGI(TAG, "(New therapy state) timer state info with type: %u, duration: %u, therapy_id: %u, therapy_passed_seconds: %u, remaining_seconds: %u", message.type, message.duration, message.therapy_id, 
+           message.therapy_passed_seconds, message.remaining_seconds);
 
     bool isMessageJson = false;
 
@@ -198,6 +196,40 @@ void add_and_send_new_therapy_state_info(NotificationType notification_type) {
         size_t len = encode_timer_state_info_message_binary(&message, buf);
         send_info_message_to_queue(TIMER_STATE_INFO_MESSAGE, buf, len);
     }
+}
+
+void send_new_therapy_started(NotificationType notification_type) {
+    uint16_t therapy_id = get_new_therapy_id_for_new_therapy();
+    uint16_t duration = get_current_therapy_duration();
+    uint16_t therapy_passed_seconds = 0;
+    uint16_t remaining_seconds = get_therapy_remaining_seconds();
+
+    TimerStateInfoMessage message = {
+        .type = notification_type,
+        .duration = duration,
+        .therapy_id = therapy_id,
+        .therapy_passed_seconds = therapy_passed_seconds,
+        .remaining_seconds = remaining_seconds
+    };
+
+    add_and_send_new_therapy_state_info(notification_type, message);
+}
+
+void send_therapy_continued(NotificationType notification_type) {
+    uint16_t therapy_id = get_current_therapy_id();
+    uint16_t duration   = get_current_therapy_duration();
+    uint16_t therapy_passed_seconds = get_passed_duration_before_last_pause();
+    uint16_t remaining_seconds = (therapy_passed_seconds >= duration) ? 0 : (duration - therapy_passed_seconds);
+
+    TimerStateInfoMessage message = {
+        .type = notification_type,
+        .duration = duration,
+        .therapy_id = therapy_id,
+        .therapy_passed_seconds = therapy_passed_seconds,
+        .remaining_seconds = remaining_seconds
+    };
+
+    add_and_send_new_therapy_state_info(notification_type, message);
 }
 
 void register_active_or_paused_therapy_info(void (*callback)()) {

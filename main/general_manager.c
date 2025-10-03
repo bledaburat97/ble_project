@@ -132,9 +132,11 @@ static void on_timer_start(NotificationType notification_type) {
             break;
         case TIMER_STATE_NEW_THERAPY_BY_BUTTON:
         case TIMER_STATE_NEW_THERAPY_BY_APP:
+            send_new_therapy_started(notification_type);
+            break;
         case TIMER_STATE_CONTINUE_THERAPY_BY_BUTTON:
         case TIMER_STATE_CONTINUE_THERAPY_BY_APP:
-            add_and_send_new_therapy_state_info(notification_type);
+            send_therapy_continued(notification_type);
             break;
         case TIMER_STATE_LOW_TEMP_ALERT_1:
         case TIMER_STATE_HIGH_TEMP_ALERT_1:
@@ -150,7 +152,8 @@ static void on_timer_start(NotificationType notification_type) {
 }
 
 void try_start_new_therapy_by_activation(uint16_t duration) {
-    if(get_device_state() == STATE_ACTIVE) {
+    DeviceState deviceState = get_device_state();
+    if(deviceState == STATE_ACTIVE) {
         if(is_therapy_timer_running()) {
             ESP_LOGI(TAG, "On activate when state active");
             terminate_therapy();
@@ -160,7 +163,7 @@ void try_start_new_therapy_by_activation(uint16_t duration) {
         else{
             ESP_LOGE(TAG, "On activate when state active but therapy timer is not running.");
         }
-    } else if(get_device_state() == STATE_INACTIVE && get_helmet_state()) {
+    } else if(deviceState == STATE_INACTIVE && get_helmet_state()) {
         if(is_inactivity_timer_running()) {
             ESP_LOGI(TAG, "On activate when state inactive");
             stop_inactivity_timer();
@@ -169,6 +172,9 @@ void try_start_new_therapy_by_activation(uint16_t duration) {
         else{
             ESP_LOGE(TAG, "On activate when state inactive but inactivity timer is not running.");
         }
+    }
+    else {
+        ESP_LOGE(TAG, "Therapy can not be started. device state: %u", deviceState);
     }
 }
 

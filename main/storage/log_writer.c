@@ -292,7 +292,6 @@ Ek işlevler:
 */
 esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t passed_seconds) {
     BaseLogEntry log = fill_base_log(type, data, data_len, passed_seconds);
-    ESP_LOGI(TAG, "Adding log type: %u", log.type);
 
     if (log.entry_size == 0) {
         ESP_LOGE(TAG, "Failed to fill log, skipping add_log");

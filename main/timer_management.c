@@ -42,6 +42,10 @@ typedef enum {
 
 QueueHandle_t g_systemEvtQ = NULL;
 
+void clear_session_clock(void) {
+    session_start_us = -1;
+}
+
 void reset_session_clock(void) { 
     session_start_us = esp_timer_get_time();
 }
@@ -150,14 +154,16 @@ void start_therapy_timer(uint16_t duration, NotificationType notification_type) 
     active_therapy_timer_duration = duration;
     if(therapy_timer != NULL) {
         stop_therapy_timer();
-        ESP_LOGE(TAG, "Therapy timer should have stopped.");
     }
+    set_device_state(STATE_ACTIVE);
+
     therapy_timer = create_and_start_timer(STATE_ACTIVE, duration * 1000, therapy_timer_expiry_callback);
+
+    start_duration_update_watchdog_timer();
+
     if (timer_state_change_callback) {
         timer_state_change_callback(notification_type);
     }
-    set_device_state(STATE_ACTIVE);
-    start_duration_update_watchdog_timer();
 }
 
 static void alert_timer_expiry_callback(TimerHandle_t xTimer) {
@@ -213,13 +219,32 @@ void register_timer_state_change_callback(void (*callback)(NotificationType)) {
 }
 
 uint16_t get_therapy_remaining_seconds(void) {
-    if (!therapy_timer) return 0;
+    if (!therapy_timer) {
+        ESP_LOGI(TAG, "Therapy timer is null");
+        return 0;
+    }
+
     TickType_t now = xTaskGetTickCount();
-    TickType_t expiry = xTimerGetExpiryTime(therapy_timer);  // bir sonraki timeout tick’i
-    if (expiry <= now) return 0;
+    TickType_t expiry = xTimerGetExpiryTime(therapy_timer);
+
+    TickType_t nominal_ticks = pdMS_TO_TICKS((uint32_t)active_therapy_timer_duration * 1000u);
+    if (expiry <= now) {
+        return 0;
+    }
     TickType_t remain_ticks = expiry - now;
-    uint32_t remain_ms = remain_ticks * portTICK_PERIOD_MS;
-    return (uint16_t)(remain_ms / 1000);
+
+    // Eğer beklenen nominalin >2x'inden büyükse, "daha start edilmedi" say → nominal dön
+    if (remain_ticks > (nominal_ticks + pdMS_TO_TICKS(1000u)) * 2) {
+        return active_therapy_timer_duration;
+    }
+
+    #ifdef pdTICKS_TO_MS
+    uint32_t remain_ms = pdTICKS_TO_MS(remain_ticks);
+    #else
+    uint32_t remain_ms = (uint32_t)remain_ticks * (uint32_t)portTICK_PERIOD_MS;
+    #endif
+
+    return (uint16_t)(remain_ms / 1000u);
 }
 
 uint16_t get_therapy_passed_seconds_direct(void) {
@@ -235,12 +260,26 @@ uint16_t get_inactivity_duration(void) {
 
 uint16_t get_inactivity_remaining_seconds(void) {
     if (!inactivity_timer) return 0;
+
+    if (xTimerIsTimerActive(inactivity_timer) != pdTRUE)
+        return INACTIVITY_THRESHOLD_SECONDS;
+
     TickType_t now = xTaskGetTickCount();
     TickType_t expiry = xTimerGetExpiryTime(inactivity_timer);
     if (expiry <= now) return 0;
-    TickType_t remain_ticks = expiry - now;
-    uint32_t remain_ms = remain_ticks * portTICK_PERIOD_MS;
-    return (uint16_t)(remain_ms / 1000);
+
+    TickType_t remain = expiry - now;
+    TickType_t nominal = pdMS_TO_TICKS((uint32_t)INACTIVITY_THRESHOLD_SECONDS * 1000u);
+
+    if (remain > (nominal + pdMS_TO_TICKS(1000u)) * 2)
+        return INACTIVITY_THRESHOLD_SECONDS;
+
+    #ifdef pdTICKS_TO_MS
+    uint32_t ms = pdTICKS_TO_MS(remain);
+    #else
+    uint32_t ms = (uint32_t)remain * (uint32_t)portTICK_PERIOD_MS;
+    #endif
+    return (uint16_t)(ms / 1000u);
 }
 
 uint16_t get_alert_duration(void) {
@@ -249,12 +288,24 @@ uint16_t get_alert_duration(void) {
 
 uint16_t get_alert_remaining_seconds(void) {
     if (!alert_timer) return 0;
+    if (xTimerIsTimerActive(alert_timer) != pdTRUE)
+        return ALERT_THRESHOLD_SECONDS;
+
     TickType_t now = xTaskGetTickCount();
     TickType_t expiry = xTimerGetExpiryTime(alert_timer);
     if (expiry <= now) return 0;
-    TickType_t remain_ticks = expiry - now;
-    uint32_t remain_ms = remain_ticks * portTICK_PERIOD_MS;
-    return (uint16_t)(remain_ms / 1000);
+
+    TickType_t remain = expiry - now;
+    TickType_t nominal = pdMS_TO_TICKS((uint32_t)ALERT_THRESHOLD_SECONDS * 1000u);
+    if (remain > (nominal + pdMS_TO_TICKS(1000u)) * 2)
+        return ALERT_THRESHOLD_SECONDS;
+
+    #ifdef pdTICKS_TO_MS
+    uint32_t ms = pdTICKS_TO_MS(remain);
+    #else
+    uint32_t ms = (uint32_t)remain * (uint32_t)portTICK_PERIOD_MS;
+    #endif
+    return (uint16_t)(ms / 1000u);
 }
 
 void restart_duration_update_watchdog_timer(void) {

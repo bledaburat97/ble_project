@@ -11,11 +11,16 @@ static const char* TAG = "TimerUtils";
 TimerHandle_t create_and_start_timer(DeviceState state, uint32_t duration_ms, TimerCallbackFunction_t callback) {
     const char* name = get_device_state_str(state);
 
-    TimerHandle_t timer = xTimerCreate(name, pdMS_TO_TICKS(duration_ms), pdFALSE, NULL, callback);
+    const TickType_t ticks = pdMS_TO_TICKS(duration_ms);
+
+    TimerHandle_t timer = xTimerCreate(name, ticks, pdFALSE, NULL, callback);
     if (timer == NULL) {
         ESP_LOGE(TAG, "Failed to create timer: %s", name);
         return NULL;
     }
+
+    xTimerStop(timer, 0);
+    xTimerChangePeriod(timer, ticks, 0);
 
     if (xTimerStart(timer, 0) != pdPASS) {
         ESP_LOGE(TAG, "Failed to start timer: %s", name);

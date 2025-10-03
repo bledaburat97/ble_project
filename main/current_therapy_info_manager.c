@@ -15,6 +15,7 @@ static void clear_current_therapy() {
     ESP_LOGI(TAG, "Clear current therapy.");
     current_therapy_duration = 0;
     current_therapy_state = NONE;
+    clear_session_clock();
     set_passed_duration_before_last_pause(0);
 }
 
@@ -84,6 +85,10 @@ uint16_t get_current_therapy_id() {
     return read_therapy_count();
 }
 
+uint16_t get_new_therapy_id_for_new_therapy() {
+    return read_therapy_count() + 1;
+}
+
 void set_new_therapy(uint16_t total_duration) {
     ESP_LOGI(TAG, "Set new therapy.");
     current_therapy_duration = total_duration;
@@ -92,9 +97,9 @@ void set_new_therapy(uint16_t total_duration) {
 
 void start_new_therapy(uint16_t duration) {
     set_new_therapy(duration);
+    reset_session_clock();
     start_therapy_timer(duration, TIMER_STATE_NEW_THERAPY_BY_APP);
     current_therapy_state = ACTIVE;
-    reset_session_clock();
 }
 
 
