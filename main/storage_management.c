@@ -50,6 +50,44 @@ esp_err_t read_parameter_u32(const char *key, uint32_t *out) {
     return err;
 }
 
+esp_err_t save_parameter_u16(const char *key, uint16_t value) {
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &h);
+    if (err != ESP_OK) return err;
+    err = nvs_set_u16(h, key, value);
+    if (err == ESP_OK) err = nvs_commit(h);
+    nvs_close(h);
+    return err;
+}
+
+esp_err_t read_parameter_u16(const char *key, uint16_t *out) {
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &h);
+    if (err != ESP_OK) return err;
+    err = nvs_get_u16(h, key, out);
+    nvs_close(h);
+    return err;
+}
+
+esp_err_t save_parameter_blob(const char *key, const void *data, size_t len) {
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &h);
+    if (err != ESP_OK) return err;
+    err = nvs_set_blob(h, key, data, len);
+    if (err == ESP_OK) err = nvs_commit(h);
+    nvs_close(h);
+    return err;
+}
+
+esp_err_t read_parameter_blob(const char *key, void *out, size_t *len_inout) {
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &h);
+    if (err != ESP_OK) return err;
+    err = nvs_get_blob(h, key, out, len_inout);
+    nvs_close(h);
+    return err;
+}
+
 esp_err_t save_parameter(const char *key, void *value, size_t value_size) {
     nvs_handle_t nvs_handle;
     esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);

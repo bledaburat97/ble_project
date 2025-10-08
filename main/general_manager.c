@@ -76,13 +76,13 @@ static void on_timer_end(NotificationType notification_type) {
         ESP_LOGI(TAG, "Therapy timer expired!");
         if(get_device_state() == STATE_ACTIVE) {
             terminate_therapy();
+            add_and_send_notification_info(notification_type);
             start_inactivity_timer();
         }
         else{
             ESP_LOGE(TAG, "Big error.");
             return;
         }
-        add_and_send_notification_info(notification_type);
     }
 }
 

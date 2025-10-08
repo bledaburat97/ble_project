@@ -5,7 +5,7 @@
 #ifndef TIMER_MANAGEMENT_H
 #define TIMER_MANAGEMENT_H
 
-void init_timer_manager_task();
+void init_timer_manager();
 
 bool start_inactivity_timer(void);
 void start_alert_timer(int sensor_index);
@@ -18,11 +18,8 @@ bool is_inactivity_timer_running(void);
 bool is_alert_timer_running(void);
 bool is_therapy_timer_running(void);
 
-uint16_t get_therapy_passed_seconds_direct(void); // Sadece ACTIVE aralığı
 void register_timer_end_callback(void (*)(NotificationType));
 void register_timer_state_change_callback(void (*)(NotificationType));
-void set_passed_duration_before_last_pause(uint16_t duration);
-uint16_t get_passed_duration_before_last_pause();
 uint16_t get_therapy_remaining_seconds(void);
 uint16_t get_inactivity_duration(void);
 uint16_t get_inactivity_remaining_seconds(void);
@@ -32,4 +29,6 @@ void restart_duration_update_watchdog_timer(void);
 uint16_t get_session_passed_seconds(void);
 void reset_session_clock(void);
 void clear_session_clock(void);
+uint32_t get_therapy_remaining_ms(void);
+uint32_t get_therapy_passed_ms_direct(void);
 #endif 

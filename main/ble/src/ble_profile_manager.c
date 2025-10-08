@@ -104,6 +104,10 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
             gl_profile_tab[PROFILE_A_APP_ID].updating_passkey_handle = param->add_char.attr_handle;
             ESP_LOGI(TAG, "Updating Passkey Characteristic Handle: %d", param->add_char.attr_handle);
         }
+        else if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_UPDATING_CONFIG) {
+            gl_profile_tab[PROFILE_A_APP_ID].updating_configuration_handle = param->add_char.attr_handle;
+            ESP_LOGI(TAG, "Updating Configuration Characteristic Handle: %d", param->add_char.attr_handle);
+        }
         else if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_RECORDS_FEEDBACK) {
             gl_profile_tab[PROFILE_A_APP_ID].records_feedback_handle = param->add_char.attr_handle;
             ESP_LOGI(TAG, "Records Feedback Info Characteristic Handle: %d", param->add_char.attr_handle);
@@ -232,7 +236,18 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
                                NULL,
                                NULL);
         if (add_char_ret){
-            ESP_LOGE(TAG, "adding passkey char failed, error code =%x",add_char_ret);
+            ESP_LOGE(TAG, "updating passkey char failed, error code =%x",add_char_ret);
+        }
+
+        add_char_ret =
+        esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
+            &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_UPDATING_CONFIG},
+                               ESP_GATT_PERM_WRITE_ENC_MITM,
+                               ESP_GATT_CHAR_PROP_BIT_WRITE,
+                               NULL,
+                               NULL);
+        if (add_char_ret){
+            ESP_LOGE(TAG, "updating configuration char failed, error code =%x",add_char_ret);
         }
 
         add_char_ret =
@@ -342,6 +357,17 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
 
                 if (on_write_updating_passkey_callback) {
                     on_write_updating_passkey_callback(param->write.value, param->write.len);
+                }
+                esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
+            }
+            else {
+                esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_INVALID_PDU, NULL);
+            }
+        }
+        else if (param->write.handle == gl_profile_tab[PROFILE_A_APP_ID].updating_configuration_handle) {
+            if(param->write.value != NULL && param->write.len == 2) {
+                if (on_write_updating_configuration_callback) {
+                    on_write_updating_configuration_callback(param->write.value, param->write.len);
                 }
                 esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
             }

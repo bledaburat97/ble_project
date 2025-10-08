@@ -33,25 +33,23 @@ TimerHandle_t create_and_start_timer(DeviceState state, uint32_t duration_ms, Ti
 }
 
 bool stop_and_delete_timer(TimerHandle_t* timer) {
-    if (timer && *timer != NULL) {
-        if (xTimerStop(*timer, 0) == pdPASS) {
-            ESP_LOGI(TAG, "Timer stopped");
-        }
-        else {
-            ESP_LOGE(TAG, "Failed to stop timer.");
-        }
-        if (xTimerDelete(*timer, 0) == pdPASS) {
-            ESP_LOGI(TAG, "Timer deleted");
-            *timer = NULL;
-        }
-        else{
-            ESP_LOGE(TAG, "Failed to delete timer.");
-            return false;
-        }
-        return true;
+
+    if (!timer || !*timer) return false;
+
+    if (xTimerStop(*timer, 0) == pdPASS) {
+        ESP_LOGI(TAG, "Timer stopped");
+    }
+    else {
+        ESP_LOGE(TAG, "Failed to stop timer.");
+    }
+   
+    if (xTimerDelete(*timer, 0) == pdPASS) {
+        ESP_LOGI(TAG, "Timer deleted");
+        *timer = NULL;
     }
     else{
-        ESP_LOGE(TAG, "Timer is not found");
+        ESP_LOGE(TAG, "Failed to delete timer.");
         return false;
     }
+    return true;
 }

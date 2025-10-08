@@ -102,6 +102,8 @@
 #include "records_info_message_creator.h"
 #include "passkey_handler.h"
 #include "timer_management.h"
+#include "storage_management.h" 
+#include "default_configuration_handler.h"
 
 static const char *TAG = "Main";
 
@@ -174,10 +176,12 @@ void app_main() {
             init_transaction_manager();
         }
 
+        init_nvs();
         init_passkey_handler();
+        init_default_configuration_handler();
 
         if(is_state_and_timer_active) {
-            init_timer_manager_task();
+            init_timer_manager();
             init_general_manager();
         }
 
@@ -204,9 +208,15 @@ void app_main() {
 
         if(is_laser_and_led_drivers_active) {
             initialize_laser_drivers();
+            uint8_t* brightness_list = get_default_brightness();
+
+            for(int i = 0; i < TOTAL_REGION_COUNT; i++) {
+                set_brightness_of_region(i + 1, brightness_list[i]);
+            }
+
             //set_brightness_of_region(1, 20);
-            set_brightness_of_region(2, 20);
-            set_brightness_of_region(3, 20);
+            //set_brightness_of_region(2, 20);
+            //set_brightness_of_region(3, 20);
             //set_brightness_of_region(4, 20);
         }
                 

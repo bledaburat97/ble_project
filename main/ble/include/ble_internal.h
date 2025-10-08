@@ -16,6 +16,7 @@
 #define PROFILE_NUM 1
 #define MAX_JSON_STRING_SIZE 128
 #define PROFILE_A_APP_ID 0
+#define GATTS_CHAR_UUID_UPDATING_CONFIG         0x2A54
 #define GATTS_CHAR_UUID_AUTH                    0x2A55
 #define GATTS_CHAR_UUID_RECORDS                 0x2A56
 #define GATTS_CHAR_UUID_TIMER_STATE             0x2A57
@@ -51,6 +52,7 @@ struct gatts_profile_inst {
     //uint16_t feedback_handle;
     uint16_t updating_therapy_state_handle;
     uint16_t updating_passkey_handle;
+    uint16_t updating_configuration_handle;
     uint16_t records_feedback_handle;
     esp_bt_uuid_t char_uuid;
 };
@@ -67,6 +69,7 @@ extern void (*on_write_updating_records_callback)(const uint8_t *buf, size_t len
 extern void (*on_write_updating_therapy_state_callback)(const uint8_t *buf, size_t len);
 extern void (*on_write_records_feedback_callback)(const uint8_t *buf, size_t len);
 extern void (*on_write_updating_passkey_callback)(const uint8_t *buf, size_t len);
+extern void (*on_write_updating_configuration_callback)(const uint8_t *buf, size_t len);
 extern void (*on_dynamic_period_change_callback)(uint16_t);
 
 extern esp_bd_addr_t g_peer_bda;

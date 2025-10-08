@@ -67,7 +67,6 @@ static void on_passkey_updated(const uint8_t *buf, size_t len){
 
 
 void init_passkey_handler() {
-    init_nvs();
     uint32_t passkey = 0;
     if(read_parameter_u32(NVS_PASSKEY_KEY, &passkey) != ESP_OK) {
         passkey = 1234;

@@ -26,5 +26,5 @@ uint16_t get_current_therapy_duration(void);
 uint16_t get_current_therapy_id(void);
 uint16_t get_current_therapy_passed_duration(void);
 uint16_t get_new_therapy_id_for_new_therapy(void);
-
+uint16_t get_passed_duration_before_last_pause(void);
 #endif

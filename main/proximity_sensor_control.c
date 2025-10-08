@@ -236,7 +236,7 @@ void read_proximity_of_sensors() {
         }
 
         if(highProximityByte < 9) {
-            change_helmet_state(false);
+            //change_helmet_state(false); //TODO open this in prod
             //add_and_send_notification_info(NOTIF_HELMET_ON); //for test
         }
 

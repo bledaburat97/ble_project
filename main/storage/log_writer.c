@@ -299,6 +299,8 @@ esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t p
     }
 
     if(is_cached_logs_existed) {
+        ESP_LOGI(TAG, "cached log exists");
+
         if(log.can_be_cached) {
             ESP_LOGI(TAG, "Log is cached.");
             cache_log_entry(&log);
@@ -385,16 +387,18 @@ esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t p
             }
             uint32_t base_offset = ((therapy_count - 1) % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
             //ESP_LOGI(TAG, "Log is saving the slot of flash with the base offset of: %lu", base_offset);
+
+            if(log.can_start_cache) {
+                ESP_LOGI(TAG, "Cache is starting.");
+                is_cached_logs_existed = true;
+            }
             return append_log_entry(base_offset, &log);
         }
         
         if(log.can_start_cache) {
-            ESP_LOGI(TAG, "Cache is starting.");
             is_cached_logs_existed = true;
-            if(log.can_be_cached && !log.can_be_flashed) {
-                ESP_LOGI(TAG, "Log is cached.");
-                cache_log_entry(&log);
-            }
+            ESP_LOGI(TAG, "Log is cached.");
+            cache_log_entry(&log);
         }
     }
 

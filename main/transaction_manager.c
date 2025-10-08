@@ -166,15 +166,15 @@ static void periodic_message_sender_task(void *pvParameters) {
 
     vTaskDelay(pdMS_TO_TICKS(10000));
     ESP_LOGI(TAG, "SIM: short-press (software)");
-    /*
+    
     while(1) {
         ESP_LOGI(TAG, "Do short press");
         do_short_press();
     
-        vTaskDelay(2000);
+        vTaskDelay(pdMS_TO_TICKS(20000));
     }
-    */
-
+    
+/*
     while(1) {
 
         //terapi başlat.
@@ -218,7 +218,7 @@ static void periodic_message_sender_task(void *pvParameters) {
         vTaskDelay(pdMS_TO_TICKS(22000));
 
     }
-
+*/
     /*
     const TickType_t delay = pdMS_TO_TICKS(5 * 1000); 
     const TickType_t gap_yield = pdMS_TO_TICKS(1500);
