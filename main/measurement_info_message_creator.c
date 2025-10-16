@@ -4,13 +4,14 @@
 #include "esp_log.h"
 #include "message_encoder.h"
 #include "storage/log_writer.h"
-#include "message_queue_manager.h"
+#include <stdlib.h>
 #include "temperature_sensor_control.h"
 #include "therapy_message_counter.h"
 #include <string.h>
 #include "message_queue_manager.h"
 #include "timer_management.h"
 #include "current_therapy_info_manager.h"
+#include "esp_err.h"
 
 static const char *TAG = "MeasurementInfoMessageCreator";
 
@@ -18,16 +19,21 @@ static void add_and_send_measurement_info(uint8_t temperature) {
     uint8_t humidity = 0; //URGENT
     uint8_t data[] = {temperature, humidity}; //URGENT eğer temp veya hum değişmişse.
     uint16_t passed_seconds = get_session_passed_seconds();
-    add_log(MEASUREMENT_CHANGED, data, sizeof(data), passed_seconds);
-    ESP_LOGE(TAG, "Log of measurement with passed_seconds: %u", passed_seconds);
+    esp_err_t err = add_log(MEASUREMENT_CHANGED, data, sizeof(data), passed_seconds);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to persist measurement log: %s", esp_err_to_name(err));
+    }
+    ESP_LOGI(TAG, "Measurement log recorded with passed_seconds: %u", passed_seconds);
 
     restart_duration_update_watchdog_timer();
 
-    MeasurementInfoMessage message;
-    message.temperature = temperature;
+    MeasurementInfoMessage message = {
+        .temperature = temperature,
+        .humidity = humidity,
+        .passed_seconds = passed_seconds
+    };
+
     ESP_LOGI(TAG, "Sent Temperature: %u", message.temperature);
-    message.humidity = humidity;
-    message.passed_seconds = passed_seconds;
 
     bool isMessageJson = false;
 

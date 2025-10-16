@@ -53,7 +53,10 @@ static const char *TAG = "TransactionManager";
 static void on_disconnect_ble() {
     set_ble_connection_status(false);
     uint16_t passed_seconds = get_session_passed_seconds();
-    add_notification_log(BLE_DISCONNECTED, passed_seconds);
+    esp_err_t err = add_notification_log(BLE_DISCONNECTED, passed_seconds);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to persist BLE disconnected notification: %s", esp_err_to_name(err));
+    }
     restart_duration_update_watchdog_timer();
 }
 
@@ -63,7 +66,9 @@ static void handle_status_change_message(const StatusChangeMessage *msg)
         ESP_LOGI(TAG, "STOP therapy");
         terminate_therapy();
         add_and_send_notification_info(NOTIF_THERAPY_STOPPED_BY_APP);
-        start_inactivity_timer();
+        if (!start_inactivity_timer()) {
+            ESP_LOGE(TAG, "Failed to start inactivity timer after STOP command");
+        }
     } else if(msg->type == PAUSE) {
         ESP_LOGI(TAG, "PAUSE therapy");
         if (get_device_state() == STATE_ACTIVE) {
@@ -112,8 +117,12 @@ static void add_and_send_brightness_update(const uint8_t brightness[6]) {
     uint16_t passed_seconds = get_session_passed_seconds();
 
     // NOTIF_BRIGHTNESS_UPDATED: data_len tam 6 olmalı (log_utils.get_log_entry_size_info ile uyumlu)
-    add_log(NOTIF_BRIGHTNESS_UPDATED, brightness, 6, passed_seconds);
-    ESP_LOGE(TAG, "Log of brightness update with passed_seconds: %u", passed_seconds);
+    esp_err_t err = add_log(NOTIF_BRIGHTNESS_UPDATED, brightness, 6, passed_seconds);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to persist brightness update log: %s", esp_err_to_name(err));
+    } else {
+        ESP_LOGI(TAG, "Log of brightness update with passed_seconds: %u", passed_seconds);
+    }
 
     // Bildirim Mesajı protokol gereği sadece type + passed_seconds içerir (parlaklık değerleri log'da tutuluyor)
     send_notification_info(NOTIF_BRIGHTNESS_UPDATED, passed_seconds);
@@ -129,7 +138,7 @@ static void handle_activation_message(const ActivationMessage *msg)
     }
 
     for(int i = 0; i < TOTAL_REGION_COUNT; i++) {
-        set_brightness_of_region(i + 1, msg->brightness[i]);
+        set_brightness_of_region((uint8_t)(i + 1), msg->brightness[i]);
     }
     add_and_send_brightness_update(msg->brightness);
 }
@@ -273,5 +282,7 @@ void init_transaction_manager(){
     register_on_write_updating_therapy_state_callback(on_write_of_therapy_state);
     register_on_disconnect_callback(on_disconnect_ble);
     init_message_creators();
-    xTaskCreate(periodic_message_sender_task, "PeriodicMsgSender", 4096, NULL, 5, NULL);
+    if (xTaskCreate(periodic_message_sender_task, "PeriodicMsgSender", 4096, NULL, 5, NULL) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create periodic message sender task");
+    }
 }

@@ -16,17 +16,31 @@
 #include "current_therapy_info_manager.h"
 #include "timer_management.h"
 #include "device_configuration.h"
+#include "esp_err.h"
+#include <stdlib.h>
 
 static const char *TAG = "RecordsInfoMessageCreator";
 static uint16_t final_therapy_id_to_be_sent;
 
-static void set_records(uint16_t therapy_id) {
+static void free_read_therapy_logs(ReadTherapyLogs *logs) {
+    if (!logs) {
+        return;
+    }
+    free(logs->measurements);
+    free(logs->notifications);
+    free(logs->brightness_updates);
+    logs->measurements = NULL;
+    logs->notifications = NULL;
+    logs->brightness_updates = NULL;
+}
+
+static bool set_records(uint16_t therapy_id) {
     ESP_LOGI(TAG, "Set records");
     if(therapy_id == 0) {
         ESP_LOGE(TAG, "There should be a saved therapy.");
-        return;
+        return false;
     }
-    ReadTherapyLogs read_therapy_logs;
+    ReadTherapyLogs read_therapy_logs = {0};
     bool is_active_therapy = (therapy_id == read_therapy_count()) && (get_current_therapy_state() == ACTIVE || get_current_therapy_state() == PAUSED);
 
     if(read_records(therapy_id, &read_therapy_logs, is_active_therapy)) {
@@ -59,16 +73,29 @@ static void set_records(uint16_t therapy_id) {
 
             add_fragment_count();
         }
+        else {
+            ESP_LOGE(TAG, "Failed to read therapy info for therapy id: %u", therapy_id);
+            free_read_therapy_logs(&read_therapy_logs);
+            return false;
+        }
 
-        free(read_therapy_logs.measurements);
-        free(read_therapy_logs.notifications);
-        free(read_therapy_logs.brightness_updates);
+        free_read_therapy_logs(&read_therapy_logs);
+        return true;
     }
+    
+    ESP_LOGE(TAG, "Failed to read therapy records for therapy id: %u", therapy_id);
+    free_read_therapy_logs(&read_therapy_logs);
+    return false;
 }
 
 static void send_fragments(uint16_t therapy_id) {
     uint16_t fragment_count = get_fragment_count();
     ESP_LOGI(TAG, "therapy_id: %d, fragment_count: %d", therapy_id, fragment_count);
+
+    if (fragment_count == 0) {
+        ESP_LOGW(TAG, "No fragments generated for therapy_id: %u", therapy_id);
+        return;
+    }
 
     for (uint16_t i = 0; i < fragment_count; i++) {
         const uint8_t* frag = get_fragment(i);
@@ -87,7 +114,10 @@ static void send_fragments(uint16_t therapy_id) {
 }
 
 void send_records_info_message(uint16_t therapy_id) {
-    set_records(therapy_id);
+    if (!set_records(therapy_id)) {
+        ESP_LOGE(TAG, "Unable to prepare records for therapy id: %u", therapy_id);
+        return;
+    }
     send_fragments(therapy_id);
 }
 
@@ -97,7 +127,12 @@ static void on_active_or_paused_therapy_existed()
         ESP_LOGE(TAG, "is_record_pending true");
         return;
     }
-    send_records_info_message(get_current_therapy_id());
+    uint16_t current_id = get_current_therapy_id();
+    if (current_id == 0) {
+        ESP_LOGW(TAG, "No active therapy id available while attempting to send records");
+        return;
+    }
+    send_records_info_message(current_id);
 }
 
 void on_write_of_record_request_message(const uint8_t *buf, size_t len) {
@@ -119,7 +154,7 @@ void on_write_of_record_request_message(const uint8_t *buf, size_t len) {
 
     //active therapy'nin bilgilerini zaten aktif terapi bilgi mesajında göndermiş olmalıyız.
     if (get_current_therapy_state() == ACTIVE || get_current_therapy_state() == PAUSED) {
-        final_therapy_id_to_be_sent = (last_saved_therapy_id > 0) ? (last_saved_therapy_id - 1) : 0;
+        final_therapy_id_to_be_sent = (last_saved_therapy_id > 0) ? (uint16_t)(last_saved_therapy_id - 1u) : 0;
     } else {
         final_therapy_id_to_be_sent = last_saved_therapy_id;
     }
@@ -144,6 +179,8 @@ void on_write_of_record_request_message(const uint8_t *buf, size_t len) {
         ESP_LOGI(TAG, "Nothing to send in window (start_id=%u, final=%u)", start_id, final_therapy_id_to_be_sent);
         return;
     }
+
+    send_records_info_message(start_id);
 }
 
 static void on_records_feedback(const uint8_t *buf, size_t len){
@@ -171,6 +208,10 @@ static void on_records_feedback(const uint8_t *buf, size_t len){
 }
 
 static void send_record_again(const uint16_t therapy_id) {
+    if (therapy_id == 0) {
+        ESP_LOGW(TAG, "Cannot resend records for therapy id 0");
+        return;
+    }
     send_records_info_message(therapy_id);
 }
 
@@ -196,11 +237,13 @@ void init_records_info_message_creator() {
     register_send_record_again_callback(send_record_again);
     register_send_new_record_callback(send_new_record);
 
+    uint16_t therapy_count = read_therapy_count();
+
     if(get_current_therapy_state() == NONE) {
-        final_therapy_id_to_be_sent = read_therapy_count();
+        final_therapy_id_to_be_sent = therapy_count;
     }
     else {
-        final_therapy_id_to_be_sent = read_therapy_count() - 1;
+        final_therapy_id_to_be_sent = (therapy_count > 0) ? (uint16_t)(therapy_count - 1u) : 0;
     }
     ESP_LOGI(TAG, "final_therapy_id_to_be_sent: %u", final_therapy_id_to_be_sent);
 }

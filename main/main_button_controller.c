@@ -31,8 +31,10 @@ void do_long_press(void) {
 
 
 void wait_for_button_to_sleep(void *pvParameters) {
+    const TickType_t poll_delay_ticks = pdMS_TO_TICKS(100);
+    const TickType_t long_press_ticks = pdMS_TO_TICKS(PRESS_DURATION_TO_SLEEP_MS);
+    
     TickType_t press_start = 0;
-    TickType_t press_duration = 0;
     bool button_was_pressed = false;
 
     while (1) {
@@ -44,24 +46,24 @@ void wait_for_button_to_sleep(void *pvParameters) {
                 button_was_pressed = true;
                 ESP_LOGI(TAG, "Button is pressed.");
             }
-        } else {
-            if (button_was_pressed) {
-                press_duration = xTaskGetTickCount() - press_start;
-                button_was_pressed = false;
+        } else if (button_was_pressed) {
+            TickType_t press_duration_ticks = xTaskGetTickCount() - press_start;
+            button_was_pressed = false;
 
-                uint32_t duration_ms = press_duration * portTICK_PERIOD_MS;
+#ifdef pdTICKS_TO_MS
+            uint32_t duration_ms = (uint32_t)pdTICKS_TO_MS(press_duration_ticks);
+#else
+            uint32_t duration_ms = (uint32_t)press_duration_ticks * (uint32_t)portTICK_PERIOD_MS;
+#endif
+        ESP_LOGI(TAG, "Button is released, the passed duration: %lu ms", (unsigned long)duration_ms);
 
-                ESP_LOGI(TAG, "Button is released, the passed duration: %lu ms", duration_ms);
-                
-                if (duration_ms >= PRESS_DURATION_TO_SLEEP_MS) {
-                    do_long_press();
-                } else {
-                    do_short_press();
-                }
-                    
+            if (press_duration_ticks >= long_press_ticks) {
+                do_long_press();
+            } else {
+                do_short_press();
             }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(poll_delay_ticks);
     }
 }

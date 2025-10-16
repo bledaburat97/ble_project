@@ -7,12 +7,40 @@
 #include "device_configuration.h"
 #include "default_configuration_handler.h"
 #include "laser_driver_control.h"
+#include <inttypes.h>
 
 static const char *TAG = "CurrentTherapyInfoManager";
 
 static CurrentTherapyState current_therapy_state = NONE;
 static uint16_t current_therapy_duration_s = 0;
 static uint32_t passed_ms_before_last_pause = 0;
+
+static inline uint32_t get_plan_duration_ms(void) {
+    return (uint32_t)current_therapy_duration_s * 1000u;
+}
+
+static uint32_t clamp_elapsed_to_plan(uint32_t plan_ms, uint64_t candidate_ms) {
+    if (candidate_ms > plan_ms) {
+        ESP_LOGW(TAG,
+                 "Elapsed duration overflow (candidate=%" PRIu64 ", plan=%" PRIu32 ")—clamping.",
+                 candidate_ms, plan_ms);
+        return plan_ms;
+    }
+    return (uint32_t)candidate_ms;
+}
+
+static void accumulate_passed_duration(const char *reason) {
+    uint32_t plan_ms   = get_plan_duration_ms();
+    uint32_t direct_ms = get_therapy_passed_ms_direct();
+    uint64_t combined  = (uint64_t)passed_ms_before_last_pause + (uint64_t)direct_ms;
+
+    uint32_t new_total = clamp_elapsed_to_plan(plan_ms, combined);
+    ESP_LOGI(TAG,
+             "%s pause: stored=%" PRIu32 "ms, direct=%" PRIu32 "ms, plan=%" PRIu32 "ms => new=%" PRIu32 "ms",
+             reason, passed_ms_before_last_pause, direct_ms, plan_ms, new_total);
+    passed_ms_before_last_pause = new_total;
+}
+
 
 static void clear_current_therapy(void) {
     ESP_LOGI(TAG, "Clear current therapy.");
@@ -28,12 +56,7 @@ void pause_therapy_because_of_alert(void) {
         return;
     }
     current_therapy_state = PAUSED;
-
-    uint32_t plan_ms   = (uint32_t)current_therapy_duration_s * 1000u;
-    uint32_t direct_ms = get_therapy_passed_ms_direct();
-    uint64_t new_ms    = (uint64_t)passed_ms_before_last_pause + (uint64_t)direct_ms;
-    if (new_ms > plan_ms) new_ms = plan_ms;
-    passed_ms_before_last_pause = (uint32_t)new_ms;
+    accumulate_passed_duration("Alert");
 
     stop_therapy_timer();
 }
@@ -45,16 +68,8 @@ void pause_therapy(void) {
     }
     current_therapy_state = PAUSED;
 
-    uint32_t plan_ms   = (uint32_t)current_therapy_duration_s * 1000u;
-    uint32_t direct_ms = get_therapy_passed_ms_direct();
-    ESP_LOGI(TAG, "passed_ms_before_last_pause: %lu, plan_ms: %lu, direct_ms: %lu", passed_ms_before_last_pause, plan_ms, direct_ms);
-
-    uint64_t new_ms    = (uint64_t)passed_ms_before_last_pause + (uint64_t)direct_ms;
-    if (new_ms > plan_ms) {
-        new_ms = plan_ms;
-    }
-    passed_ms_before_last_pause = (uint32_t)new_ms;
-    ESP_LOGI(TAG, "passed_ms_before_last_pause: %lu", passed_ms_before_last_pause);
+    accumulate_passed_duration("Manual");
+    ESP_LOGI(TAG, "passed_ms_before_last_pause: %" PRIu32, passed_ms_before_last_pause);
 
     stop_therapy_timer();
     start_inactivity_timer();
@@ -72,8 +87,9 @@ void terminate_therapy() {
 
 void start_or_continue_therapy(bool is_by_app) {
     if(!is_inactivity_timer_running()) {
-        ESP_LOGE(TAG, "Inactivity timer is not running when continuing therapy.");
-        return;
+        ESP_LOGW(TAG, "Inactivity timer is not running when continuing therapy.");
+    } else if (!stop_inactivity_timer()) {
+        ESP_LOGW(TAG, "Failed to stop inactivity timer when continuing therapy.");
     }
 
     if(!get_helmet_state()) {
@@ -98,20 +114,36 @@ uint16_t get_current_therapy_id() {
         ESP_LOGI(TAG, "There is not a current therapy");
         return 0;
     }
-    return read_therapy_count();
+    uint16_t therapy_count = read_therapy_count();
+    if (therapy_count == 0) {
+        ESP_LOGW(TAG, "Therapy counter returned zero while a therapy is active.");
+    }
+    return therapy_count;
 }
 
 uint16_t get_new_therapy_id_for_new_therapy() {
-    return read_therapy_count() + 1;
+    uint16_t therapy_count = read_therapy_count();
+    if (therapy_count >= MAX_THERAPY_COUNT) {
+        ESP_LOGW(TAG, "Therapy counter reached the maximum value: %u", therapy_count);
+        return therapy_count;
+    }
+    return (uint16_t)(therapy_count + 1u);
 }
 
 void set_new_therapy(uint16_t total_duration_s) {
     ESP_LOGI(TAG, "Set new therapy.");
+    if (total_duration_s == 0) {
+        ESP_LOGW(TAG, "Attempting to set a zero-duration therapy.");
+    }
     current_therapy_duration_s = total_duration_s;
     passed_ms_before_last_pause = 0;
 }
 
 void start_new_therapy(uint16_t duration) {
+    if (duration == 0) {
+        ESP_LOGE(TAG, "Cannot start a therapy with zero duration.");
+        return;
+    }
     set_new_therapy(duration);
     reset_session_clock();
     start_therapy_timer(duration, TIMER_STATE_NEW_THERAPY_BY_APP);
@@ -119,23 +151,23 @@ void start_new_therapy(uint16_t duration) {
 }
 
 void start_therapy(bool is_by_app) {
-    uint32_t plan_ms = (uint32_t)current_therapy_duration_s * 1000u;
+    uint32_t plan_ms = get_plan_duration_ms();
 
     if(passed_ms_before_last_pause == 0) {
         if(!is_by_app) {
             if(current_therapy_duration_s == 0) {
-                ESP_LOGW(TAG, "No current therapy; using default");
+                ESP_LOGW(TAG, "No current therapy; using default configuration");
 
                 uint8_t* brightness_list = get_default_brightness();
 
                 for(int i = 0; i < TOTAL_REGION_COUNT; i++) {
-                    set_brightness_of_region(i + 1, brightness_list[i]);
+                    set_brightness_of_region((uint8_t)(i + 1), brightness_list[i]);
                 }
 
                 uint16_t default_therapy_duration = get_default_therapy_duration();
                 set_new_therapy(default_therapy_duration);
                 reset_session_clock();
-                plan_ms = (uint32_t)default_therapy_duration * 1000u;
+                plan_ms = get_plan_duration_ms();
             }
             ESP_LOGE(TAG, "Set therapy timer");
             start_therapy_timer(current_therapy_duration_s, TIMER_STATE_NEW_THERAPY_BY_BUTTON);
@@ -147,6 +179,7 @@ void start_therapy(bool is_by_app) {
     }
     else if(passed_ms_before_last_pause >= plan_ms) {
         ESP_LOGE(TAG, "Passed exceeds plan: %lu >= %lu", (unsigned long)passed_ms_before_last_pause, (unsigned long)plan_ms);
+        passed_ms_before_last_pause = plan_ms;
         return;
     }
     else {

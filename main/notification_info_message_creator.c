@@ -10,8 +10,10 @@
 #include "therapy_message_counter.h"
 #include "state_manager.h"
 #include <string.h>
+#include <stdlib.h>
 #include "message_queue_manager.h"
 #include "current_therapy_info_manager.h"
+#include "esp_err.h"
 
 static const char *TAG = "NotificationInfoMessageCreator";
 
@@ -21,9 +23,10 @@ static void on_timer_state_info_feedback_callback() {
 }
 
 void send_notification_info(NotificationType type, uint16_t passed_seconds) {
-    NotificationMessage message;
-    message.type = type;
-    message.passed_seconds = passed_seconds;
+    NotificationMessage message = {
+        .type = type,
+        .passed_seconds = passed_seconds
+    };
     bool isMessageJson = false;
 
     if(isMessageJson) {
@@ -47,7 +50,10 @@ void send_notification_info(NotificationType type, uint16_t passed_seconds) {
 
 void add_and_send_notification_info(NotificationType notification_type) {
     uint16_t passed_seconds = get_session_passed_seconds();
-    add_notification_log(notification_type, passed_seconds);
+    esp_err_t err = add_notification_log(notification_type, passed_seconds);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to persist notification log: %s", esp_err_to_name(err));
+    }
     send_notification_info(notification_type, passed_seconds);
     restart_duration_update_watchdog_timer();
 }

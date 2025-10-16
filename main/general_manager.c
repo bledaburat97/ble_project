@@ -36,7 +36,9 @@ void start_device() {
         enter_deep_sleep();
     }
     else{
-        start_inactivity_timer();
+        if (!start_inactivity_timer()) {
+            ESP_LOGE(TAG, "Failed to start inactivity timer during device start");
+        }
     }
 }
 
@@ -51,7 +53,9 @@ void set_inactivity_after_alert_expires() {
     if(is_alert_timer_running()) {
         stop_alert_timer();
     }
-    start_inactivity_timer();
+    if (!start_inactivity_timer()) {
+        ESP_LOGE(TAG, "Failed to start inactivity timer during device start");
+    }
 }
 
 static void on_timer_end(NotificationType notification_type) {
@@ -77,7 +81,9 @@ static void on_timer_end(NotificationType notification_type) {
         if(get_device_state() == STATE_ACTIVE) {
             terminate_therapy();
             add_and_send_notification_info(notification_type);
-            start_inactivity_timer();
+            if (!start_inactivity_timer()) {
+                ESP_LOGE(TAG, "Failed to start inactivity timer during device start");
+            }
         }
         else{
             ESP_LOGE(TAG, "Big error.");
@@ -93,6 +99,7 @@ void change_helmet_state(bool helmet_state) {
 
     if(!set_helmet_state(helmet_state)){
         ESP_LOGE(TAG, "Helmet state can not be set.");
+        return;
     }
 
     if (helmet_state) {
