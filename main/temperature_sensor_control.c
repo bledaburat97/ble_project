@@ -88,14 +88,14 @@ void temperature_read_task(void *param) {
         current_temperature = rounded_temperature;
 
         ESP_LOGI(TAG, "Temperature measured: %.2f°C", average_temperature);
-        if(average_temperature > 28.5) {
+        if(average_temperature > 40) {
             if (temp_alert_callback) {
                 temp_alert_callback(0);
             }
         }
         //ESP_LOGI(TAG, "Saved temperature: %.2f°C", rounded_temperature);
 
-        vTaskDelay(pdMS_TO_TICKS(3000));
+        vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
 

@@ -23,8 +23,8 @@ SemaphoreHandle_t          s_conf_sem = NULL;
 volatile esp_gatt_status_t s_last_conf_status = ESP_GATT_OK;
 volatile uint16_t          s_last_conf_handle  = 0;
 
-uint16_t notif_ind_cccd_handle = 0;
-bool     notif_ind_enabled     = false;
+//uint16_t notif_ind_cccd_handle = 0;
+//bool     notif_ind_enabled     = false;
 
 volatile bool g_ind_inflight = false;
 

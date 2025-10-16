@@ -66,7 +66,6 @@ void init_default_configuration_handler(void) {
         (void)save_parameter_u16(NVS_THERAPY_DUR_KEY, dur);
     }
     default_therapy_duration = dur;
-
     uint8_t brightness[6];
     size_t  blen = sizeof(brightness);
     if (read_parameter_blob(NVS_BRIGHTNESS_KEY, brightness, &blen) != ESP_OK || blen != 6) {

@@ -30,6 +30,35 @@ esp_err_t init_bluetooth(void) {
 esp_err_t start_registering_and_advertising(void) {
     setup_ble_security();
 
+    int dev_num = esp_ble_get_bond_device_num();
+    if (dev_num > 0) {
+        esp_ble_bond_dev_t *list = (esp_ble_bond_dev_t *)malloc(sizeof(esp_ble_bond_dev_t) * dev_num);
+        if (list) {
+            int out = dev_num;
+            esp_err_t e = esp_ble_get_bond_device_list(&out, list);
+            if (e == ESP_OK) {
+                for (int i = 0; i < out; ++i) {
+                    esp_err_t r = esp_ble_remove_bond_device(list[i].bd_addr);
+                    if (r == ESP_OK) {
+                        ESP_LOGI("BLEInitiator",
+                                 "Removed bond: %02X:%02X:%02X:%02X:%02X:%02X",
+                                 list[i].bd_addr[0], list[i].bd_addr[1], list[i].bd_addr[2],
+                                 list[i].bd_addr[3], list[i].bd_addr[4], list[i].bd_addr[5]);
+                    } else {
+                        ESP_LOGW("BLEInitiator", "remove_bond_device failed: %s", esp_err_to_name(r));
+                    }
+                }
+            } else {
+                ESP_LOGW("BLEInitiator", "get_bond_device_list failed: %s", esp_err_to_name(e));
+            }
+            free(list);
+        } else {
+            ESP_LOGE("BLEInitiator", "malloc failed for bond list (num=%d)", dev_num);
+        }
+    } else {
+        ESP_LOGI("BLEInitiator", "No bonded devices.");
+    }
+
     ESP_ERROR_CHECK(esp_ble_gatts_register_callback(gatts_event_handler));
     ESP_ERROR_CHECK(esp_ble_gap_register_callback(gap_event_handler));
     ESP_ERROR_CHECK(esp_ble_gatts_app_register(PROFILE_A_APP_ID));

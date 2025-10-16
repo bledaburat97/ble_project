@@ -224,7 +224,6 @@ esp_err_t append_log_entry(uint32_t offset, const BaseLogEntry* log) {
     }
     else{
         if(write_log_entry(offset + local_offset, entry, log->entry_size) == ESP_OK) {
-            ESP_LOGI(TAG, "Log entry written at offset %lu", offset + local_offset);
             starting_local_offset = local_offset + log->entry_size;
         }
         else{
@@ -291,6 +290,7 @@ Ek işlevler:
     Yeni bir slota geçilirken o slot boştaki son slot ise en eski slot silinip yeniden kullanılabilir hale getirilir.
 */
 esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t passed_seconds) {
+    return ESP_OK; //TODO: remove
     BaseLogEntry log = fill_base_log(type, data, data_len, passed_seconds);
 
     if (log.entry_size == 0) {

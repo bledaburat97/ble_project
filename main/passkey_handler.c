@@ -69,9 +69,11 @@ static void on_passkey_updated(const uint8_t *buf, size_t len){
 void init_passkey_handler() {
     uint32_t passkey = 0;
     if(read_parameter_u32(NVS_PASSKEY_KEY, &passkey) != ESP_OK) {
-        passkey = 1234;
+        passkey = 2345;
         save_parameter_u32(NVS_PASSKEY_KEY, passkey);
     }
+    ESP_LOGE(TAG, "passkey: %lu", passkey);
+    save_parameter_u32(NVS_PASSKEY_KEY, passkey);
     esp_ble_gap_set_security_param(ESP_BLE_SM_SET_STATIC_PASSKEY, &passkey, sizeof(passkey));
     register_on_write_updating_passkey_callback(on_passkey_updated);
 }

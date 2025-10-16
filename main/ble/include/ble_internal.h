@@ -49,7 +49,6 @@ struct gatts_profile_inst {
     uint16_t device_handle;
     uint16_t activation_handle;
     uint16_t updating_records_handle;
-    //uint16_t feedback_handle;
     uint16_t updating_therapy_state_handle;
     uint16_t updating_passkey_handle;
     uint16_t updating_configuration_handle;
@@ -83,8 +82,12 @@ extern SemaphoreHandle_t        s_conf_sem;
 extern volatile esp_gatt_status_t s_last_conf_status;
 extern volatile uint16_t          s_last_conf_handle;
 
-extern uint16_t notif_ind_cccd_handle;
+//extern uint16_t notif_ind_cccd_handle;
 extern bool     notif_ind_enabled;
+extern bool     timer_ind_enabled;
+extern bool     device_ind_enabled;
+extern bool     bond_ok;
+
 extern volatile bool g_ind_inflight;
 
 extern uint8_t  s_adv_handle;
@@ -92,7 +95,6 @@ extern bool     s_ext_adv_started;
 extern uint8_t  s_adv_raw[31];
 extern uint8_t  s_adv_len;
 
-// ---- Ortak yardımcılar (farklı .c dosyalarında kullanılıyor) ----
 uint16_t ms_to_conn_int(uint16_t ms);
 void     build_adv_data(void);
 void     setup_ble_security(void);
@@ -114,3 +116,23 @@ void     set_ble_tx_power(void);
 void apply_profile(link_prof_t p);
 esp_err_t ble_send_auth_message();
 bool has_peer(void);
+
+typedef enum {
+  STEP_INIT = 0,
+  STEP_ADD_AUTH,
+  STEP_ADD_RECORDS,
+  STEP_ADD_TIMER,
+  STEP_ADD_TIMER_CCCD,
+  STEP_ADD_MEAS,
+  STEP_ADD_NOTIF,
+  STEP_ADD_NOTIF_CCCD,
+  STEP_ADD_DEVICE,
+  STEP_ADD_DEVICE_CCCD,
+  STEP_ADD_ACTIVATION,
+  STEP_ADD_UPD_RECORDS,
+  STEP_ADD_UPD_PASSKEY,
+  STEP_ADD_UPD_CONFIG,
+  STEP_ADD_UPD_THERAPY_STATE,
+  STEP_ADD_RECORDS_FEEDBACK,
+  STEP_DONE
+} build_step_t;

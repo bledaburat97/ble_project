@@ -2,6 +2,8 @@
 
 static const char *TAG = "BLEGapHandler";
 
+bool bond_ok = false;
+
 static link_prof_t choose_profile(int8_t rssi) {
     if (rssi >= -60) return PROF_REALLY_GOOD;
     if (rssi >= -68) return PROF_GOOD;
@@ -161,9 +163,14 @@ void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
         break;
 
     case ESP_GAP_BLE_AUTH_CMPL_EVT:
-        ESP_LOGI(TAG, "%s", param->ble_security.auth_cmpl.success ? "Bond OK" : "Bond fail");
+        if (param->ble_security.auth_cmpl.success) {
+            ESP_LOGI(TAG, "Bond OK");
+            bond_ok = true;
+        } else {
+            ESP_LOGW(TAG, "Bond fail");
+            bond_ok = false;
+        }
         break;
-
     default:
         ESP_LOGW(TAG, "Unhandled GAP event: %d", event);
         break;

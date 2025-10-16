@@ -38,27 +38,36 @@ void fragments_set_capacity_from_mtu(uint16_t mtu) {
     fragments_set_capacity(payload);
 }
 
-static void start_new_fragment(uint16_t therapy_id) {
+static bool start_new_fragment(uint16_t therapy_id) {
     if (FRAGMENT_CAPACITY() < 4) {
         ESP_LOGE(TAG, "Fragment capacity too small (%u)", (unsigned)FRAGMENT_CAPACITY());
-        return;
+        return false;
     }
     ESP_LOGW(TAG, "Fragment Max Capacity: %u", (uint16_t)FRAGMENT_CAPACITY());
-    if (current_fragment_id + 1 > MAX_FRAGMENT_COUNT) {
-        ESP_LOGE(TAG, "Too many fragments");
-        return;
+
+    uint32_t next_id = (current_fragment_id == UINT16_MAX) ? 0u
+                                                           : (uint32_t)current_fragment_id + 1u;
+
+    if (next_id >= (uint32_t)MAX_FRAGMENT_COUNT) {
+        ESP_LOGE(TAG, "Too many fragments (current=%u, next=%lu, max=%u)",
+                 (unsigned)current_fragment_id, (unsigned long)next_id, (unsigned)MAX_FRAGMENT_COUNT);
+        return false;
     }
-    current_fragment_id++;
+
+    current_fragment_id = (uint16_t)next_id;
 
     fragments[current_fragment_id][0] = (current_fragment_id >> 8) & 0xFF;
     fragments[current_fragment_id][1] = current_fragment_id & 0xFF;
     fragments[current_fragment_id][2] = (therapy_id >> 8) & 0xFF;
     fragments[current_fragment_id][3] = therapy_id & 0xFF;
     fragment_lengths[current_fragment_id] = 4;
+    return true;
 }
 
 void start_encoding_for_new_therapy(uint16_t therapy_id, uint16_t therapy_duration, uint16_t passed_therapy_duration) {
-    start_new_fragment(therapy_id);
+    if(!start_new_fragment(therapy_id)) {
+        return;
+    };
     //ESP_LOGI(TAG, "start_encoding_for_new_therapy: therapy id: %u", therapy_id);
 
     // Record Type: Fragment Count (0x06)
@@ -117,7 +126,10 @@ void encode_records_of_therapy(uint16_t therapy_id, uint8_t record_type,
 
         size_t remaining = FRAGMENT_CAPACITY() - fragment_lengths[current_fragment_id];
         if (remaining < min_required) {
-            start_new_fragment(therapy_id);
+
+            if(!start_new_fragment(therapy_id)) {
+                return;
+            }
             remaining = FRAGMENT_CAPACITY() - fragment_lengths[current_fragment_id];
         }
 

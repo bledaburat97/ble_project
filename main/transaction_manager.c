@@ -164,7 +164,7 @@ static void init_message_creators(){
 
 static void periodic_message_sender_task(void *pvParameters) {
 
-    vTaskDelay(pdMS_TO_TICKS(10000));
+    vTaskDelay(pdMS_TO_TICKS(60000));
     ESP_LOGI(TAG, "SIM: short-press (software)");
     
     while(1) {

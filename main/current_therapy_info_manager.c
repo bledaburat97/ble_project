@@ -6,6 +6,7 @@
 #include "therapy_counter.h"
 #include "device_configuration.h"
 #include "default_configuration_handler.h"
+#include "laser_driver_control.h"
 
 static const char *TAG = "CurrentTherapyInfoManager";
 
@@ -94,6 +95,7 @@ uint16_t get_current_therapy_duration() {
 
 uint16_t get_current_therapy_id() {
     if(current_therapy_state == NONE) {
+        ESP_LOGI(TAG, "There is not a current therapy");
         return 0;
     }
     return read_therapy_count();
@@ -123,6 +125,13 @@ void start_therapy(bool is_by_app) {
         if(!is_by_app) {
             if(current_therapy_duration_s == 0) {
                 ESP_LOGW(TAG, "No current therapy; using default");
+
+                uint8_t* brightness_list = get_default_brightness();
+
+                for(int i = 0; i < TOTAL_REGION_COUNT; i++) {
+                    set_brightness_of_region(i + 1, brightness_list[i]);
+                }
+
                 uint16_t default_therapy_duration = get_default_therapy_duration();
                 set_new_therapy(default_therapy_duration);
                 reset_session_clock();

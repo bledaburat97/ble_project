@@ -172,11 +172,12 @@ void app_main() {
             init_log_partition();
         }
 
+        init_nvs();
+
         if(is_ble_active) {
             init_transaction_manager();
         }
 
-        init_nvs();
         init_passkey_handler();
         init_default_configuration_handler();
 
@@ -230,8 +231,8 @@ void app_main() {
         if(is_lp_prox_sensor_active || is_hp_prox_sensor_active) {
             initialize_proximity_int_gpio();
             initialize_proximity_sensors(is_hp_prox_sensor_active, is_lp_prox_sensor_active);
-            xTaskCreate(monitor_proximity_int_task, "Monitor Proximity Int Task", 2048, NULL, 1, NULL);
-            xTaskCreate(proximity_read_task, "ProximityReadTask", 2048, NULL, 5, NULL);
+            //xTaskCreate(monitor_proximity_int_task, "Monitor Proximity Int Task", 2048, NULL, 1, NULL); //TODO: gerçek kask cihazında aç.
+            //xTaskCreate(proximity_read_task, "ProximityReadTask", 2048, NULL, 5, NULL);
         }
 /* can be deleted                   
         if(is_boot_button_control_active) {

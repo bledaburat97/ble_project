@@ -7,6 +7,7 @@
 #include "deep_sleep_manager.h"
 #include "state_manager.h"
 #include "device_configuration.h"
+#include "laser_driver_control.h"
 
 static const char *TAG = "DeepSleepManager";
 
@@ -23,7 +24,7 @@ void set_deep_sleep_button() {
 
 void enter_deep_sleep() {
     ESP_LOGI(TAG, "Entering to deep sleep");
-    
+    set_laser_drivers_status(false);
     set_deep_sleep_button();
     esp_sleep_enable_ext1_wakeup(BUTTON_PIN_BITMASK, ESP_EXT1_WAKEUP_ANY_LOW);
     esp_deep_sleep_start();

@@ -2,8 +2,8 @@
 #include "../storage_management.h"
 
 void setup_ble_security(void) {
-    uint8_t auth = ESP_LE_AUTH_REQ_SC_MITM_BOND; // SC + MITM + Bond
-    esp_ble_gap_set_security_param(ESP_BLE_SM_AUTHEN_REQ_MODE, &auth, sizeof(auth));
+    uint8_t auth_req = ESP_LE_AUTH_REQ_SC_BOND | ESP_LE_AUTH_REQ_MITM; // SC+MITM+Bond
+    esp_ble_gap_set_security_param(ESP_BLE_SM_AUTHEN_REQ_MODE, &auth_req, sizeof(auth_req));
 
     uint8_t only_accept = ESP_BLE_ONLY_ACCEPT_SPECIFIED_AUTH_ENABLE;
     esp_ble_gap_set_security_param(ESP_BLE_SM_ONLY_ACCEPT_SPECIFIED_SEC_AUTH, &only_accept, sizeof(only_accept));

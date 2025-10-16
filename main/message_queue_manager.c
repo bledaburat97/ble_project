@@ -3,6 +3,7 @@
 #include "ble/include/ble_controller.h"
 #include "ble/include/ble_connection_state_manager.h"
 #include "device_configuration.h"
+#include "ble/include/ble_internal.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -82,6 +83,12 @@ static void set_record_pending(uint16_t therapy_id) {
     pending_record.send_timestamp = esp_log_timestamp();
 }
 
+static inline void drain_old_conf(void){
+    esp_gatt_status_t dummy;
+    // ble_wait_for_indication_conf zaten sem’e bağlı ise:
+    (void)ble_wait_for_indication_conf(&dummy, 0 /*ms*/);
+}
+
 static void send_and_track(const MessageQueueEntry *entry)
 {
     if (!get_ble_connection_status()) {
@@ -93,6 +100,24 @@ static void send_and_track(const MessageQueueEntry *entry)
     SemaphoreHandle_t ble_mutex = get_ble_mutex_handle();
     const uint32_t conf_timeout_ms = 3000;
     const bool need_conf = requires_conf(entry->type);
+
+    if (need_conf) {
+        if(entry->type == NOTIFICATION_INFO_MESSAGE && !notif_ind_enabled) {
+            ESP_LOGW(TAG, "Indication needed (type=%d) but CCCD not enabled.", entry->type);
+            return;
+        }
+
+        else if(entry->type == DEVICE_INFO_MESSAGE && !device_ind_enabled) {
+            ESP_LOGW(TAG, "Indication needed (type=%d) but CCCD not enabled.", entry->type);
+            return;
+        }
+        else if(entry->type == TIMER_STATE_INFO_MESSAGE && !timer_ind_enabled) {
+            ESP_LOGW(TAG, "Indication needed (type=%d) but CCCD not enabled.", entry->type);
+            return;
+        }
+
+        drain_old_conf();
+    }
 
     for (int attempt = 1; attempt <= MAX_MESSAGE_RETRY_COUNT; attempt++) {
         if (xSemaphoreTake(ble_mutex, pdMS_TO_TICKS(300)) != pdTRUE) {
@@ -161,6 +186,12 @@ static void queue_sender_task(void *pvParameters)
     MessageQueueEntry entry;
 
     while (1) {
+
+        if (!get_ble_connection_status() || !bond_ok) {
+            vTaskDelay(pdMS_TO_TICKS(50));
+            continue;
+        }
+
         TickType_t inter_message_delay = pdMS_TO_TICKS(dynamic_period);
 
         if (xQueueReceive(high_priority_queue, &entry, pdMS_TO_TICKS(100)) == pdTRUE) {
