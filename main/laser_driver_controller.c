@@ -1,4 +1,4 @@
-#include "laser_driver_control.h"
+#include "laser_driver_controller.h"
 #include "i2c_control.h"
 #include "esp_log.h"
 #include "string.h"
@@ -21,7 +21,7 @@ static const char *LASER_TAG = "LaserDriverControl";
 static LP5036Info lp5036Infos[NUM_OF_LP5036];
 
 static const LP5036Info not_banked_test_lp5036Infos[NUM_OF_LP5036] = {
-    /*
+    
     {
         .address = LP5036_ADDRESS_1, //u402 DRIVER
         .region_piece_count = 2,
@@ -73,7 +73,7 @@ static const LP5036Info not_banked_test_lp5036Infos[NUM_OF_LP5036] = {
         },
         .i2c_master_num = I2C_FIRST_MASTER_NUM
     }
-        */
+        /*
 
 
     {
@@ -110,6 +110,7 @@ static const LP5036Info not_banked_test_lp5036Infos[NUM_OF_LP5036] = {
         },
         .i2c_master_num = I2C_FIRST_MASTER_NUM
     }
+        */
         
 };
 

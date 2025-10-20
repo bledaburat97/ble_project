@@ -1,14 +1,14 @@
 #include "i2c_control.h"
-#include "temperature_sensor_control.h"
+#include "temperature_sensor_controller.h"
 #include "esp_log.h"
 #include "temperature_sensor.h"
 #include "esp_task_wdt.h"
-#include "temperature_alarm_control.h"
+#include "temperature_alert_controller.h"
 #include <math.h>
 #include "device_configuration.h"
 
 
-static const char *TAG = "TemperatureControl";
+static const char *TAG = "TemperatureSensorController";
 static const uint8_t sensor_addresses[] = {SECOND_PJ85775_ADDRESS, FIRST_PJ85775_ADDRESS, THIRD_PJ85775_ADDRESS};
 static float current_temperature;
 static void (*temp_update_callback)(uint8_t) = NULL;

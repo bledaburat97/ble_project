@@ -2,14 +2,13 @@
 
 #include "storage/log_types.h"
 #include "esp_log.h"
-#include "message_encoder.h"
+#include "binary_message_encoder.h"
 #include "storage/log_writer.h"
 #include "message_queue_manager.h"
 #include "state_manager.h"
-#include "therapy_message_counter.h"
 #include <string.h>
 #include "current_therapy_info_manager.h"
-#include "timer_management.h"
+#include "timer_manager.h"
 #include "esp_err.h"
 #include <stdlib.h>
 
@@ -24,25 +23,9 @@ static void log_timer_state_message(const TimerStateInfoMessage *message, const 
 }
 
 static void enqueue_timer_state_message(const TimerStateInfoMessage *message) {
-    bool isMessageJson = false;
-
-    if(isMessageJson) {
-        char *json_str = encode_timer_state_info_message(message);
-        if (json_str == NULL) {
-            ESP_LOGE(TAG, "JSON encode failed");
-            return;
-        }
-
-        size_t len = strlen(json_str);
-        send_info_message_to_queue(TIMER_STATE_INFO_MESSAGE, (uint8_t*)json_str, len);
-
-        free(json_str);
-    }
-    else {
-        uint8_t buf[TIMER_STATE_INFO_SIZE];
-        size_t len = encode_timer_state_info_message_binary(message, buf);
-        send_info_message_to_queue(TIMER_STATE_INFO_MESSAGE, buf, len);
-    }
+    uint8_t buf[TIMER_STATE_INFO_SIZE];
+    size_t len = encode_timer_state_info_message_binary(message, buf);
+    send_info_message_to_queue(TIMER_STATE_INFO_MESSAGE, buf, len);
 }
 
 static void on_device_info_feedback_callback() {

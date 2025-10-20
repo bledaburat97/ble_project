@@ -1,9 +1,10 @@
-#include "temperature_alarm_control.h"
+#include "proximity_int_controller.h"
+#include "temperature_alert_controller.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
-#include "proximity_sensor_control.h"
+#include "proximity_sensor_controller.h"
 #include "state_manager.h"
 #include "device_configuration.h"
 

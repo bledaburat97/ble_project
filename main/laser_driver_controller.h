@@ -3,8 +3,8 @@
 #include <stdbool.h>
 #include "device_configuration.h"
 
-#ifndef LASER_DRIVER_CONTROL_H
-#define LASER_DRIVER_CONTROL_H
+#ifndef LASER_DRIVER_CONTROLLER_H
+#define LASER_DRIVER_CONTROLLER_H
 
 typedef struct {
     uint8_t region_id;

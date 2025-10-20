@@ -19,13 +19,12 @@
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
-#include "boot_button_control.h"
 
 #include "default_configuration_handler.h"
 #include "deep_sleep_manager.h"
 #include "general_manager.h"
 #include "i2c_control.h"
-#include "laser_driver_control.h"
+#include "laser_driver_controller.h"
 #include "lp_core_firmware.h"
 #include "lp_core_main.h"
 #include "lp_core_queue_manager.h"
@@ -35,20 +34,20 @@
 #include "notification_info_message_creator.h"
 #include "nvs_flash.h"
 #include "passkey_handler.h"
-#include "proximity_int_control.h"
+#include "proximity_int_controller.h"
 #include "proximity_sensor_config.h"
-#include "proximity_sensor_control.h"
+#include "proximity_sensor_controller.h"
 #include "records_info_message_creator.h"
 #include "state_manager.h"
 #include "storage/log_partition_manager.h"
 #include "storage/log_types.h"
 #include "storage/log_utils.h"
 #include "storage/log_writer.h"
-#include "storage_management.h"
-#include "temperature_alarm_control.h"
-#include "temperature_sensor_control.h"
+#include "storage_manager.h"
+#include "temperature_alert_controller.h"
+#include "temperature_sensor_controller.h"
 #include "therapy_counter.h"
-#include "timer_management.h"
+#include "timer_manager.h"
 #include "transaction_manager.h"
 
 static const char *TAG = "Main";
@@ -73,7 +72,6 @@ typedef struct {
     bool laser_and_led_drivers_active;
     bool temperature_sensor_active;
     bool hp_prox_sensor_active;
-    bool boot_button_control_active;
     bool default_sleep_active;
     bool deep_sleep_button_control_active;
     bool creating_logs_permitted;
@@ -88,9 +86,8 @@ static const feature_config_t feature_config = {
     .laser_and_led_drivers_active = true,
     .temperature_sensor_active = true,
     .hp_prox_sensor_active = true,
-    .boot_button_control_active = false,
     .default_sleep_active = false,
-    .deep_sleep_button_control_active = false,
+    .deep_sleep_button_control_active = true,
     .creating_logs_permitted = true,
 };
 
@@ -208,11 +205,6 @@ static void initialize_sensor_and_driver_components(const feature_config_t *conf
 }
 
 static void initialize_button_components(const feature_config_t *config) {
-    if (config->boot_button_control_active) {
-        initialize_boot_button_gpio();
-        xTaskCreate(monitor_boot_button_task, "Monitor Boot Button Task", 2048, NULL, 1, NULL);
-    }
-
     if (config->deep_sleep_button_control_active) {
         set_deep_sleep_button();
         xTaskCreate(wait_for_button_to_sleep, "button_task", 2048, NULL, 1, NULL);

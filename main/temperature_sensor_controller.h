@@ -1,7 +1,7 @@
 #include <stdint.h>
 
-#ifndef TEMPERATURE_SENSOR_CONTROL_H
-#define TEMPERATURE_SENSOR_CONTROL_H
+#ifndef TEMPERATURE_SENSOR_CONTROLLER_H
+#define TEMPERATURE_SENSOR_CONTROLLER_H
 
 void initialize_temperature_sensor();
 uint8_t log_temperature();

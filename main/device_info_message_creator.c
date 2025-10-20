@@ -1,13 +1,13 @@
 #include "device_info_message_creator.h"
 
-#include "message_encoder.h"
+#include "binary_message_encoder.h"
 #include "current_therapy_info_manager.h"
 #include "esp_mac.h"
 #include "esp_log.h"
 #include "storage/log_types.h"
 #include "therapy_counter.h"
 #include "message_queue_manager.h"
-#include "timer_management.h"
+#include "timer_manager.h"
 #include "storage/log_writer.h"
 #include "ble/include/ble_connection_state_manager.h"
 #include "ble/include/ble_controller.h"
@@ -43,25 +43,10 @@ static void send_device_info(uint16_t passed_seconds) {
 
     message.passed_seconds = passed_seconds;
 
-    bool isMessageJson = false;
-
-    if(isMessageJson) {
-        char *json_str = encode_device_info_message(&message);
-        if (json_str == NULL) {
-            ESP_LOGE(TAG, "JSON encode failed");
-            return;
-        }
-        size_t len = strlen(json_str);
-        send_info_message_to_queue(DEVICE_INFO_MESSAGE, (uint8_t*)json_str, len);
-
-        free(json_str);
-    }
-    else {
-        uint8_t buf[DEVICE_INFO_SIZE];
-        size_t len = encode_device_info_message_binary(&message, buf);
-        send_info_message_to_queue(DEVICE_INFO_MESSAGE, buf, len);
-        ESP_LOGI(TAG, "Device info message is sent");
-    }
+    uint8_t buf[DEVICE_INFO_SIZE];
+    size_t len = encode_device_info_message_binary(&message, buf);
+    send_info_message_to_queue(DEVICE_INFO_MESSAGE, buf, len);
+    ESP_LOGI(TAG, "Device info message is sent");
 }
 
 static void perform_post_connect_operations(void) {

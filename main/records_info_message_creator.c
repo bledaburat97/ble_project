@@ -14,7 +14,7 @@
 #include "binary_message_parser.h"
 #include "state_manager.h"
 #include "current_therapy_info_manager.h"
-#include "timer_management.h"
+#include "timer_manager.h"
 #include "device_configuration.h"
 #include "esp_err.h"
 #include <stdlib.h>

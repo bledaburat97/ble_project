@@ -1,4 +1,4 @@
-#include "timer_management.h"
+#include "timer_manager.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/timers.h"
@@ -7,7 +7,7 @@
 
 #include "deep_sleep_manager.h"
 #include "state_manager.h"
-#include "temperature_alarm_control.h"
+#include "temperature_alert_controller.h"
 #include "timer_utils.h"
 #include "storage/log_writer.h"
 #include "storage/log_utils.h"
@@ -15,7 +15,7 @@
 #include "freertos/queue.h"
 #include "device_configuration.h"
 
-static const char *TAG = "TimerManagement";
+static const char *TAG = "TimerManager";
 
 static TimerHandle_t therapy_timer = NULL;
 static TimerHandle_t inactivity_timer = NULL;

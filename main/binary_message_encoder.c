@@ -1,4 +1,4 @@
-#include "message_encoder.h"
+#include "binary_message_encoder.h"
 #include <string.h>
 
 size_t encode_device_info_message_binary(const DeviceInfoMessage *m, uint8_t out[DEVICE_INFO_SIZE])

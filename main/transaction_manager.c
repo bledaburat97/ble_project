@@ -7,15 +7,14 @@
 #include "transaction_manager.h"
 
 #include "i2c_control.h"
-#include "laser_driver_control.h"
-#include "temperature_sensor_control.h"
-#include "proximity_sensor_control.h"
-#include "timer_management.h"
+#include "laser_driver_controller.h"
+#include "temperature_sensor_controller.h"
+#include "proximity_sensor_controller.h"
+#include "timer_manager.h"
 #include "binary_message_parser.h"
 #include "state_manager.h"
 #include "ble/include/ble_controller.h"
-#include "transaction_message_encoder.h"
-#include "message_encoder.h"
+#include "binary_message_encoder.h"
 #include "storage/log_writer.h"
 #include "therapy_counter.h"
 #include "matching_message_encoder.h"
@@ -282,7 +281,9 @@ void init_transaction_manager(){
     register_on_write_updating_therapy_state_callback(on_write_of_therapy_state);
     register_on_disconnect_callback(on_disconnect_ble);
     init_message_creators();
+    /*
     if (xTaskCreate(periodic_message_sender_task, "PeriodicMsgSender", 4096, NULL, 5, NULL) != pdPASS) {
         ESP_LOGE(TAG, "Failed to create periodic message sender task");
     }
+    */
 }

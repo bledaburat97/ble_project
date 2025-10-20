@@ -1,11 +1,10 @@
-#include "temperature_alarm_control.h"
+#include "temperature_alert_controller.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "string.h"
 #include "driver/gpio.h"
 #include "state_manager.h"
-#include "general_manager.h"
 #include "device_configuration.h"
 
 
@@ -60,7 +59,6 @@ void monitor_alert_task(void *param) {
         // Eğer başlangıç alert seviyesinde ise hemen tetikle
         if (prev_level[i] != (int)normal_pin_status) {
             ESP_LOGI(TAG, "Initial ALERT on sensor %d (pin %d)", i, alert_gpio_list[i]);
-            // throw_alert_for_temperature(i);
             if (temp_alert_callback) temp_alert_callback(i);
         }
     }
@@ -73,7 +71,6 @@ void monitor_alert_task(void *param) {
                 ESP_LOGI(TAG, "Current LEVEL PIN %d: %s", i, current_level[i] ? "HIGH (NORMAL)" : "LOW");
                 if(current_level[i] != (int)normal_pin_status)
                 {
-                    //throw_alert_for_temperature(i);
                     ESP_LOGI(TAG, "Temperature ALERT is triggered");
                     if(temp_alert_callback) {
                         ESP_LOGI(TAG, "Alert callback is sent.");

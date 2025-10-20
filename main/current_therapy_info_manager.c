@@ -2,11 +2,11 @@
 
 #include <stdint.h>
 #include "esp_log.h"
-#include "timer_management.h"
+#include "timer_manager.h"
 #include "therapy_counter.h"
 #include "device_configuration.h"
 #include "default_configuration_handler.h"
-#include "laser_driver_control.h"
+#include "laser_driver_controller.h"
 #include <inttypes.h>
 
 static const char *TAG = "CurrentTherapyInfoManager";
@@ -85,6 +85,60 @@ void terminate_therapy() {
     clear_current_therapy();
 }
 
+static void set_new_therapy(uint16_t total_duration_s) {
+    ESP_LOGI(TAG, "Set new therapy.");
+    if (total_duration_s == 0) {
+        ESP_LOGW(TAG, "Attempting to set a zero-duration therapy.");
+    }
+    current_therapy_duration_s = total_duration_s;
+    passed_ms_before_last_pause = 0;
+}
+
+static void start_therapy(bool is_by_app) {
+    uint32_t plan_ms = get_plan_duration_ms();
+
+    if(passed_ms_before_last_pause == 0) {
+        if(!is_by_app) {
+            if(current_therapy_duration_s == 0) {
+                ESP_LOGW(TAG, "No current therapy; using default configuration");
+
+                uint8_t* brightness_list = get_default_brightness();
+
+                for(int i = 0; i < TOTAL_REGION_COUNT; i++) {
+                    set_brightness_of_region((uint8_t)(i + 1), brightness_list[i]);
+                }
+
+                uint16_t default_therapy_duration = get_default_therapy_duration();
+                set_new_therapy(default_therapy_duration);
+                reset_session_clock();
+                plan_ms = get_plan_duration_ms();
+            }
+            ESP_LOGE(TAG, "Set therapy timer");
+            start_therapy_timer(current_therapy_duration_s, TIMER_STATE_NEW_THERAPY_BY_BUTTON);
+            current_therapy_state = ACTIVE;
+        }
+        else{
+            ESP_LOGE(TAG, "App does not start default therapy.");
+        }
+    }
+    else if(passed_ms_before_last_pause >= plan_ms) {
+        ESP_LOGE(TAG, "Passed exceeds plan: %lu >= %lu", (unsigned long)passed_ms_before_last_pause, (unsigned long)plan_ms);
+        passed_ms_before_last_pause = plan_ms;
+        return;
+    }
+    else {
+        current_therapy_state = ACTIVE;
+        uint32_t remain_ms = plan_ms - passed_ms_before_last_pause;
+        uint16_t remain_s = (uint16_t)((remain_ms + 999u) / 1000u);
+        if(!is_by_app) {
+            start_therapy_timer(remain_s, TIMER_STATE_CONTINUE_THERAPY_BY_BUTTON);
+        }
+        else{
+            start_therapy_timer(remain_s, TIMER_STATE_CONTINUE_THERAPY_BY_APP);
+        }
+    }
+}
+
 void start_or_continue_therapy(bool is_by_app) {
     if(!is_inactivity_timer_running()) {
         ESP_LOGW(TAG, "Inactivity timer is not running when continuing therapy.");
@@ -130,15 +184,6 @@ uint16_t get_new_therapy_id_for_new_therapy() {
     return (uint16_t)(therapy_count + 1u);
 }
 
-void set_new_therapy(uint16_t total_duration_s) {
-    ESP_LOGI(TAG, "Set new therapy.");
-    if (total_duration_s == 0) {
-        ESP_LOGW(TAG, "Attempting to set a zero-duration therapy.");
-    }
-    current_therapy_duration_s = total_duration_s;
-    passed_ms_before_last_pause = 0;
-}
-
 void start_new_therapy(uint16_t duration) {
     if (duration == 0) {
         ESP_LOGE(TAG, "Cannot start a therapy with zero duration.");
@@ -150,50 +195,7 @@ void start_new_therapy(uint16_t duration) {
     current_therapy_state = ACTIVE;
 }
 
-void start_therapy(bool is_by_app) {
-    uint32_t plan_ms = get_plan_duration_ms();
 
-    if(passed_ms_before_last_pause == 0) {
-        if(!is_by_app) {
-            if(current_therapy_duration_s == 0) {
-                ESP_LOGW(TAG, "No current therapy; using default configuration");
-
-                uint8_t* brightness_list = get_default_brightness();
-
-                for(int i = 0; i < TOTAL_REGION_COUNT; i++) {
-                    set_brightness_of_region((uint8_t)(i + 1), brightness_list[i]);
-                }
-
-                uint16_t default_therapy_duration = get_default_therapy_duration();
-                set_new_therapy(default_therapy_duration);
-                reset_session_clock();
-                plan_ms = get_plan_duration_ms();
-            }
-            ESP_LOGE(TAG, "Set therapy timer");
-            start_therapy_timer(current_therapy_duration_s, TIMER_STATE_NEW_THERAPY_BY_BUTTON);
-            current_therapy_state = ACTIVE;
-        }
-        else{
-            ESP_LOGE(TAG, "App does not start default therapy.");
-        }
-    }
-    else if(passed_ms_before_last_pause >= plan_ms) {
-        ESP_LOGE(TAG, "Passed exceeds plan: %lu >= %lu", (unsigned long)passed_ms_before_last_pause, (unsigned long)plan_ms);
-        passed_ms_before_last_pause = plan_ms;
-        return;
-    }
-    else {
-        current_therapy_state = ACTIVE;
-        uint32_t remain_ms = plan_ms - passed_ms_before_last_pause;
-        uint16_t remain_s = (uint16_t)((remain_ms + 999u) / 1000u);
-        if(!is_by_app) {
-            start_therapy_timer(remain_s, TIMER_STATE_CONTINUE_THERAPY_BY_BUTTON);
-        }
-        else{
-            start_therapy_timer(remain_s, TIMER_STATE_CONTINUE_THERAPY_BY_APP);
-        }
-    }
-}
 
 uint16_t get_current_therapy_passed_duration(void) {
     uint32_t total_ms = passed_ms_before_last_pause;

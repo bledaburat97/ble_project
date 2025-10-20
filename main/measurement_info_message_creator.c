@@ -2,14 +2,13 @@
 
 #include "storage/log_types.h"
 #include "esp_log.h"
-#include "message_encoder.h"
+#include "binary_message_encoder.h"
 #include "storage/log_writer.h"
 #include <stdlib.h>
-#include "temperature_sensor_control.h"
-#include "therapy_message_counter.h"
+#include "temperature_sensor_controller.h"
 #include <string.h>
 #include "message_queue_manager.h"
-#include "timer_management.h"
+#include "timer_manager.h"
 #include "current_therapy_info_manager.h"
 #include "esp_err.h"
 
@@ -35,25 +34,9 @@ static void add_and_send_measurement_info(uint8_t temperature) {
 
     ESP_LOGI(TAG, "Sent Temperature: %u", message.temperature);
 
-    bool isMessageJson = false;
-
-    if(isMessageJson) {
-        char *json_str = encode_measurement_info_message(&message);
-        if (json_str == NULL) {
-            ESP_LOGE(TAG, "JSON encode failed");
-            return;
-        }
-
-        size_t len = strlen(json_str);
-        send_info_message_to_queue(MEASUREMENT_INFO_MESSAGE, (uint8_t*)json_str, len);
-
-        free(json_str);
-    }
-    else {
-        uint8_t buf[MEASUREMENT_INFO_SIZE];
-        size_t len = encode_measurement_info_message_binary(&message, buf);
-        send_info_message_to_queue(MEASUREMENT_INFO_MESSAGE, buf, len);
-    }
+    uint8_t buf[MEASUREMENT_INFO_SIZE];
+    size_t len = encode_measurement_info_message_binary(&message, buf);
+    send_info_message_to_queue(MEASUREMENT_INFO_MESSAGE, buf, len);
 }
 
 static void on_device_info_feedback_callback() {

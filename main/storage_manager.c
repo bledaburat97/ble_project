@@ -1,7 +1,7 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "nvs.h"
-#include "storage_management.h"
+#include "storage_manager.h"
 
 static const char *NVS_NAMESPACE = "storage";
 static const char *TAG = "StorageManager";

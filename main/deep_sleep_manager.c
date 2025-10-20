@@ -7,7 +7,7 @@
 #include "deep_sleep_manager.h"
 #include "state_manager.h"
 #include "device_configuration.h"
-#include "laser_driver_control.h"
+#include "laser_driver_controller.h"
 
 static const char *TAG = "DeepSleepManager";
 

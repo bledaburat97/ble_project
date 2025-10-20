@@ -6,7 +6,7 @@
 #include "esp_gap_ble_api.h"
 #include "esp_log.h"
 #include "binary_message_parser.h"
-#include "storage_management.h"
+#include "storage_manager.h"
 
 static const char *TAG = "DefaultConfigHandler";
 static const char *NVS_THERAPY_DUR_KEY = "therapy_dur";

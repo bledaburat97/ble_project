@@ -1,7 +1,7 @@
 #include "lp_core_queue_manager.h"
 #include "lp_core_firmware.h"
 #include "proximity_sensor_config.h"
-#include "proximity_sensor_control.h"
+#include "proximity_sensor_controller.h"
 #include "lp_core_main.h"
 #include "esp_log.h"
 #include "device_configuration.h"

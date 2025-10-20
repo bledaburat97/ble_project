@@ -2,8 +2,8 @@
 #include "storage/log_types.h"
 #include "state_manager.h"
 
-#ifndef TIMER_MANAGEMENT_H
-#define TIMER_MANAGEMENT_H
+#ifndef TIMER_MANAGER_H
+#define TIMER_MANAGER_H
 
 void init_timer_manager();
 

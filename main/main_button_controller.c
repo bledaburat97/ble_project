@@ -5,7 +5,7 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "timer_management.h"
+#include "timer_manager.h"
 #include "transaction_manager.h"
 #include "notification_info_message_creator.h"
 #include "current_therapy_info_manager.h"

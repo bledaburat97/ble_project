@@ -1,4 +1,4 @@
-#include "proximity_sensor_control.h"
+#include "proximity_sensor_controller.h"
 #include "i2c_control.h"
 #include "esp_log.h"
 #include "proximity_sensor_config.h"
