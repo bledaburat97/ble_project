@@ -1,11 +1,14 @@
 #include "../include/ble_internal.h"
+#include "../include/ble_connection_state_manager.h"
+#include "../include/ble_controller.h"
+
 #include "esp_bt.h"
 #include "esp_bt_main.h"
 #include "esp_gatt_common_api.h"
 
 static const char *TAG = "BLEInitiator";
 
-esp_err_t init_bluetooth(void) {
+static esp_err_t init_bluetooth(void) {
     esp_err_t ret;
     ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
 
@@ -27,7 +30,7 @@ esp_err_t init_bluetooth(void) {
     return ESP_OK;
 }
 
-esp_err_t start_registering_and_advertising(void) {
+static esp_err_t start_registering_and_advertising(void) {
     setup_ble_security();
 
     int dev_num = esp_ble_get_bond_device_num();
@@ -100,3 +103,9 @@ void register_on_write_records_feedback_callback(void (*cb)(const uint8_t *buf, 
 void register_on_write_updating_passkey_callback(void (*cb)(const uint8_t *buf, size_t len))            { on_write_updating_passkey_callback = cb; }
 void register_on_write_updating_configuration_callback(void (*cb)(const uint8_t *buf, size_t len))      { on_write_updating_configuration_callback = cb; }
 void register_dynamic_period_change_callback(void (*cb)(uint16_t))                                      { on_dynamic_period_change_callback = cb; }
+
+void init_ble() {
+    init_ble_state_manager();
+    ESP_ERROR_CHECK(init_bluetooth());
+    start_registering_and_advertising();
+}

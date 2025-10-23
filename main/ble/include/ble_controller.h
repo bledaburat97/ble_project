@@ -14,9 +14,7 @@ typedef enum {
     DEVICE_INFO_MESSAGE,
 } MessageType;
 
-// Dış API (mevcut imzaları koruyoruz)
-esp_err_t init_bluetooth(void);
-esp_err_t start_registering_and_advertising(void);
+void init_ble(void);
 
 esp_err_t ble_send_info_message_with_type(MessageType message_type, uint8_t* data, size_t data_length);
 

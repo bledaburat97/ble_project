@@ -31,7 +31,7 @@ int main(void)
             if(lp_core_i2c_master_write_to_device(LP_I2C_NUM_0, __atomic_load_n(&lp_core_device_address, __ATOMIC_RELAXED), data, __atomic_load_n(&lp_core_byte_count, __ATOMIC_RELAXED) + 1, LP_I2C_TRANS_WAIT_FOREVER) == ESP_OK) { // Atomik okuma
                 __atomic_store_n(&lp_core_command, WRITE_COMPLETED, __ATOMIC_RELAXED); // Atomik yazma
             } else {
-                // Hata durumunu ele alın
+                __atomic_store_n(&lp_core_command, NO_COMMAND, __ATOMIC_RELAXED);
             }
         }
         //read
@@ -43,7 +43,7 @@ int main(void)
                     __atomic_store_n(&lp_core_value, (__atomic_load_n(&lp_core_value, __ATOMIC_RELAXED) & 0xFFFFFF00) | (data), __ATOMIC_RELAXED); // Atomik yazma
                     __atomic_store_n(&lp_core_command, READ_COMPLETED, __ATOMIC_RELAXED); // Atomik yazma
                 } else {
-                    // Hata durumunu ele alın
+                    __atomic_store_n(&lp_core_command, NO_COMMAND, __ATOMIC_RELAXED);
                 }
             }
             else if(__atomic_load_n(&lp_core_byte_count, __ATOMIC_RELAXED) == 2) { // Atomik okuma
@@ -52,7 +52,7 @@ int main(void)
                     __atomic_store_n(&lp_core_value, ((__atomic_load_n(&lp_core_value, __ATOMIC_RELAXED) & 0xFFFF0000) | (data[0] << 8)) | data[1], __ATOMIC_RELAXED); // Atomik yazma
                     __atomic_store_n(&lp_core_command, READ_COMPLETED, __ATOMIC_RELAXED); // Atomik yazma
                 } else {
-                    // Hata durumunu ele alın
+                    __atomic_store_n(&lp_core_command, NO_COMMAND, __ATOMIC_RELAXED);
                 }
             }
         }

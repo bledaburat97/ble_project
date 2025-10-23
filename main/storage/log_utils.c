@@ -1,5 +1,7 @@
 #include "log_utils.h"
-#include "storage/log_types.h"
+
+#include "log_types.h"
+
 #include "esp_log.h"
 #include <string.h>
 

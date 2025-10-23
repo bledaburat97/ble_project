@@ -1,5 +1,7 @@
 #include "../include/ble_internal.h"
-#include "matching_message_encoder.h"
+#include "../include/ble_connection_state_manager.h"
+
+#include "../../transaction/matching_message_encoder.h"
 
 static const char *TAG = "BLEProfileManager";
 static build_step_t s_build = STEP_INIT;
@@ -371,6 +373,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         g_rssi_task_running = false;
         g_connected = false;
         memset(g_peer_bda, 0, sizeof(g_peer_bda));
+        set_ble_connection_status(false);
         if (on_disconnect_callback) on_disconnect_callback();
 
         esp_ble_gap_ext_adv_t start = { .instance = s_adv_handle, .duration = 0, .max_events = 0 };
@@ -402,6 +405,8 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
 
         read_current_phy();
         //ble_send_auth_message();
+        set_ble_connection_status(true);
+
         if (on_connect_callback) on_connect_callback();
         if (!s_conf_sem) {
             s_conf_sem = xSemaphoreCreateBinary();

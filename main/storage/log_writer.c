@@ -1,13 +1,17 @@
 #include "log_writer.h"
+
 #include "log_types.h"
 #include "log_utils.h"
 #include "log_partition_manager.h"
 #include "therapy_counter.h"
+
+#include "../state/deep_sleep_manager.h"
+
+#include "../transaction/matching_message_encoder.h"
+
 #include "esp_partition.h"
 #include "esp_log.h"
 #include <string.h>
-#include "deep_sleep_manager.h"
-#include "matching_message_encoder.h"
 
 #define TAG "LogWriter"
 

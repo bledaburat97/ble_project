@@ -1,8 +1,8 @@
 #include "../include/ble_connection_state_manager.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
-
 #include "esp_log.h"
 #include "freertos/semphr.h"
 #include <stdint.h>

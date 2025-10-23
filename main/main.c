@@ -20,35 +20,48 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 
-#include "default_configuration_handler.h"
-#include "deep_sleep_manager.h"
-#include "general_manager.h"
-#include "i2c_control.h"
-#include "laser_driver_controller.h"
-#include "lp_core_firmware.h"
-#include "lp_core_main.h"
-#include "lp_core_queue_manager.h"
-#include "main_button_controller.h"
+#include "transaction/default_configuration_handler.h"
+#include "transaction/matching_message_encoder.h"
+#include "transaction/notification_info_message_creator.h"
+#include "transaction/passkey_handler.h"
+#include "transaction/records_info_message_creator.h"
+#include "transaction/measurement_info_message_creator.h"
+#include "transaction/timer_state_info_message_creator.h"
+#include "transaction/message_queue_manager.h"
+#include "transaction/incoming_message_handler.h"
+#include "transaction/device_info_message_creator.h"
 
-#include "matching_message_encoder.h"
-#include "notification_info_message_creator.h"
-#include "nvs_flash.h"
-#include "passkey_handler.h"
-#include "proximity_int_controller.h"
-#include "proximity_sensor_config.h"
-#include "proximity_sensor_controller.h"
-#include "records_info_message_creator.h"
-#include "state_manager.h"
+#include "state/deep_sleep_manager.h"
+#include "state/general_manager.h"
+#include "state/timer_manager.h"
+#include "state/state_manager.h"
+
+#include "i2c/i2c_control.h"
+#include "i2c/laser/laser_driver_controller.h"
+#include "i2c/proximity/proximity_int_controller.h"
+#include "i2c/proximity/proximity_sensor_config.h"
+#include "i2c/proximity/proximity_sensor_controller.h"
+
+#include "i2c/temperature/temperature_alert_controller.h"
+#include "i2c/temperature/temperature_sensor_controller.h"
+
+#include "button/main_button_controller.h"
+
 #include "storage/log_partition_manager.h"
 #include "storage/log_types.h"
 #include "storage/log_utils.h"
 #include "storage/log_writer.h"
-#include "storage_manager.h"
-#include "temperature_alert_controller.h"
-#include "temperature_sensor_controller.h"
-#include "therapy_counter.h"
-#include "timer_manager.h"
-#include "transaction_manager.h"
+#include "storage/therapy_counter.h"
+
+#include "nvs/storage_manager.h"
+
+#include "ble/include/ble_controller.h"
+
+#include "lp_core/lp_core_main.h"
+#include "lp_core/lp_core_queue_manager.h"
+
+#include "lp_core_firmware.h"
+#include "nvs_flash.h"
 
 static const char *TAG = "Main";
 
@@ -80,7 +93,7 @@ typedef struct {
 static const feature_config_t feature_config = {
     .ble_active = true,
     .state_and_timer_active = true,
-    .lp_prox_sensor_active = false,
+    .lp_prox_sensor_active = true,
     .therapy_counter_partition_active = true,
     .log_partition_active = true,
     .laser_and_led_drivers_active = true,
@@ -133,12 +146,24 @@ static void initialize_storage_components(const feature_config_t *config) {
     }
 }
 
+static void init_message_creators(){
+    init_notification_info_message_creator();
+    init_device_info_message_creator();
+    init_measurement_info_message_creator();
+    init_timer_state_info_message_creator();
+    init_records_info_message_creator();
+}
+
 static void initialize_ble_components(const feature_config_t *config) {
     if (config->ble_active) {
-        init_transaction_manager();
+        init_ble();
+        init_message_queue_manager();
+        init_incoming_message_handler();
+        init_passkey_handler();
+        init_default_configuration_handler();
+        init_message_creators();
     }
-    init_passkey_handler();
-    init_default_configuration_handler();
+
 }
 
 static void initialize_state_management_components(const feature_config_t *config) {
@@ -175,8 +200,8 @@ static void initialize_proximity_components(const feature_config_t *config) {
     }
     initialize_proximity_int_gpio();
     initialize_proximity_sensors(config->hp_prox_sensor_active, config->lp_prox_sensor_active);
-    //xTaskCreate(monitor_proximity_int_task, "Monitor Proximity Int Task", 2048, NULL, 1, NULL); //TODO: gerçek kask cihazında aç.
-    //xTaskCreate(proximity_read_task, "ProximityReadTask", 2048, NULL, 5, NULL);
+    xTaskCreate(monitor_proximity_int_task, "Monitor Proximity Int Task", 2048, NULL, 1, NULL); //TODO: gerçek kask cihazında aç.
+    xTaskCreate(proximity_read_task, "ProximityReadTask", 2048, NULL, 5, NULL);
 }
 
 static void initialize_laser_components(const feature_config_t *config) {

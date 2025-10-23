@@ -1,4 +1,5 @@
 #include "log_partition_manager.h"
+
 #include "esp_log.h"
 #include <string.h>
 
