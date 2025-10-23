@@ -200,8 +200,8 @@ static void initialize_proximity_components(const feature_config_t *config) {
     }
     initialize_proximity_int_gpio();
     initialize_proximity_sensors(config->hp_prox_sensor_active, config->lp_prox_sensor_active);
-    xTaskCreate(monitor_proximity_int_task, "Monitor Proximity Int Task", 2048, NULL, 1, NULL); //TODO: gerçek kask cihazında aç.
-    xTaskCreate(proximity_read_task, "ProximityReadTask", 2048, NULL, 5, NULL);
+    xTaskCreate(monitor_proximity_int_task, "Monitor Proximity Int Task", 2048, NULL, 1, NULL);
+    //xTaskCreate(proximity_read_task, "ProximityReadTask", 2048, NULL, 5, NULL);
 }
 
 static void initialize_laser_components(const feature_config_t *config) {

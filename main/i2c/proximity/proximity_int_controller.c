@@ -17,11 +17,6 @@ static const char *TAG = "ProximityInt";
 const int prox_sensor_int_gpio_list[MAX_NUM_OF_SENSORS] = {FIRST_PROX_SENSOR_INT_GPIO, SECOND_PROX_SENSOR_INT_GPIO};
 
 static void checkProximitySensor(uint8_t asserted_sensor_index){
-    /*
-    if(get_device_state() == STATE_ACTIVE) {
-        //TODO: STOP LASERS
-    }
-        */
     ESP_LOGI(TAG, "Check Proximity Sensor");
 
     request_excess_status(asserted_sensor_index == 1);
@@ -29,7 +24,7 @@ static void checkProximitySensor(uint8_t asserted_sensor_index){
 
 void monitor_proximity_int_task(void *param) {
     while (1) {
-        for (int i = 0; i < MAX_NUM_OF_SENSORS; i++) { //TODO: i= 0'dan başlatmak gerekiyor mu, niye böyle?
+        for (int i = 0; i < MAX_NUM_OF_SENSORS; i++) {
             int current_level = gpio_get_level(prox_sensor_int_gpio_list[i]);
 
             if (current_level != NORMAL_PIN_STATUS) {
@@ -37,7 +32,7 @@ void monitor_proximity_int_task(void *param) {
                 checkProximitySensor(i);
             }
         }
-        vTaskDelay(pdMS_TO_TICKS(700));
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 

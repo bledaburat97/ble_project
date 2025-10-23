@@ -203,21 +203,40 @@ static bool get_sensor_detection_status(bool is_lp)
 }
 
 static void set_sensor_detection_status(bool is_lp, bool status) {
-    if(!is_lp) { hp_prox_sensor_detection_status = status;} 
-    else {lp_prox_sensor_detection_status = status;}
+    if(!is_lp) {
+        if(status) {
+            ESP_LOGI(TAG, "HP proximity sensor detected");
+        }
+        else {
+            ESP_LOGI(TAG, "HP proximity sensor not detected");
+        }
+        hp_prox_sensor_detection_status = status;
+    } 
+    else {
+        if(status) {
+            ESP_LOGI(TAG, "LP proximity sensor detected");
+        }
+        else {
+            ESP_LOGI(TAG, "LP proximity sensor not detected");
+        }
+        lp_prox_sensor_detection_status = status;
+    }
 }
 
 static void set_default_thresholds(bool is_lp) {
+    ESP_LOGI(TAG, "Set default thresholds for proximity sensor.");
     set_high_threshold(PROXIMITY_HIGHER_THRESHOLD, is_lp);
     set_low_threshold(PROXIMITY_LOWER_THRESHOLD, is_lp);
 }
 
 static void increase_thresholds(bool is_lp) {
+    ESP_LOGI(TAG, "Increase thresholds for proximity sensor.");
     set_high_threshold(0xFFFF, is_lp);
     set_low_threshold(PROXIMITY_MAX_LOWER_THRESHOLD, is_lp);
 }
 
 static void reset_interrupt(bool is_lp, ProximityThresholdType type) {
+    ESP_LOGI(TAG, "Reset interrupy of proximity sensor.");
     uint8_t byte;
     if(type == HIGH) { byte = 0x01;}
     else if(type == LOW) { byte = 0x02;}
@@ -331,7 +350,7 @@ void check_interrupt_status(uint8_t status, bool is_lp)
             add_and_send_notification_info(NOTIF_HELMET_ON); //for test
             if(get_sensor_detection_status(!is_lp)) {
                 ESP_LOGI(TAG, "Both prox true");
-                //change_helmet_state(true);
+                change_helmet_state(true);
                 ESP_LOGI(TAG, "HELMET_ON.");
             }
         }
@@ -358,8 +377,7 @@ void check_interrupt_status(uint8_t status, bool is_lp)
             set_sensor_detection_status(is_lp, false);
             set_default_thresholds(is_lp);
             reset_interrupt(is_lp, LOW);
-            //change_helmet_state(false);
-            ESP_LOGI(TAG, "LP prox false");
+            change_helmet_state(false);
             ESP_LOGI(TAG, "HELMET_OFF.");
             add_and_send_notification_info(NOTIF_HELMET_OFF); //for test
         }
