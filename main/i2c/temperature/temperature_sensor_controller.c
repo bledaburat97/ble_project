@@ -91,11 +91,7 @@ void temperature_read_task(void *param) {
         current_temperature = rounded_temperature;
 
         ESP_LOGI(TAG, "Temperature measured: %.2f°C", average_temperature);
-        if(average_temperature > 40) {
-            if (temp_alert_callback) {
-                temp_alert_callback(0);
-            }
-        }
+
         //ESP_LOGI(TAG, "Saved temperature: %.2f°C", rounded_temperature);
 
         vTaskDelay(pdMS_TO_TICKS(5000));
@@ -118,10 +114,13 @@ static void set_normal_thresholds(uint8_t sensor_index) {
 static void on_temp_alert_callback(uint8_t sensor_index) {
     float average_temperature = measure_average_temperature();
     float rounded_temperature = round_down_to_half(average_temperature);
-    //ESP_LOGI(TAG, "sensor index: %u", sensor_index);
-    //ESP_LOGI(TAG, "temperature: %.2f°C", average_temperature);
+    ESP_LOGI(TAG, "sensor index: %u", sensor_index);
+    ESP_LOGI(TAG, "temperature: %.2f°C", average_temperature);
     ESP_LOGI(TAG, "Saved temperature: %.2f°C", rounded_temperature);
     increase_thresholds(sensor_index);
+    if (temp_alert_callback) {
+        temp_alert_callback(sensor_index);
+    }
 }
 
 static void on_temp_normal_callback(uint8_t sensor_index) {
