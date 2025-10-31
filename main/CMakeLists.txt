@@ -70,8 +70,7 @@ idf_component_register(SRCS "i2c/temperature/temperature_sensor_controller.c"
                                 "C:/Users/bleda.burat/esp/v5.3.1/esp-idf/components/bt/include"
                                 "C:/Users/bleda.burat/esp/v5.3.1/esp-idf/components/nvs_flash/include"
                                 "C:/Users/bleda.burat/esp/v5.3.1/esp-idf/components/json/cjson"
-                        REQUIRES ulp nvs_flash json bt)
-
+                        REQUIRES ulp nvs_flash json bt esp_https_ota esp_http_client esp-tls mbedtls esp_netif esp_event)
 
 set(ulp_app_name "lp_core_firmware")
 

@@ -16,7 +16,7 @@
 #define TAG "LogWriter"
 
 #define THERAPY_SLOT_SIZE 4096
-#define MAX_SAVED_THERAPY 500
+#define MAX_SAVED_THERAPY 31
 #define MAX_PENDING_LOGS 128
 
 static BaseLogEntry pending_logs[MAX_PENDING_LOGS];

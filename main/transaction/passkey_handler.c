@@ -73,7 +73,7 @@ static void on_passkey_updated(const uint8_t *buf, size_t len){
 void init_passkey_handler() {
     uint32_t passkey = 0;
     if(read_parameter_u32(NVS_PASSKEY_KEY, &passkey) != ESP_OK) {
-        passkey = 2345;
+        passkey = 0000;
         save_parameter_u32(NVS_PASSKEY_KEY, passkey);
     }
     ESP_LOGE(TAG, "passkey: %lu", passkey);

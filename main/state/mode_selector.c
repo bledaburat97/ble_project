@@ -52,7 +52,7 @@ void change_default_parameters(uint16_t press_count) {
             set_and_store_default_therapy_duration(300 * press_count);
             break;
         case 6:
-            set_and_store_default_therapy_duration(20);
+            set_and_store_default_therapy_duration(INFINITE_THERAPY_DURATION);
             break;
         case 7:
         case 8:
