@@ -90,12 +90,14 @@ static inline void drain_old_conf(void){
     (void)ble_wait_for_indication_conf(&dummy, 0 /*ms*/);
 }
 
-static void send_and_track(const MessageQueueEntry *entry)
+typedef enum { SEND_OK, SEND_NOT_READY, SEND_FAIL } send_res_t;
+
+static send_res_t send_and_track(const MessageQueueEntry *entry)
 {
     if (!get_ble_connection_status()) {
         ESP_LOGW(TAG, "No active BLE connection, cannot send message.");
         vTaskDelay(pdMS_TO_TICKS(50));
-        return;
+        return SEND_NOT_READY;
     }
 
     SemaphoreHandle_t ble_mutex = get_ble_mutex_handle();
@@ -105,16 +107,16 @@ static void send_and_track(const MessageQueueEntry *entry)
     if (need_conf) {
         if(entry->type == NOTIFICATION_INFO_MESSAGE && !notif_ind_enabled) {
             ESP_LOGW(TAG, "Indication needed (type=%d) but CCCD not enabled.", entry->type);
-            return;
+            return SEND_NOT_READY;
         }
 
         else if(entry->type == DEVICE_INFO_MESSAGE && !device_ind_enabled) {
             ESP_LOGW(TAG, "Indication needed (type=%d) but CCCD not enabled.", entry->type);
-            return;
+            return SEND_NOT_READY;
         }
         else if(entry->type == TIMER_STATE_INFO_MESSAGE && !timer_ind_enabled) {
             ESP_LOGW(TAG, "Indication needed (type=%d) but CCCD not enabled.", entry->type);
-            return;
+            return SEND_NOT_READY;
         }
 
         drain_old_conf();
@@ -141,7 +143,7 @@ static void send_and_track(const MessageQueueEntry *entry)
                 //add_pending_records(entry->id);  // son fragment ise app feedback bekle
                 set_record_pending(entry->id);
             }
-            return;  // sıradaki mesaja geç
+            return SEND_OK;
         }
 
         // Indicate: CONF bekle (mevcut mantık)
@@ -165,7 +167,7 @@ static void send_and_track(const MessageQueueEntry *entry)
                 }
             }
 
-            return; 
+            return SEND_OK;
         }
 
         ESP_LOGW(TAG, "CONF %s (status=%d) attempt %d/%d",
@@ -175,6 +177,7 @@ static void send_and_track(const MessageQueueEntry *entry)
     }
 
     ESP_LOGE(TAG, "All attempts failed for type=%d", entry->type);
+    return SEND_FAIL;
 }
 
 static void on_dynamic_period_change(uint16_t period) {
@@ -196,13 +199,19 @@ static void queue_sender_task(void *pvParameters)
         TickType_t inter_message_delay = pdMS_TO_TICKS(dynamic_period);
 
         if (xQueueReceive(high_priority_queue, &entry, pdMS_TO_TICKS(100)) == pdTRUE) {
-            //ESP_LOGI(TAG, "Received high priority message in the queue.");
-            send_and_track(&entry);
-            free(entry.data);
-            
+            send_res_t r = send_and_track(&entry);
+            if (r == SEND_OK || r == SEND_FAIL) {
+                free(entry.data);
+            } else if (r == SEND_NOT_READY) {
+                ESP_LOGI(TAG, "Sending is not ready, sending it to front of the query");
+                vTaskDelay(pdMS_TO_TICKS(500));
+                xQueueSendToFront(high_priority_queue, &entry, 0);
+                continue;
+            }
             vTaskDelay(inter_message_delay);
             continue;
         }
+
 
         if (xQueueReceive(low_priority_queue, &entry, pdMS_TO_TICKS(100)) == pdTRUE) {
             ESP_LOGI(TAG, "Received low priority message in the queue.");

@@ -90,7 +90,7 @@ void temperature_read_task(void *param) {
 
         current_temperature = rounded_temperature;
 
-        ESP_LOGI(TAG, "Temperature measured: %.2f°C", average_temperature);
+        //ESP_LOGI(TAG, "Temperature measured: %.2f°C", average_temperature);
 
         //ESP_LOGI(TAG, "Saved temperature: %.2f°C", rounded_temperature);
 

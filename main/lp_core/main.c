@@ -7,7 +7,7 @@
 #include <string.h>
 #include "ulp_lp_core_gpio.h"
 
-#define LP_I2C_TRANS_WAIT_FOREVER 1000
+#define LP_I2C_TRANS_WAIT_FOREVER 5000
 #define MAX_BYTE_COUNT 2
 
 volatile uint32_t lp_core_command = NO_COMMAND;

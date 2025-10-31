@@ -41,6 +41,7 @@ idf_component_register(SRCS "i2c/temperature/temperature_sensor_controller.c"
                             "state/deep_sleep_manager.c"
                             "state/current_therapy_info_manager.c"
                             "state/general_manager.c"
+                            "state/mode_selector.c"
 
                             "button/main_button_controller.c"
 

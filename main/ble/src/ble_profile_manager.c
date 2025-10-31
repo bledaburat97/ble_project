@@ -176,6 +176,12 @@ static inline void parse_cccd_write(uint16_t descr_handle, const uint8_t *val, s
         device_ind_enabled = (cfg & 0x0002) != 0;
         ESP_LOGI(TAG, "Device-info IND = %s", device_ind_enabled ? "ENABLED" : "DISABLED");
     }
+
+    if (notif_ind_enabled && timer_ind_enabled && device_ind_enabled) {
+        if(on_connect_callback) {
+            on_connect_callback();
+        }
+    }
 }
 
 bool has_peer(void) {
@@ -407,7 +413,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         //ble_send_auth_message();
         set_ble_connection_status(true);
 
-        if (on_connect_callback) on_connect_callback();
+        //if (on_connect_callback) on_connect_callback();
         if (!s_conf_sem) {
             s_conf_sem = xSemaphoreCreateBinary();
         }

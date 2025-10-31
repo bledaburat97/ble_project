@@ -24,7 +24,7 @@ typedef enum {
     TIMER_STATE_LOW_HUM_ALERT, //Zamanlayıcı Durumu 
     TIMER_STATE_HIGH_HUM_ALERT, //Zamanlayıcı Durumu 
 
-    NOTIF_THERAPY_PAUSED_BY_BUTTON,  //Bildirim
+    NOTIF_THERAPY_PAUSED_BY_BUTTON,  //Bildirim //10
     NOTIF_SHUT_DOWN_BY_BUTTON, //Bildirim
     NOTIF_THERAPY_STOPPED_BY_APP, //Bildirim
     NOTIF_THERAPY_PAUSED_BY_APP,  //Bildirim
@@ -41,7 +41,7 @@ typedef enum {
     MEASUREMENT_CHANGED,
     HIGH_PROX_DETECTED_1,
     LOW_PROX_DETECTED_1,
-    HIGH_PROX_DETECTED_2,
+    HIGH_PROX_DETECTED_2, //20
     LOW_PROX_DETECTED_2,
     WRONG_PROX_MEASUREMENT,
     RTC_TIME_SAVED, //henüz implemente edilmedi

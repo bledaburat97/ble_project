@@ -21,7 +21,7 @@ static const char *TAG = "MeasurementInfoMessageCreator";
 
 static void add_and_send_measurement_info(uint8_t temperature) {
     uint8_t humidity = 0; //URGENT
-    uint8_t data[] = {temperature, humidity}; //URGENT eğer temp veya hum değişmişse.
+    uint8_t data[] = {temperature, humidity};
     uint16_t passed_seconds = get_session_passed_seconds();
     esp_err_t err = add_log(MEASUREMENT_CHANGED, data, sizeof(data), passed_seconds);
     if (err != ESP_OK) {
@@ -45,7 +45,8 @@ static void add_and_send_measurement_info(uint8_t temperature) {
 }
 
 static void on_device_info_feedback_callback() {
-    uint8_t current_temperature = 0; //URGENT temperature'ı ölç.
+    uint8_t current_temperature = get_temperature();
+    ESP_LOGI(TAG, "On device info feedback, Sending temperature: %u", current_temperature);
     add_and_send_measurement_info(current_temperature);
 }
 

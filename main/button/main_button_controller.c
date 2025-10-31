@@ -4,9 +4,11 @@
 #include "../state/state_manager.h"
 #include "../state/timer_manager.h"
 #include "../state/current_therapy_info_manager.h"
+#include "../state/mode_selector.h"
 
 #include "../transaction/incoming_message_handler.h"
 #include "../transaction/notification_info_message_creator.h"
+#include "../transaction/default_configuration_handler.h"
 
 #include "../device_configuration.h"
 
@@ -16,9 +18,13 @@
 #include "driver/gpio.h"
 
 
+static const TickType_t SHORT_PRESS_WINDOW = pdMS_TO_TICKS(1000);
+static uint16_t s_short_press_count = 0;
+static TickType_t s_last_short_press_tick = 0;
+
 static const char *TAG = "MainButtonController";
 
-void do_short_press(void) {
+static void start_or_pause_therapy() {
     if (get_device_state() == STATE_INACTIVE) {
         start_or_continue_therapy(false);
     } else if (get_device_state() == STATE_ACTIVE) {
@@ -29,16 +35,55 @@ void do_short_press(void) {
     }
 }
 
-void do_long_press(void) {
-    ESP_LOGI(TAG, "LONG: Enter deep sleep");
-    enter_deep_sleep();
+static void on_short_press_sequence(uint16_t count) {
+    if(count == 1) {
+        start_or_pause_therapy();
+        return;
+    }
+    change_default_parameters(count);
 }
 
+static inline void track_short_press(void) {
+    TickType_t now = xTaskGetTickCount();
+
+    if (s_short_press_count == 0) {
+        s_short_press_count = 1;
+    } else {
+        if ((now - s_last_short_press_tick) <= SHORT_PRESS_WINDOW) {
+            s_short_press_count++;
+        } else {
+            on_short_press_sequence(s_short_press_count);
+            ESP_LOGI(TAG, "Short press sequence finished (timeout): count=%lu", (unsigned long)s_short_press_count);
+            s_short_press_count = 1; // yeni diziyi başlat
+        }
+    }
+    s_last_short_press_tick = now;
+}
+
+static inline void maybe_finalize_short_press_sequence(void) {
+    if (s_short_press_count > 0) {
+        TickType_t now = xTaskGetTickCount();
+        if ((now - s_last_short_press_tick) > SHORT_PRESS_WINDOW) {
+            on_short_press_sequence(s_short_press_count);
+            ESP_LOGI(TAG, "Short press sequence finished (idle): count=%lu", (unsigned long)s_short_press_count);
+            s_short_press_count = 0;
+        }
+    }
+}
+
+void do_short_press(void) {
+    if(get_indicator_led_status()) {
+        track_short_press();
+        return;
+    }
+    start_or_pause_therapy();
+}
 
 void wait_for_button_to_sleep(void *pvParameters) {
     const TickType_t poll_delay_ticks = pdMS_TO_TICKS(100);
-    const TickType_t long_press_ticks = pdMS_TO_TICKS(PRESS_DURATION_TO_SLEEP_MS);
-    
+    const TickType_t long_press_ticks = pdMS_TO_TICKS(PRESS_DURATION_TO_CONFIGURATION_MS);
+    const TickType_t very_long_press_ticks = pdMS_TO_TICKS(PRESS_DURATION_TO_SLEEP_MS);
+
     TickType_t press_start = 0;
     bool button_was_pressed = false;
 
@@ -62,12 +107,17 @@ void wait_for_button_to_sleep(void *pvParameters) {
 #endif
         ESP_LOGI(TAG, "Button is released, the passed duration: %lu ms", (unsigned long)duration_ms);
 
-            if (press_duration_ticks >= long_press_ticks) {
-                do_long_press();
+            if(press_duration_ticks >= very_long_press_ticks) {
+                ESP_LOGI(TAG, "LONG: Enter deep sleep");
+                enter_deep_sleep();
+            } else if (press_duration_ticks >= long_press_ticks) {
+                change_mode_indicator_gpio_pin_status();
             } else {
                 do_short_press();
             }
         }
+
+        maybe_finalize_short_press_sequence();
 
         vTaskDelay(poll_delay_ticks);
     }

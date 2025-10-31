@@ -146,8 +146,6 @@ bool stop_alert_timer()
     }
 }
 
-
-
 void start_therapy_timer(uint16_t duration, NotificationType notification_type) {
     ESP_LOGI(TAG, "Start therapy timer with: %u", duration);
     active_therapy_timer_duration = duration;
@@ -269,6 +267,10 @@ uint16_t get_therapy_passed_seconds_direct(void) {
     return (uint16_t)(passed / 1000u);
 }
 
+uint16_t get_active_therapy_duration(void) {
+    return active_therapy_timer_duration;
+}
+
 uint16_t get_inactivity_duration(void) {
     return INACTIVITY_THRESHOLD_SECONDS;
 }
@@ -369,7 +371,6 @@ static void ManagerTask(void *arg) {
                 break;
             case EVT_ALERT_EXPIRED:
                 stop_alert_timer();
-                ESP_LOGE(TAG, "CREATE ALERT EXPIRED");
                 if (timer_end_callback) timer_end_callback(NOTIF_ALERT_TIMER_EXPIRED);
                 vTaskDelay(1);
                 break;

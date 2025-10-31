@@ -75,7 +75,7 @@ void start_encoding_for_new_therapy(uint16_t therapy_id, uint16_t therapy_durati
     // Record Type: Fragment Count (0x06)
     fragments[current_fragment_id][fragment_lengths[current_fragment_id]++] = 0x06;
     fragment_count_index = fragment_lengths[current_fragment_id];
-    fragments[current_fragment_id][fragment_lengths[current_fragment_id]++] = 0; // sonradan doldurulacak.
+    fragments[current_fragment_id][fragment_lengths[current_fragment_id]++] = 0; // sonradan dolduruluyor.
 
     // Record Type: Therapy Duration (0x01)
     fragments[current_fragment_id][fragment_lengths[current_fragment_id]++] = 0x01;

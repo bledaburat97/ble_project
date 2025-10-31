@@ -51,7 +51,7 @@ static void send_device_info(uint16_t passed_seconds) {
     uint8_t buf[DEVICE_INFO_SIZE];
     size_t len = encode_device_info_message_binary(&message, buf);
     send_info_message_to_queue(DEVICE_INFO_MESSAGE, buf, len);
-    ESP_LOGI(TAG, "Device info message is sent");
+    ESP_LOGI(TAG, "Device info message is sent to the queue.");
 }
 
 static void perform_post_connect_operations(void) {

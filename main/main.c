@@ -35,6 +35,7 @@
 #include "state/general_manager.h"
 #include "state/timer_manager.h"
 #include "state/state_manager.h"
+#include "state/mode_selector.h"
 
 #include "i2c/i2c_control.h"
 #include "i2c/laser/laser_driver_controller.h"
@@ -277,4 +278,5 @@ void app_main(void) {
     initialize_sensor_and_driver_components(&feature_config);
     initialize_button_components(&feature_config);
     finalize_device_startup(&feature_config);
+    initialize_mode_indicator_gpio();
 }

@@ -187,11 +187,11 @@ static const RegionPiece* get_region_piece_of_driver_by_id(uint8_t region_id, co
 static uint8_t convert_brightness_percentage_to_brightness(uint8_t brightness_percentage)
 {
     //ESP_LOGI(LASER_TAG, "Brightness percentage: %u", brightness_percentage);
-    if (brightness_percentage > 20)
+    if (brightness_percentage > 100)
     {
-        brightness_percentage = 20;
+        brightness_percentage = 100;
     }
-    return (uint8_t)(((uint16_t)brightness_percentage * 255) / 20);
+    return (uint8_t)(((uint16_t)brightness_percentage * 255) / 100);
 }
 
 void set_brightness_of_region(uint8_t region_id, uint8_t brightness_percentage)

@@ -85,7 +85,14 @@ static void on_timer_end(NotificationType notification_type) {
     else if(notification_type == NOTIF_THERAPY_COMPLETED) {
         ESP_LOGI(TAG, "Therapy timer expired!");
         if(get_device_state() == STATE_ACTIVE) {
+            uint16_t current_therapy_duration = get_current_therapy_duration();
             terminate_therapy();
+
+            if(current_therapy_duration == 20) {
+                start_therapy(false);
+                return;
+            }
+
             add_and_send_notification_info(notification_type);
             if (!start_inactivity_timer()) {
                 ESP_LOGE(TAG, "Failed to start inactivity timer during device start");

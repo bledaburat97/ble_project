@@ -24,7 +24,7 @@ static uint16_t clamp_duration(uint16_t s) {
     return s;
 }
 
-static esp_err_t set_and_store_default_therapy_duration(uint16_t seconds) {
+esp_err_t set_and_store_default_therapy_duration(uint16_t seconds) {
     seconds = clamp_duration(seconds);
     esp_err_t err = save_parameter_u16(NVS_THERAPY_DUR_KEY, seconds);
     if (err == ESP_OK) {
@@ -34,7 +34,7 @@ static esp_err_t set_and_store_default_therapy_duration(uint16_t seconds) {
     return err;
 }
 
-static esp_err_t set_and_store_default_brightness(const uint8_t br[6]) {
+esp_err_t set_and_store_default_brightness(const uint8_t br[6]) {
     // İstersen burada 0–255 aralığı, toplam güç limiti vs. kontrol edebilirsin.
     esp_err_t err = save_parameter_blob(NVS_BRIGHTNESS_KEY, br, 6);
     if (err == ESP_OK) {

@@ -35,7 +35,7 @@ static void add_lp_read_command_to_queue(uint8_t device_address, uint8_t reg_add
     uint32_t lp_core_command = 2;
     uint32_t lp_core_value = 0;
 
-    //ESP_LOGI(TAG, "Queue'ya read ekle: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu", lp_core_command, lp_core_register, lp_core_value, lp_core_device_address, lp_core_byte_count);
+    ESP_LOGI(TAG, "Queue'ya read ekle: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu", lp_core_command, lp_core_register, lp_core_value, lp_core_device_address, lp_core_byte_count);
 
     queue_add_task(lp_core_command, lp_core_register, lp_core_value, lp_core_device_address, lp_core_byte_count);
 }
@@ -298,10 +298,12 @@ void initialize_proximity_sensors(bool hp_prox_sensor_exist, bool lp_prox_sensor
     is_hp_prox_sensor = hp_prox_sensor_exist;
     is_lp_prox_sensor = lp_prox_sensor_exist;
 
-    enable_periodic_self_measurement();
+    vTaskDelay(pdMS_TO_TICKS(100));
+    
     set_proximity_measurement_rate(PROX_RATE_31_25);
     set_led_current(DEFAULT_LED_CURRENT);
     set_interrupt_control(DEFAULT_INTERRUPT_CONTROL_BIT_COUNT);
+    enable_periodic_self_measurement();
 
     if(is_hp_prox_sensor){
         ESP_LOGI(TAG, "Proximity Threshold is set.");
@@ -347,10 +349,9 @@ void check_interrupt_status(uint8_t status, bool is_lp)
             increase_thresholds(is_lp);
             ESP_LOGI(TAG, "Reset interrupt.");
             reset_interrupt(is_lp, HIGH);
-            add_and_send_notification_info(NOTIF_HELMET_ON); //for test
             if(get_sensor_detection_status(!is_lp)) {
                 ESP_LOGI(TAG, "Both prox true");
-                change_helmet_state(true);
+                //change_helmet_state(true); //TODO open this in prod 
                 ESP_LOGI(TAG, "HELMET_ON.");
             }
         }
@@ -377,9 +378,8 @@ void check_interrupt_status(uint8_t status, bool is_lp)
             set_sensor_detection_status(is_lp, false);
             set_default_thresholds(is_lp);
             reset_interrupt(is_lp, LOW);
-            change_helmet_state(false);
+            //change_helmet_state(false); //TODO open this in prod 
             ESP_LOGI(TAG, "HELMET_OFF.");
-            add_and_send_notification_info(NOTIF_HELMET_OFF); //for test
         }
         else{
             reset_interrupt(is_lp, LOW);

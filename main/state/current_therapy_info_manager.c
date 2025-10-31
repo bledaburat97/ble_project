@@ -95,11 +95,12 @@ static void set_new_therapy(uint16_t total_duration_s) {
     if (total_duration_s == 0) {
         ESP_LOGW(TAG, "Attempting to set a zero-duration therapy.");
     }
+    ESP_LOGE(TAG, "Set current therapy dur as %u", total_duration_s);
     current_therapy_duration_s = total_duration_s;
     passed_ms_before_last_pause = 0;
 }
 
-static void start_therapy(bool is_by_app) {
+void start_therapy(bool is_by_app) {
     uint32_t plan_ms = get_plan_duration_ms();
 
     if(passed_ms_before_last_pause == 0) {
@@ -199,8 +200,6 @@ void start_new_therapy(uint16_t duration) {
     start_therapy_timer(duration, TIMER_STATE_NEW_THERAPY_BY_APP);
     current_therapy_state = ACTIVE;
 }
-
-
 
 uint16_t get_current_therapy_passed_duration(void) {
     uint32_t total_ms = passed_ms_before_last_pause;

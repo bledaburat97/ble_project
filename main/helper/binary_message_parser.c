@@ -5,7 +5,9 @@
 #include <stdint.h>
 #include <esp_log.h>
 #include <stddef.h>
+#include "esp_log.h"
 
+#define TAG "BinaryMessageParser"
 
 static inline uint16_t be16(const uint8_t *p) {
     return (uint16_t)((p[0] << 8) | p[1]);
@@ -41,6 +43,10 @@ bool decode_update_record_request_message_bin(const uint8_t *buf, UpdateRecordRe
 
 bool decode_records_feedback_message_bin(const uint8_t *buf, RecordsFeedbackMessage *out_msg) {
     if (!buf || !out_msg) return false;
+    ESP_LOGE(TAG, "first byte of therapy records feedback message : %u", buf[0]);
+    ESP_LOGE(TAG, "second byte of therapy records feedback message : %u", buf[1]);
+    ESP_LOGE(TAG, "third byte of therapy records feedback message : %u", buf[2]);
+
     out_msg->therapy_id = be16(&buf[0]);
     out_msg->is_success = (buf[2] != 0);
     return true;

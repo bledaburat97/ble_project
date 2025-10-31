@@ -162,6 +162,55 @@ static bool create_log_entry(const BaseLogEntry* log, uint8_t* out_entry) {
 
     return true;
 }
+
+
+static bool read_max_passed_in_slot(uint32_t base_offset, uint16_t *out_max_passed) {
+    if (!out_max_passed) return false;
+
+    const esp_partition_t* partition = get_log_partition();
+    if (!partition) {
+        ESP_LOGE(TAG, "Cannot read flash, partition is NULL!");
+        return false;
+    }
+    esp_err_t err = esp_partition_read(partition, base_offset, therapy_slot_buffer, THERAPY_SLOT_SIZE);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to read slot at base_offset %lu: %s", base_offset, esp_err_to_name(err));
+        return false;
+    }
+
+    uint32_t local_offset = 0;
+    uint16_t max_passed = 0;
+    bool any = false;
+
+    while (local_offset < THERAPY_SLOT_SIZE) {
+        uint8_t type = therapy_slot_buffer[local_offset];
+        if (type == 0xFF) break;
+
+        LogEntrySizeInfo si = get_log_entry_size_info(type);
+        if (si.total_length == 0 || local_offset + si.total_length > THERAPY_SLOT_SIZE) {
+            ESP_LOGE(TAG, "Corrupt or overflow log entry at local_offset %lu", local_offset);
+            break;
+        }
+
+        uint16_t cur_passed =
+            (therapy_slot_buffer[local_offset + si.total_length - 3] << 8) |
+             therapy_slot_buffer[local_offset + si.total_length - 2];
+
+        if (cur_passed > max_passed) {
+            max_passed = cur_passed;
+            any = true;
+        }
+
+        local_offset += si.total_length;
+    }
+
+    if (any) {
+        *out_max_passed = max_passed;
+        return true;
+    }
+    return false;
+}
+
 /*
 Tüm log yazma sürecini yöneten merkezi fonksiyon:
     create_log_entry ile byte array oluşturur
@@ -174,8 +223,59 @@ Tüm log yazma sürecini yöneten merkezi fonksiyon:
     Hatalı girişlere karşı boyut/CRC koruması sağlar
 */
 esp_err_t append_log_entry(uint32_t offset, const BaseLogEntry* log) {
+    ESP_LOGI(TAG, "appending log entry with size: %u", log->entry_size);
+    do {
+        uint16_t therapy_count = read_therapy_count();
+        if (therapy_count == 0) break;
+        if (log->passed_seconds > 0) break; //passed secondds 0 değilse kontrole gerek yok.
+
+        uint32_t base_offset = ((therapy_count - 1) % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
+
+        uint16_t last_passed = 0;
+        bool have_last = read_max_passed_in_slot(base_offset, &last_passed);
+
+        if (!have_last) break; // slot boşsa/okunamadıysa atla
+
+        if (last_passed > 0) {
+            ESP_LOGW(TAG,
+                "Backdated log blocked: new passed=%u < last=%u (type=%u). "
+                "Injecting NOTIF_SHUT_DOWN_BY_BUTTON at last_passed and handling new log per policy.",
+                log->can_be_cached, last_passed, log->type);
+
+            // 1) Şu anki terapi slotuna shutdown logunu son süreyle yaz
+            BaseLogEntry shutdown_log = fill_base_log(NOTIF_SHUT_DOWN_BY_BUTTON, NULL, 0, last_passed);
+            if (shutdown_log.entry_size == 0) {
+                ESP_LOGE(TAG, "Failed to create shutdown log entry");
+                return ESP_FAIL;
+            }
+            esp_err_t sh_err = append_log_entry(base_offset, &shutdown_log);
+            if (sh_err != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to append shutdown log: %s", esp_err_to_name(sh_err));
+                return sh_err;
+            }
+
+            // 2) Yeni log: cache'lenebilir ise cache'e al, değilse tamamen at
+            if (log->can_be_cached) {
+                ESP_LOGI(TAG, "Backdated log cached instead of flashing (type=%u, passed=%u).", log->type, log->passed_seconds);
+                is_cached_logs_existed = true;                 // unutma
+                esp_err_t c_err = cache_log_entry(log);
+                if (c_err != ESP_OK) {
+                    ESP_LOGE(TAG, "Failed to cache backdated log: %s", esp_err_to_name(c_err));
+                    return c_err;
+                }
+
+                return ESP_OK; // burada normal akışı bitiriyoruz
+            } else {
+                ESP_LOGW(TAG, "Backdated log dropped (type=%u, passed=%u) because it is not cacheable.", log->type, log->passed_seconds);
+                return ESP_OK; // hiçbir yere kaydetme
+            }
+        }
+    } while (0);
+
     //ESP_LOGI(TAG, "Appending log entry to offset: %lu", offset);
     uint8_t entry[MAX_LOG_ENTRY_SIZE] = {0};
+    ESP_LOGI(TAG, "entry size: %u", log->entry_size);
+    ESP_LOGI(TAG, "type: %u", log->type);
     if (!create_log_entry(log, entry)) {
         ESP_LOGE(TAG, "Failed to create log entry from BaseLogEntry");
         return ESP_ERR_INVALID_ARG;
@@ -293,8 +393,10 @@ Ek işlevler:
     Eğer son slot tamamlanmışsa (THERAPY_COMPLETED varsa) → yeni bir terapi kaydı (slot) başlatılır.
     Yeni bir slota geçilirken o slot boştaki son slot ise en eski slot silinip yeniden kullanılabilir hale getirilir.
 */
+
+
 esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t passed_seconds) {
-    return ESP_OK; //TODO: remove
+    return ESP_OK;
     BaseLogEntry log = fill_base_log(type, data, data_len, passed_seconds);
 
     if (log.entry_size == 0) {
@@ -628,6 +730,13 @@ bool read_therapy_info(uint16_t therapy_id, ReadTherapyInfo* therapy_info) {
             ESP_LOGE(TAG, "Wrong log entry.");
             return false;
         }
+
+        //ESP_LOGI(TAG, "local offset: %lu", local_offset);
+        //ESP_LOGI(TAG, "total length: %u", size_info.total_length);
+        //ESP_LOGI(TAG, "therapy_slot_buffer[local_offset + size_info.total_length - 4]: %u", therapy_slot_buffer[local_offset + size_info.total_length - 4]);
+        //ESP_LOGI(TAG, "therapy_slot_buffer[local_offset + size_info.total_length - 3]: %u", therapy_slot_buffer[local_offset + size_info.total_length - 3]);
+        //ESP_LOGI(TAG, "therapy_slot_buffer[local_offset + size_info.total_length - 2]: %u", therapy_slot_buffer[local_offset + size_info.total_length - 2]);
+        //ESP_LOGI(TAG, "therapy_slot_buffer[local_offset + size_info.total_length - 1]: %u", therapy_slot_buffer[local_offset + size_info.total_length - 1]);
 
         therapy_info->passed_duration = (therapy_slot_buffer[local_offset + size_info.total_length - 3] << 8 ) | therapy_slot_buffer[local_offset + size_info.total_length - 2]; 
 
