@@ -60,6 +60,7 @@ idf_component_register(SRCS "i2c/temperature/temperature_sensor_controller.c"
                             "transaction/timer_state_info_message_creator.c"
                             "transaction/default_configuration_handler.c"
                             "transaction/passkey_handler.c"
+                            "transaction/wifi_config_handler.c"
 
                         INCLUDE_DIRS "." 
                                 "lp_core"

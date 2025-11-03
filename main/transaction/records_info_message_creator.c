@@ -122,11 +122,13 @@ static void send_fragments(uint16_t therapy_id) {
 }
 
 void send_records_info_message(uint16_t therapy_id) {
+    /*
     if (!set_records(therapy_id)) {
         ESP_LOGE(TAG, "Unable to prepare records for therapy id: %u", therapy_id);
         return;
     }
     send_fragments(therapy_id);
+    */
 }
 
 static void on_active_or_paused_therapy_existed()

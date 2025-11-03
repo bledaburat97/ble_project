@@ -30,6 +30,7 @@
 #include "transaction/message_queue_manager.h"
 #include "transaction/incoming_message_handler.h"
 #include "transaction/device_info_message_creator.h"
+#include "transaction/wifi_config_handler.h"
 
 #include "state/deep_sleep_manager.h"
 #include "state/general_manager.h"
@@ -64,135 +65,7 @@
 #include "lp_core_firmware.h"
 #include "nvs_flash.h"
 
-#include "esp_netif.h"
-#include "esp_event.h"
-#include "esp_wifi.h"
-#include "lwip/inet.h"
-#include "esp_crt_bundle.h"
-#include "esp_https_ota.h"
-#include "esp_http_client.h"
-#include "esp_sntp.h"
-
 static const char *TAG = "Main";
-
-static EventGroupHandle_t s_wifi_event_group;
-#define WIFI_CONNECTED_BIT BIT0
-#define WIFI_FAIL_BIT      BIT1
-const char* OTA_URL = "https://github.com/bledaburat97/ble_project/releases/latest/download/app.bin";
-
-static void sntp_sync(void) {
-    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    esp_sntp_setservername(0, "pool.ntp.org");
-    esp_sntp_init();
-    // basit bloklayıcı bekleme (prod'da event tabanlı yapabilirsin)
-    for (int i = 0; i < 20; ++i) {
-        time_t now = 0; struct tm tm_info = {0};
-        time(&now); localtime_r(&now, &tm_info);
-        if (tm_info.tm_year >= (2020 - 1900)) break; // yıl mantıklı olduysa
-        vTaskDelay(pdMS_TO_TICKS(500));
-    }
-}
-
-static void wifi_event_handler(void* arg, esp_event_base_t event_base,
-                               int32_t event_id, void* event_data) {
-    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
-        esp_wifi_connect();
-    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        // Tekrar dene
-        esp_wifi_connect();
-        ESP_LOGW("WIFI", "Disconnected, retrying...");
-    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-        ip_event_got_ip_t* e = (ip_event_got_ip_t*)event_data;
-        ESP_LOGI("WIFI", "Got IP: " IPSTR, IP2STR(&e->ip_info.ip));
-        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
-    }
-}
-
-static esp_err_t wifi_init_sta_blocking(const char* ssid, const char* pass, uint32_t timeout_ms) {
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    esp_netif_create_default_wifi_sta();
-
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-
-    wifi_config_t wifi_config = {0};
-    strncpy((char*)wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid));
-    strncpy((char*)wifi_config.sta.password, pass, sizeof(wifi_config.sta.password));
-    wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
-    // WPA3/PMF uyumluluğu için güvenli varsayılanlar:
-    wifi_config.sta.sae_pwe_h2e = WPA3_SAE_PWE_BOTH;
-    wifi_config.sta.pmf_cfg.capable = true;
-    wifi_config.sta.pmf_cfg.required = false;
-
-    s_wifi_event_group = xEventGroupCreate();
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL, NULL));
-
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
-    ESP_ERROR_CHECK(esp_wifi_start());
-
-    EventBits_t bits = xEventGroupWaitBits(
-        s_wifi_event_group,
-        WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
-        pdTRUE, pdFALSE,
-        pdMS_TO_TICKS(timeout_ms)
-    );
-
-    if (bits & WIFI_CONNECTED_BIT) {
-        ESP_LOGI("WIFI", "Connected to SSID:%s", ssid);
-        return ESP_OK;
-    } else {
-        ESP_LOGE("WIFI", "Connect timeout/failed for SSID:%s", ssid);
-        return ESP_FAIL;
-    }
-}
-
-static esp_err_t do_ota(const char* url) {
-    esp_http_client_config_t http_cfg = {
-        .url = url,
-        .timeout_ms = 30000, // OTA için biraz geniş
-        .disable_auto_redirect = false,
-        .crt_bundle_attach = esp_crt_bundle_attach,
-        .keep_alive_enable = true,
-        // .user_agent = "esp32c6-ota" // istersen ekle
-    };
-
-    esp_https_ota_config_t ota_cfg = {
-        .http_config = &http_cfg,
-        // .partial_http_download = true, // çok büyük imajlarda faydalı olabilir
-    };
-
-    // Wi-Fi güç tasarrufunu geçici kapat
-    esp_wifi_set_ps(WIFI_PS_NONE);
-
-    // Basit retry
-    for (int attempt = 1; attempt <= 3; ++attempt) {
-        esp_err_t ret = esp_https_ota(&ota_cfg);
-        if (ret == ESP_OK) {
-            ESP_LOGI("OTA", "OTA OK (attempt %d), rebooting...", attempt);
-            vTaskDelay(pdMS_TO_TICKS(500));
-            esp_restart();
-        }
-        ESP_LOGW("OTA", "OTA attempt %d failed: %s", attempt, esp_err_to_name(ret));
-        vTaskDelay(pdMS_TO_TICKS(2000));
-    }
-    ESP_LOGE("OTA", "All attempts failed");
-    return ESP_FAIL;
-}
-
-static void ota_task(void* arg) {
-    const char* SSID = "Bleda's iphone";
-    const char* PASS = "Bleda124";
-
-    if (wifi_init_sta_blocking(SSID, PASS, 20000) == ESP_OK) {
-        sntp_sync(); // <--- ZAMAN SENKRONU EKLENDİ
-        ESP_LOGI("OTA", "Starting OTA from: %s", OTA_URL);
-        do_ota(OTA_URL);
-    }
-    vTaskDelete(NULL);
-}
 
 
 void periodic_message_sender_task(void *pvParameters) {
@@ -407,5 +280,5 @@ void app_main(void) {
     initialize_button_components(&feature_config);
     finalize_device_startup(&feature_config);
     initialize_mode_indicator_gpio();
-    //xTaskCreate(ota_task, "ota_task", 8192, NULL, 5, NULL);
+    init_wifi_config();
 }

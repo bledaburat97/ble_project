@@ -24,7 +24,6 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-
 #ifndef UNIT_TESTING
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -142,7 +141,8 @@ static void periodic_message_sender_task(void *pvParameters) {
     
         vTaskDelay(pdMS_TO_TICKS(20000));
     }
-    
+}
+
 /*
     while(1) {
 
@@ -232,7 +232,7 @@ static void periodic_message_sender_task(void *pvParameters) {
         
     }
         */
-}
+
 
 void init_incoming_message_handler(){
     register_on_write_activation_callback(on_write_of_activation_message);

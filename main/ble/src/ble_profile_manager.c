@@ -142,6 +142,13 @@ static void run_build_step(void) {
       ESP_LOGI(TAG, "ADD RECORDS_FEEDBACK char -> %s", esp_err_to_name(e));
       break;
 
+    case STEP_ADD_WIFI_CONFIG:
+        e = add_char_16(GATTS_CHAR_UUID_WIFI_CONFIG,
+                        ESP_GATT_PERM_WRITE_ENC_MITM,
+                        ESP_GATT_CHAR_PROP_BIT_WRITE);
+        ESP_LOGI(TAG, "ADD WIFI_CONFIG char -> %s", esp_err_to_name(e));
+        break;
+
     case STEP_DONE:
       if (!s_service_started) {
         esp_err_t se = esp_ble_gatts_start_service(gl_profile_tab[PROFILE_A_APP_ID].service_handle);
@@ -254,6 +261,8 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
             gl_profile_tab[PROFILE_A_APP_ID].updating_therapy_state_handle = h;
             } else if (uuid == GATTS_CHAR_UUID_RECORDS_FEEDBACK) {
             gl_profile_tab[PROFILE_A_APP_ID].records_feedback_handle = h;
+            } else if (uuid == GATTS_CHAR_UUID_WIFI_CONFIG) {
+                gl_profile_tab[PROFILE_A_APP_ID].wifi_config_handle = h;
             }
         }
 
@@ -272,7 +281,8 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
             case STEP_ADD_UPD_PASSKEY:       s_build = STEP_ADD_UPD_CONFIG;       break;
             case STEP_ADD_UPD_CONFIG:        s_build = STEP_ADD_UPD_THERAPY_STATE;break;
             case STEP_ADD_UPD_THERAPY_STATE: s_build = STEP_ADD_RECORDS_FEEDBACK; break;
-            case STEP_ADD_RECORDS_FEEDBACK:  s_build = STEP_DONE;                 break;
+            case STEP_ADD_RECORDS_FEEDBACK:  s_build = STEP_ADD_WIFI_CONFIG;      break;
+            case STEP_ADD_WIFI_CONFIG:       s_build = STEP_DONE;                 break;
             default: break;
         }
 
@@ -365,6 +375,23 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
             if(param->write.value != NULL && param->write.len == 3) {
                 if (on_write_records_feedback_callback) {
                     on_write_records_feedback_callback(param->write.value, param->write.len);
+                }
+                esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
+            }
+            else {
+                esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_INVALID_PDU, NULL);
+            }
+        }
+        else if (param->write.handle == gl_profile_tab[PROFILE_A_APP_ID].wifi_config_handle) {
+            if (!bond_ok) {
+                ESP_LOGW(TAG, "Reject Wi-Fi config: not bonded");
+                esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id,
+                                            ESP_GATT_INSUF_ENCRYPTION, NULL);
+                break;
+            }
+            if(param->write.value != NULL ) {
+                if (on_write_wifi_config_callback) {
+                    on_write_wifi_config_callback(param->write.value, param->write.len);
                 }
                 esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
             }

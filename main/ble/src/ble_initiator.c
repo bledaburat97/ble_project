@@ -102,6 +102,7 @@ void register_on_write_updating_therapy_state_callback(void (*cb)(const uint8_t 
 void register_on_write_records_feedback_callback(void (*cb)(const uint8_t *buf, size_t len))            { on_write_records_feedback_callback = cb; }
 void register_on_write_updating_passkey_callback(void (*cb)(const uint8_t *buf, size_t len))            { on_write_updating_passkey_callback = cb; }
 void register_on_write_updating_configuration_callback(void (*cb)(const uint8_t *buf, size_t len))      { on_write_updating_configuration_callback = cb; }
+void register_on_write_wifi_config_callback(void (*cb)(const uint8_t *buf, size_t len))                 { on_write_wifi_config_callback = cb; }
 void register_dynamic_period_change_callback(void (*cb)(uint16_t))                                      { on_dynamic_period_change_callback = cb; }
 
 void init_ble() {

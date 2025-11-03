@@ -71,7 +71,7 @@ static const LP5036Info not_banked_test_lp5036Infos[NUM_OF_LP5036] = {
             },
             {
                 .region_id = 6,
-                .led_list = 0x0000000FFFA00000, //SMD Lazer 2
+                .led_list = 0x0000000FFFC00000, //SMD Lazer 2
                 .is_bank = false
             }
         },
