@@ -12,7 +12,6 @@
 #include "esp_gap_ble_api.h"
 #include "ble_controller.h"
 
-// ---- Sabitler / UUID’ler (mevcut değerleri koruyoruz) ----
 #define PROFILE_NUM 1
 #define MAX_JSON_STRING_SIZE 128
 #define PROFILE_A_APP_ID 0
@@ -66,7 +65,6 @@ extern void (*on_connect_callback)(void);
 extern void (*on_disconnect_callback)(void);
 extern void (*on_write_activation_callback)(const uint8_t *buf, size_t len);
 extern void (*on_write_updating_records_callback)(const uint8_t *buf, size_t len);
-//extern void (*on_write_feedback_callback)(const char*);
 extern void (*on_write_updating_therapy_state_callback)(const uint8_t *buf, size_t len);
 extern void (*on_write_records_feedback_callback)(const uint8_t *buf, size_t len);
 extern void (*on_write_updating_passkey_callback)(const uint8_t *buf, size_t len);
@@ -85,7 +83,6 @@ extern SemaphoreHandle_t        s_conf_sem;
 extern volatile esp_gatt_status_t s_last_conf_status;
 extern volatile uint16_t          s_last_conf_handle;
 
-//extern uint16_t notif_ind_cccd_handle;
 extern bool     notif_ind_enabled;
 extern bool     timer_ind_enabled;
 extern bool     device_ind_enabled;

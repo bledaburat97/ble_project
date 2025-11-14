@@ -31,7 +31,7 @@ bool decode_status_change_message_bin(const uint8_t *buf, StatusChangeMessage *o
             out_msg->type = (StatusChange)buf[0];
             return true;
         default:
-            return false; // tanımsız tip
+            return false;
     }
 }
 

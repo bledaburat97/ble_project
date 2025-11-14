@@ -2,7 +2,7 @@
 
 //Android tarafında Service UUID filtrelemek için çok yararlı.
 void build_adv_data(void) {
-    const char *name = "BLE-DA-SOLID";
+    const char *name = "BLE-DA-SOLID4";
     uint8_t n = (uint8_t)strlen(name);
     s_adv_len = 0;
 

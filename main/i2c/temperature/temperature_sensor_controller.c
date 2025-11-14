@@ -13,7 +13,8 @@
 
 static const char *TAG = "TemperatureSensorController";
 static const uint8_t sensor_addresses[] = {SECOND_PJ85775_ADDRESS, FIRST_PJ85775_ADDRESS, THIRD_PJ85775_ADDRESS};
-static float current_temperature;
+static uint8_t last_notified_temperature_byte = 0xFF;
+
 static void (*temp_update_callback)(uint8_t) = NULL;
 static void (*temp_alert_callback)(uint8_t) = NULL;
 
@@ -42,12 +43,6 @@ static uint8_t convert_float_to_byte(float temperature) {
     return temperature_in_byte;
 }
 
-uint8_t log_temperature() {
-    ESP_LOGI(TAG, "Log temperature.");
-    float temperatureInDegree = read_temperature_of_sensor(sensor_addresses[0]);
-    return convert_float_to_byte(temperatureInDegree);
-}
-
 void register_temperature_update(void (*callback)(uint8_t)) {
     temp_update_callback = callback;
 }
@@ -56,16 +51,23 @@ static float measure_average_temperature() {
     float sum_of_temperatures = 0;
     for(int i = 0; i < TEMPERATURE_SENSOR_COUNT; i++) {
         float temperatureInDegree = read_temperature_of_sensor(sensor_addresses[i]);
+        //ESP_LOGI(TAG, "Temperature measured: %.2f°C, index: %u", temperatureInDegree, i);
         sum_of_temperatures += temperatureInDegree;
     }
-       
     return sum_of_temperatures / TEMPERATURE_SENSOR_COUNT;
 }
 
-uint8_t get_temperature() {
+uint8_t measure_and_get_temperature() {
     float average_temperature = measure_average_temperature();
-    current_temperature = average_temperature;
-    return convert_float_to_byte(average_temperature);
+    last_notified_temperature_byte = convert_float_to_byte(average_temperature);
+    return last_notified_temperature_byte;
+}
+
+uint8_t get_temperature() {
+    if (last_notified_temperature_byte == 0xFF) {
+        return measure_and_get_temperature();
+    }
+    return last_notified_temperature_byte;
 }
 
 static float round_down_to_half(float temp) {
@@ -76,19 +78,18 @@ void temperature_read_task(void *param) {
     while (1) {
         float average_temperature = measure_average_temperature();
         float rounded_temperature = round_down_to_half(average_temperature);
+        uint8_t rounded_temperature_byte = convert_float_to_byte(rounded_temperature);
 
-        if (fabsf(current_temperature - rounded_temperature) >= 0.5f) {
+        if (fabsf(last_notified_temperature_byte - rounded_temperature_byte) >= 2) {
             //ESP_LOGI(TAG,"Temperature changed.");
-            
             if(temp_update_callback) {
-                temp_update_callback(convert_float_to_byte(average_temperature));
+                last_notified_temperature_byte = rounded_temperature_byte;
+                temp_update_callback(last_notified_temperature_byte);
             }
             else {
                 ESP_LOGE(TAG, "Temperature update can not be sent.");
             }
         } 
-
-        current_temperature = rounded_temperature;
 
         //ESP_LOGI(TAG, "Temperature measured: %.2f°C", average_temperature);
 

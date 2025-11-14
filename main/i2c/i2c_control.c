@@ -14,45 +14,6 @@ static const char *TAG = "I2CControl";
 #define I2C_MASTER_FREQ_HZ 400000
 #define LP_I2C_MASTER_FREQ_HZ 100000
 
-
-void i2c_scanner_task(void *arg)
-{
-    ESP_LOGI(TAG, "I2C Tarama Başlatılıyor...");
-    while (1) {
-        printf("I2C Bus Scan:\n");
-        printf("   0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f\n");
-        printf("00:   ");
-        for (int i = 0; i < 0x78; i++) { // I2C adresleri 0x00 ile 0x7F arasındadır, 0x78 son yaygın adrestir.
-            if (i % 16 == 0 && i != 0) {
-                printf("\n%02x:", i);
-            }
-            // Özel adresleri atla (örn. genel çağrı adresleri)
-            if (i == 0 || i == 0x78 || i == 0x79) { // 0x78 ve 0x79, 10-bit adresleme için ayrılmıştır.
-                printf(" --");
-                continue;
-            }
-
-            i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-            i2c_master_start(cmd);
-            i2c_master_write_byte(cmd, (i << 1) | I2C_MASTER_WRITE, true); // Yazma denemesi
-            i2c_master_stop(cmd);
-            esp_err_t ret = i2c_master_cmd_begin(I2C_FIRST_MASTER_NUM, cmd, pdMS_TO_TICKS(10)); // Kısa timeout
-
-            if (ret == ESP_OK) {
-                printf(" %02x", i); // Cihaz yanıt verdi!
-            } else if (ret == ESP_ERR_TIMEOUT) {
-                printf(" --"); // Cihaz yanıt vermedi (timeout)
-            } else {
-                printf(" XX"); // Diğer hatalar
-            }
-            i2c_cmd_link_delete(cmd);
-            vTaskDelay(pdMS_TO_TICKS(10)); // Bir sonraki denemeden önce kısa bir gecikme
-        }
-        printf("\n");
-        vTaskDelay(pdMS_TO_TICKS(20000)); // Her 5 saniyede bir tarama yap
-    }
-}
-
 void init_i2c_master() {
     i2c_config_t conf = {
         .mode = I2C_MODE_MASTER,
@@ -145,7 +106,7 @@ esp_err_t write_register(uint8_t device_address, uint8_t reg_address, uint8_t *d
 
 
 esp_err_t read_register(uint8_t device_address, uint8_t reg_address, uint8_t *data, size_t length, uint8_t i2c_master_number) {
-    if (data == NULL || (length != 1 && length != 2)) {
+    if (data == NULL || length == 0) {
         ESP_LOGE(TAG, "Invalid data pointer or length");
         return ESP_ERR_INVALID_ARG;
     }
@@ -160,22 +121,17 @@ esp_err_t read_register(uint8_t device_address, uint8_t reg_address, uint8_t *da
 
     if (length == 1) {
         i2c_master_read_byte(cmd, &data[0], I2C_MASTER_LAST_NACK);
-    } else if (length == 2) {
-        i2c_master_read_byte(cmd, &data[0], I2C_MASTER_ACK);
-        i2c_master_read_byte(cmd, &data[1], I2C_MASTER_LAST_NACK);
+    } else {
+        // length >= 2 için genel çözüm:
+        i2c_master_read(cmd, data, length - 1, I2C_MASTER_ACK);
+        i2c_master_read_byte(cmd, &data[length - 1], I2C_MASTER_LAST_NACK);
     }
 
     i2c_master_stop(cmd);
 
     esp_err_t ret = i2c_master_cmd_begin(i2c_master_number, cmd, pdMS_TO_TICKS(50));
 
-    if (ret == ESP_OK) {
-        if (length == 1) {
-            //ESP_LOGI(TAG, "Read successful: Device 0x%02x, Register 0x%02x, Data 0x%02x", device_address, reg_address, data[0]);
-        } else if(length == 2) {
-            //ESP_LOGI(TAG, "Read successful: Device 0x%02x, Register 0x%02x, Data 0x%02x%02x", device_address, reg_address, data[0], data[1]);
-        }
-    } else {
+    if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Read failed: Device 0x%02x, Register 0x%02x, Error 0x%x", device_address, reg_address, ret);
         vTaskDelay(pdMS_TO_TICKS(10));
     }

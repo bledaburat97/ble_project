@@ -28,6 +28,13 @@ static uint8_t write_buffer[MAX_LOG_ENTRY_SIZE];
 
 static uint32_t starting_local_offset = 0;
 
+static inline bool verify_crc(const uint8_t* entry_ptr, LogEntrySizeInfo entry_size_info) {
+    if (entry_size_info.total_length < 4) return false; // en küçük kayıt 1(type)+0(data)+2(passed)+1(crc)
+    uint8_t expected = calculate_crc8(entry_ptr, entry_size_info.total_length - 1);
+    uint8_t actual   = entry_ptr[entry_size_info.total_length - 1];
+    return expected == actual;
+}
+
 //Log’un flash’a hemen yazılmasına gerek yoksa yani bir terapi başlamamışsa cachelenir ve sonradan topluca yazılmak üzere bellekte tutulur.
 static esp_err_t cache_log_entry(const BaseLogEntry* log) {
     if (!log) return ESP_ERR_INVALID_ARG;
@@ -240,7 +247,7 @@ esp_err_t append_log_entry(uint32_t offset, const BaseLogEntry* log) {
             ESP_LOGW(TAG,
                 "Backdated log blocked: new passed=%u < last=%u (type=%u). "
                 "Injecting NOTIF_SHUT_DOWN_BY_BUTTON at last_passed and handling new log per policy.",
-                log->can_be_cached, last_passed, log->type);
+                log->passed_seconds, last_passed, log->type);
 
             // 1) Şu anki terapi slotuna shutdown logunu son süreyle yaz
             BaseLogEntry shutdown_log = fill_base_log(NOTIF_SHUT_DOWN_BY_BUTTON, NULL, 0, last_passed);
@@ -599,9 +606,9 @@ bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs, bool is_ac
         return false;
     }
 
-    therapy_logs->measurements = malloc(THERAPY_SLOT_SIZE);
-    therapy_logs->notifications = malloc(THERAPY_SLOT_SIZE);
-    therapy_logs->brightness_updates = malloc(THERAPY_SLOT_SIZE);
+    therapy_logs->measurements = malloc(MAX_MEASUREMENT_LOGS * 4);
+    therapy_logs->notifications = malloc(MAX_NOTIFICATION_LOGS * 3);
+    therapy_logs->brightness_updates = malloc(MAX_BRIGHTNESS_LOGS * 8);
 
     if (!therapy_logs->measurements || !therapy_logs->notifications || !therapy_logs->brightness_updates) {
         ESP_LOGE(TAG, "Memory allocation failed");
@@ -631,9 +638,14 @@ bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs, bool is_ac
             return false;
         }
 
+        const uint8_t* entry_ptr = &therapy_slot_buffer[local_offset];
+        if (!verify_crc(entry_ptr, size_info)) {
+            ESP_LOGE(TAG, "CRC mismatch at local_offset=%lu. Stopping read.", local_offset);
+            break;
+        }
+
         const uint8_t first_data_byte_index = 1;
         const uint8_t first_passed_duration_byte_index = first_data_byte_index + size_info.data_length;
-        const uint8_t* entry_ptr = &therapy_slot_buffer[local_offset];
         const uint8_t* data_ptr = &entry_ptr[first_data_byte_index];  // type'ten sonra gelen data
 
         switch (type) {
@@ -731,17 +743,16 @@ bool read_therapy_info(uint16_t therapy_id, ReadTherapyInfo* therapy_info) {
             return false;
         }
 
-        //ESP_LOGI(TAG, "local offset: %lu", local_offset);
-        //ESP_LOGI(TAG, "total length: %u", size_info.total_length);
-        //ESP_LOGI(TAG, "therapy_slot_buffer[local_offset + size_info.total_length - 4]: %u", therapy_slot_buffer[local_offset + size_info.total_length - 4]);
-        //ESP_LOGI(TAG, "therapy_slot_buffer[local_offset + size_info.total_length - 3]: %u", therapy_slot_buffer[local_offset + size_info.total_length - 3]);
-        //ESP_LOGI(TAG, "therapy_slot_buffer[local_offset + size_info.total_length - 2]: %u", therapy_slot_buffer[local_offset + size_info.total_length - 2]);
-        //ESP_LOGI(TAG, "therapy_slot_buffer[local_offset + size_info.total_length - 1]: %u", therapy_slot_buffer[local_offset + size_info.total_length - 1]);
+
+        const uint8_t* entry_ptr = &therapy_slot_buffer[local_offset];
+        if (!verify_crc(entry_ptr, size_info)) {
+            ESP_LOGE(TAG, "CRC mismatch at local_offset=%lu. Stopping read.", local_offset);
+            break;
+        }
 
         therapy_info->passed_duration = (therapy_slot_buffer[local_offset + size_info.total_length - 3] << 8 ) | therapy_slot_buffer[local_offset + size_info.total_length - 2]; 
 
         const uint8_t first_data_byte_index = 1;
-        const uint8_t* entry_ptr = &therapy_slot_buffer[local_offset];
         const uint8_t* data_ptr = &entry_ptr[first_data_byte_index];  // type'ten sonra gelen data
 
         switch (type) {

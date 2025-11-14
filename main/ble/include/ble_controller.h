@@ -22,7 +22,6 @@ void register_on_connect_callback(void (*callback)(void));
 void register_on_disconnect_callback(void (*callback)(void));
 void register_on_write_activation_callback(void (*callback)(const uint8_t *buf, size_t len));
 void register_on_write_updating_records_callback(void (*callback)(const uint8_t *buf, size_t len));
-//void register_on_write_feedback_callback(void (*callback)(const char*));
 void register_on_write_updating_therapy_state_callback(void (*callback)(const uint8_t *buf, size_t len));
 void register_on_write_records_feedback_callback(void (*callback)(const uint8_t *buf, size_t len));
 void register_on_write_updating_passkey_callback(void (*callback)(const uint8_t *buf, size_t len));

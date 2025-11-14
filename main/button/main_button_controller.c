@@ -54,7 +54,7 @@ static inline void track_short_press(void) {
         } else {
             on_short_press_sequence(s_short_press_count);
             ESP_LOGI(TAG, "Short press sequence finished (timeout): count=%lu", (unsigned long)s_short_press_count);
-            s_short_press_count = 1; // yeni diziyi başlat
+            s_short_press_count = 1;
         }
     }
     s_last_short_press_tick = now;

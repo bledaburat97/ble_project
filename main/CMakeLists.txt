@@ -7,6 +7,8 @@ set(app_sources "lp_core_main.c")
 idf_component_register(SRCS "i2c/temperature/temperature_sensor_controller.c" 
                             "i2c/temperature/temperature_sensor.c"
                             "i2c/temperature/temperature_alert_controller.c"
+                            "i2c/humidity/humidity_sensor_controller.c"
+                            "i2c/humidity/humidity_sensor.c"
                             "i2c/proximity/proximity_int_controller.c"
                             "i2c/proximity/proximity_sensor_controller.c"
                             "i2c/laser/laser_driver_controller.c"

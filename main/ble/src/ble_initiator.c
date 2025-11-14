@@ -97,7 +97,6 @@ void register_on_connect_callback(void (*cb)(void))                             
 void register_on_disconnect_callback(void (*cb)(void))                                                  { on_disconnect_callback = cb; }
 void register_on_write_activation_callback(void (*cb)(const uint8_t *buf, size_t len))                  { on_write_activation_callback = cb; }
 void register_on_write_updating_records_callback(void (*cb)(const uint8_t *buf, size_t len))            { on_write_updating_records_callback = cb; }
-//void register_on_write_feedback_callback(void (*cb)(const char*))           { on_write_feedback_callback = cb; }
 void register_on_write_updating_therapy_state_callback(void (*cb)(const uint8_t *buf, size_t len))      { on_write_updating_therapy_state_callback = cb; }
 void register_on_write_records_feedback_callback(void (*cb)(const uint8_t *buf, size_t len))            { on_write_records_feedback_callback = cb; }
 void register_on_write_updating_passkey_callback(void (*cb)(const uint8_t *buf, size_t len))            { on_write_updating_passkey_callback = cb; }

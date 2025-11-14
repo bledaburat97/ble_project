@@ -38,9 +38,4 @@ bool decode_status_change_message_bin(const uint8_t *buf, StatusChangeMessage *o
 bool decode_update_record_request_message_bin(const uint8_t *buf, UpdateRecordRequestMessage *out_msg);
 bool decode_records_feedback_message_bin(const uint8_t *buf, RecordsFeedbackMessage *out_msg);
 bool decode_update_passkey_message_bin(const uint8_t *buf, UpdatePasskeyMessage *out_msg);
-
-//bool decode_activation_message(const char* json_str, ActivationMessage* out_msg);
-//bool decode_status_change_message(const char* json_str, StatusChangeMessage* out_msg);
-//bool decode_update_record_request_message(const char* json_str, UpdateRecordRequestMessage* out_msg);
-//bool decode_records_feedback_message(const char* json_str, RecordsFeedbackMessage* out_msg);
 #endif

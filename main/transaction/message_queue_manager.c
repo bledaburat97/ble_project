@@ -199,6 +199,7 @@ static void queue_sender_task(void *pvParameters)
         TickType_t inter_message_delay = pdMS_TO_TICKS(dynamic_period);
 
         if (xQueueReceive(high_priority_queue, &entry, pdMS_TO_TICKS(100)) == pdTRUE) {
+            ESP_LOGE(TAG, "xQUEUE receive");
             send_res_t r = send_and_track(&entry);
             if (r == SEND_OK || r == SEND_FAIL) {
                 free(entry.data);

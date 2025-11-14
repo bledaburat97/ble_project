@@ -46,6 +46,7 @@
 
 #include "i2c/temperature/temperature_alert_controller.h"
 #include "i2c/temperature/temperature_sensor_controller.h"
+#include "i2c/humidity/humidity_sensor_controller.h"
 
 #include "button/main_button_controller.h"
 
@@ -191,8 +192,11 @@ static void initialize_temperature_components(const feature_config_t *config) {
         return;
     }
     initialize_temperature_sensor();
+    initialize_humidity_sensor();
     initialize_alert_gpios();
     xTaskCreate(temperature_read_task, "Temperature Update Task", 2048, NULL, 1, NULL);
+    xTaskCreate(humidity_read_task, "humidity_read_task", 2048, NULL, 1, NULL);
+
     //xTaskCreate(monitor_alert_task, "Monitor Alert Task", 2048, NULL, 1, NULL);
 }
 
