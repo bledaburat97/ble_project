@@ -22,6 +22,9 @@
 static const char *TAG = "WifiConfigHandler";
 static EventGroupHandle_t s_wifi_event_group;
 
+static bool event_loop_created = false;
+static bool netif_inited = false;
+
 const char* OTA_URL = "https://github.com/bledaburat97/ble_project/releases/latest/download/app.bin";
 
 static void sntp_sync(void) {
@@ -44,17 +47,24 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         // Tekrar dene
         esp_wifi_connect();
-        ESP_LOGW("WIFI", "Disconnected, retrying...");
+        ESP_LOGW(TAG, "Disconnected, retrying...");
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* e = (ip_event_got_ip_t*)event_data;
-        ESP_LOGI("WIFI", "Got IP: " IPSTR, IP2STR(&e->ip_info.ip));
+        ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&e->ip_info.ip));
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
 }
 
 static esp_err_t wifi_init_sta_blocking(const char* ssid, const char* pass, uint32_t timeout_ms) {
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    if (!netif_inited) {
+        ESP_ERROR_CHECK(esp_netif_init());
+        netif_inited = true;
+    }
+    if (!event_loop_created) {
+        ESP_ERROR_CHECK(esp_event_loop_create_default());
+        event_loop_created = true;
+    }
+
     esp_netif_create_default_wifi_sta();
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
@@ -85,10 +95,10 @@ static esp_err_t wifi_init_sta_blocking(const char* ssid, const char* pass, uint
     );
 
     if (bits & WIFI_CONNECTED_BIT) {
-        ESP_LOGI("WIFI", "Connected to SSID:%s", ssid);
+        ESP_LOGI(TAG, "Connected to SSID:%s", ssid);
         return ESP_OK;
     } else {
-        ESP_LOGE("WIFI", "Connect timeout/failed for SSID:%s", ssid);
+        ESP_LOGE(TAG, "Connect timeout/failed for SSID:%s", ssid);
         return ESP_FAIL;
     }
 }
@@ -119,7 +129,7 @@ static esp_err_t do_ota(const char* url) {
     for (int attempt = 1; attempt <= 3; ++attempt) {
         esp_err_t ret = esp_https_ota(&ota_cfg);
         if (ret == ESP_OK) { esp_restart(); }
-        ESP_LOGW("OTA", "OTA attempt %d failed: %s", attempt, esp_err_to_name(ret));
+        ESP_LOGW(TAG, "OTA attempt %d failed: %s", attempt, esp_err_to_name(ret));
         vTaskDelay(pdMS_TO_TICKS(2000));
     }
     return ESP_FAIL;
@@ -132,7 +142,7 @@ static void ota_task(void* arg) {
 
     if (wifi_init_sta_blocking(ssid, pass, 20000) == ESP_OK) {
         sntp_sync();
-        ESP_LOGI("OTA", "Starting OTA from: %s", OTA_URL);
+        ESP_LOGI(TAG, "Starting OTA from: %s", OTA_URL);
         if (do_ota(OTA_URL) != ESP_OK) {
             esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
         }

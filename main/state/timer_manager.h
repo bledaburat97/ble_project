@@ -32,4 +32,5 @@ void clear_session_clock(void);
 uint32_t get_therapy_remaining_ms(void);
 uint32_t get_therapy_passed_ms_direct(void);
 uint16_t get_active_therapy_duration(void);
+void register_passed_duration_update(void (*callback)());
 #endif 

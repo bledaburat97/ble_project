@@ -63,6 +63,8 @@
 #include "lp_core/lp_core_main.h"
 #include "lp_core/lp_core_queue_manager.h"
 
+#include "buzzer/buzzer.h"
+
 #include "lp_core_firmware.h"
 #include "nvs_flash.h"
 
@@ -238,7 +240,7 @@ static void initialize_sensor_and_driver_components(const feature_config_t *conf
 static void initialize_button_components(const feature_config_t *config) {
     if (config->deep_sleep_button_control_active) {
         set_deep_sleep_button();
-        xTaskCreate(wait_for_button_to_sleep, "button_task", 2048, NULL, 1, NULL);
+        xTaskCreate(wait_for_button_to_sleep, "button_task", 4096, NULL, 5, NULL);
     }
 }
 
@@ -269,16 +271,7 @@ void app_main(void) {
     initialize_ble_components(&feature_config);
     initialize_state_management_components(&feature_config);
 
-    //test_add_log_flow();
     //xTaskCreate(periodic_message_sender_task, "PeriodicMsgSender", 2048, NULL, 5, NULL);
-
-    /*
-        read_and_set_records(0);
-        read_and_set_records(1);
-        read_and_set_records(2);
-        read_and_set_records(3);
-        ESP_LOGI(TAG, "fragment count: %u", get_fragment_count());
-    */
 
     initialize_sensor_and_driver_components(&feature_config);
     initialize_button_components(&feature_config);

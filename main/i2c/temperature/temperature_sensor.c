@@ -75,36 +75,33 @@ void set_i2c_master_num(uint8_t master_num) {
 }
 
 void set_configuration(uint8_t device_address, TempSensorConfigReg config) {
-    ESP_LOGI(TAG, "Set configuration for temperature sensor of device address: %u", device_address);
+    //ESP_LOGI(TAG, "Set configuration for temperature sensor of device address: %u", device_address);
 
     uint8_t config_byte = *(uint8_t*)&config;
-    ESP_LOGI(TAG, "Configuration's written byte: %u°C", config_byte);
+    //ESP_LOGI(TAG, "Configuration's written byte: %u°C", config_byte);
 
     write_register(device_address, CONFIG_REG, &config_byte, 1, i2c_master_num);
-        ESP_LOGI(TAG, "Configuration's written");
 
     //-LP-//add_lp_write_command_to_queue(device_address, CONFIG_REG, &config_byte, 1);
     uint8_t configurationBytes[2];
     read_register(device_address, CONFIG_REG, configurationBytes, 2, i2c_master_num);
     //-LP-//add_lp_read_command_to_queue(device_address, CONFIG_REG, 2);
 
-    ESP_LOGI(TAG, "Configuration's read byte: %u°C", configurationBytes[0]);
+    //ESP_LOGI(TAG, "Configuration's read byte: %u°C", configurationBytes[0]);
 }
 
 void set_threshold_temperature(uint8_t device_address, float thresholdInDegree, TemperatureThresholdType type) {
-    ESP_LOGI(TAG, "Set threshold temperature for temperature sensor of device address: %u", device_address);
-
     uint8_t msb, lsb;
 
     convert_threshold_to_bytes(thresholdInDegree, &msb, &lsb);
     uint8_t threshold[2] ={msb, lsb}; 
     if (type == LOW){
-        ESP_LOGI(TAG, "Low temperature limit: %.2f°C", thresholdInDegree);
+        ESP_LOGI(TAG, "New low temperature limit: %.2f°C", thresholdInDegree);
         write_register(device_address, LOW_THRESHOLD_REG, threshold, 2, i2c_master_num);
         //-LP-//add_lp_write_command_to_queue(device_address, LOW_THRESHOLD_REG, threshold, 2);
     }
     else if(type == HIGH) {
-        ESP_LOGI(TAG, "High temperature limit: %.2f°C", thresholdInDegree);
+        ESP_LOGI(TAG, "New high temperature limit: %.2f°C", thresholdInDegree);
         write_register(device_address, HIGH_THRESHOLD_REG, threshold, 2, i2c_master_num);
         //-LP-//add_lp_write_command_to_queue(device_address, HIGH_THRESHOLD_REG, threshold, 2);
     }

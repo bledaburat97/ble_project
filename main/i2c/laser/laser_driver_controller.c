@@ -197,7 +197,7 @@ static uint8_t convert_brightness_percentage_to_brightness(uint8_t brightness_pe
 void set_brightness_of_region(uint8_t region_id, uint8_t brightness_percentage)
 {
     uint8_t brightness = convert_brightness_percentage_to_brightness(brightness_percentage);
-    //ESP_LOGI(LASER_TAG, "brightness: %u", brightness);
+    ESP_LOGI(LASER_TAG, "brightness: %u, region id: %u", brightness, region_id);
     if (region_id < 1 || region_id > TOTAL_REGION_COUNT) {
         ESP_LOGE(LASER_TAG, "Invalid region ID: %d", region_id);
         return;
@@ -288,14 +288,11 @@ void initialize_laser_driver_gpio(){
 
     gpio_config(&io_conf_laser_driver);
     */
-    ESP_LOGI(LASER_TAG, "laser Gpio is initialized successfully.");
 }
 
 void set_laser_drivers_gpio_pin_status(bool status) {
     gpio_set_level(LED_DRIVER_ENABLE_GPIO, status);
     //gpio_set_level(LASER_DRIVER_ENABLE_GPIO, status);
-
-    ESP_LOGI(LASER_TAG, "Gpio pin status is set.");
 }
 
 void update_device_config1(bool status, DeviceConfig1UpdateType type) {

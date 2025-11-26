@@ -100,19 +100,18 @@ void temperature_read_task(void *param) {
 }
 
 static void increase_thresholds(uint8_t sensor_index) {
-    ESP_LOGI(TAG, "Increase thresholds");
     set_threshold_temperature(sensor_addresses[sensor_index], LOW_THRESHOLD_IN_ALERT, LOW);
     set_threshold_temperature(sensor_addresses[sensor_index], HIGH_THRESHOLD_IN_ALERT, HIGH);
 }
 
 
 static void set_normal_thresholds(uint8_t sensor_index) {
-    ESP_LOGI(TAG, "Set normal thresholds");
     set_threshold_temperature(sensor_addresses[sensor_index], LOW_THRESHOLD_IN_NORMAL, LOW);
     set_threshold_temperature(sensor_addresses[sensor_index], HIGH_THRESHOLD_IN_NORMAL, HIGH);
 }
 
 static void on_temp_alert_callback(uint8_t sensor_index) {
+    //TODO: burada last_notified_temperature_byte'ı set etmeli miyiz?
     float average_temperature = measure_average_temperature();
     float rounded_temperature = round_down_to_half(average_temperature);
     ESP_LOGI(TAG, "sensor index: %u", sensor_index);

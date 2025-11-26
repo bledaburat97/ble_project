@@ -54,22 +54,19 @@ static void handle_status_change_message(const StatusChangeMessage *msg)
         }
     } else if(msg->type == PAUSE) {
         ESP_LOGI(TAG, "PAUSE therapy");
-        if (get_device_state() == STATE_ACTIVE) {
-            pause_therapy();
+        if (get_device_state() != STATE_ACTIVE) {
+            ESP_LOGE(TAG, "PAUSE received but device state is not ACTIVE (state=%d)", get_device_state());
+            return;
         }
-        else {
-            ESP_LOGE(TAG, "Big error.");
-        }
+        pause_therapy();
         add_and_send_notification_info(NOTIF_THERAPY_PAUSED_BY_APP);
-
     } else if(msg->type == CONTINUE) {
         ESP_LOGI(TAG, "CONTINUE therapy");
-        if(get_device_state() == STATE_INACTIVE) {
-            start_or_continue_therapy(true);
+        if (get_device_state() != STATE_INACTIVE) {
+            ESP_LOGE(TAG, "CONTINUE received but device state is not INACTIVE (state=%d)", get_device_state());
+            return;
         }
-        else {
-            ESP_LOGE(TAG, "Big error.");
-        }
+        start_or_continue_therapy(true);
     }
 }
 

@@ -14,12 +14,15 @@
 
 #include "../ble/include/ble_controller.h"
 
+#include "../buzzer/buzzer.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/timers.h"
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/queue.h"
+
 
 static const char *TAG = "TimerManager";
 
@@ -35,6 +38,8 @@ static TimerHandle_t update_watchdog_timer = NULL;
 static const uint32_t WATCHDOG_TIMEOUT_MS = 10 * 1000; // 10 saniye
 
 static int64_t session_start_us = -1; // -1: aktif oturum yok
+
+static void (*passed_duration_update_callback)() = NULL;
 
 static inline bool is_session_running(void) { return session_start_us >= 0; }
 
@@ -161,6 +166,8 @@ void start_therapy_timer(uint16_t duration, NotificationType notification_type) 
     if (timer_state_change_callback) {
         timer_state_change_callback(notification_type);
     }
+
+    //buzzer_therapy_start_tone();
 }
 
 static void alert_timer_expiry_callback(TimerHandle_t xTimer) {
@@ -200,9 +207,7 @@ bool start_inactivity_timer() {
     }
 
     set_device_state(STATE_INACTIVE);
-
-    ESP_LOGI(TAG, "Set state as inactive.");
-
+    
     if (timer_state_change_callback) {
         timer_state_change_callback(TIMER_STATE_INACTIVE);
     }
@@ -344,7 +349,7 @@ void restart_duration_update_watchdog_timer(void) {
 
 uint16_t get_session_passed_seconds(void) {
     if (!is_session_running()) {
-        ESP_LOGI(TAG, "Session is not open");
+        ESP_LOGI(TAG, "Session is not running currently.");
         return 0;
     }
 
@@ -361,7 +366,9 @@ static void ManagerTask(void *arg) {
         if (xQueueReceive(g_systemEvtQ, &ev, portMAX_DELAY)) {
             switch (ev) {
             case EVT_WATCHDOG_TICK:
-                add_notification_log(PASSED_DURATION_UPDATED, get_session_passed_seconds());
+                if(passed_duration_update_callback) {
+                    passed_duration_update_callback();
+                }
                 vTaskDelay(1);
                 break;
             case EVT_THERAPY_COMPLETED:
@@ -397,4 +404,8 @@ void init_timer_manager() {
     register_on_disconnect_callback(on_disconnect_ble);
     g_systemEvtQ = xQueueCreate(16, sizeof(SystemEvent));
     xTaskCreate(ManagerTask, "ManagerTask", 4096, NULL, 5, NULL);
+}
+
+void register_passed_duration_update(void (*callback)()) {
+    passed_duration_update_callback = callback;
 }

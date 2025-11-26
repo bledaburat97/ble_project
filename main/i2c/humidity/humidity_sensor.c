@@ -53,9 +53,6 @@ void hdc1080_set_configuration(uint8_t device_address, HDC1080_ConfigReg config)
     // Okuyup doğrulama (opsiyonel)
     uint8_t readback[2] = {0};
     read_register(device_address, HDC1080_CONFIG_REG, readback, 2, I2C_FIRST_MASTER_NUM);
-
-    ESP_LOGI(TAG, "Config written=0x%04X, readback=0x%02X%02X",
-             config_value, readback[0], readback[1]);
 }
 
 // MODE=1 (T+RH) için ölçüm tetikleme (pointer'ı 0x00'a yazmak yeterli) 

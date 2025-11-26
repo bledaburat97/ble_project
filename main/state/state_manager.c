@@ -86,9 +86,6 @@ void set_device_state(DeviceState new_state) {
     if (state_mutex == NULL) {
         ESP_LOGE(TAG, "State mutex is NULL!");
     }
-    else{
-        ESP_LOGI(TAG, "State mutex is accessible!");
-    }
 
     DeviceState to_send = (DeviceState)-1;
 
@@ -140,7 +137,6 @@ bool get_helmet_state() {
 void register_state_change_callback(state_change_callback callback) {
     if (state_listener_count < MAX_STATE_LISTENERS) {
         state_listeners[state_listener_count++] = callback;
-        ESP_LOGI(TAG, "Registered state change listener (%d total)", state_listener_count);
     } else {
         ESP_LOGW(TAG, "Max state change listeners reached.");
     }

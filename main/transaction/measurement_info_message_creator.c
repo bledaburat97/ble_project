@@ -37,8 +37,6 @@ static void add_and_send_measurement_info(uint8_t temperature, uint8_t humidity)
         .passed_seconds = passed_seconds
     };
 
-    ESP_LOGI(TAG, "Sent Temperature: %u", message.temperature);
-
     uint8_t buf[MEASUREMENT_INFO_SIZE];
     size_t len = encode_measurement_info_message_binary(&message, buf);
     send_info_message_to_queue(MEASUREMENT_INFO_MESSAGE, buf, len);

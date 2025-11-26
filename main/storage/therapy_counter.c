@@ -78,7 +78,7 @@ uint16_t read_therapy_count() {
         ESP_LOGE(TAG, "Therapy log limit reached (%d)", therapy_count);
         therapy_count = MAX_THERAPY_COUNT;
     }
-    ESP_LOGI(TAG, "therapy_count: %u", therapy_count);
+    ESP_LOGI(TAG, "Total Therapy Count: %u", therapy_count);
 
     return therapy_count;
 

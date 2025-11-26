@@ -107,7 +107,7 @@ void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
 
     case ESP_GAP_BLE_EXT_ADV_START_COMPLETE_EVT:
         s_ext_adv_started = (param->ext_adv_start.status == ESP_BT_STATUS_SUCCESS);
-        ESP_LOGI(TAG, "%s", s_ext_adv_started ? "Extended advertising started" : "ext_adv_start failed");
+        //ESP_LOGI(TAG, "%s", s_ext_adv_started ? "Extended advertising started" : "ext_adv_start failed");
         break;
 
     case ESP_GAP_BLE_EXT_ADV_STOP_COMPLETE_EVT:

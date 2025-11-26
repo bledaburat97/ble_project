@@ -67,15 +67,15 @@ static bool set_records(uint16_t therapy_id) {
             }
 
             if (read_therapy_logs.count_measurements > 0) {
-                //ESP_LOGI(TAG, "count_measurements: %u", read_therapy_logs.count_measurements);
+                ESP_LOGI(TAG, "count_measurements: %u", read_therapy_logs.count_measurements);
                 encode_records_of_therapy(therapy_id, 0x03, 4, read_therapy_logs.count_measurements, read_therapy_logs.measurements);
             }
             if (read_therapy_logs.count_notifications > 0) {
-                //ESP_LOGI(TAG, "count_notifications: %u", read_therapy_logs.count_notifications);
+                ESP_LOGI(TAG, "count_notifications: %u", read_therapy_logs.count_notifications);
                 encode_records_of_therapy(therapy_id, 0x04, 3, read_therapy_logs.count_notifications, read_therapy_logs.notifications);
             }
             if (read_therapy_logs.count_brightness > 0) {
-                //ESP_LOGI(TAG, "count_brightness: %u", read_therapy_logs.count_brightness);
+                ESP_LOGI(TAG, "count_brightness: %u", read_therapy_logs.count_brightness);
                 encode_records_of_therapy(therapy_id, 0x05, 8, read_therapy_logs.count_brightness, read_therapy_logs.brightness_updates);
             }
 
@@ -122,13 +122,17 @@ static void send_fragments(uint16_t therapy_id) {
 }
 
 void send_records_info_message(uint16_t therapy_id) {
-    /*
+    if (therapy_id == 0) {
+        ESP_LOGW(TAG, "send_records_info_message called with therapy_id=0, ignoring.");
+        return;
+    }
+
     if (!set_records(therapy_id)) {
         ESP_LOGE(TAG, "Unable to prepare records for therapy id: %u", therapy_id);
         return;
     }
+
     send_fragments(therapy_id);
-    */
 }
 
 static void on_active_or_paused_therapy_existed()
@@ -158,6 +162,7 @@ void on_write_of_record_request_message(const uint8_t *buf, size_t len) {
     }
 
     uint16_t last_therapy_id_saved_in_app = record_request_message.last_therapy_id;
+    ESP_LOGI(TAG, "last therapy id in app: %d", last_therapy_id_saved_in_app);
 
     uint16_t last_saved_therapy_id = read_therapy_count();
     ESP_LOGI(TAG, "last saved therapy_id: %d", last_saved_therapy_id);
@@ -255,6 +260,6 @@ void init_records_info_message_creator() {
     else {
         final_therapy_id_to_be_sent = (therapy_count > 0) ? (uint16_t)(therapy_count - 1u) : 0;
     }
-    ESP_LOGI(TAG, "final_therapy_id_to_be_sent: %u", final_therapy_id_to_be_sent);
+    ESP_LOGI(TAG, "The therapy Id with %u will be the last record to be sent.", final_therapy_id_to_be_sent);
 }
 

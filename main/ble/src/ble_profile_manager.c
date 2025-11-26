@@ -44,119 +44,86 @@ static void run_build_step(void) {
 
   switch (s_build) {
     case STEP_ADD_AUTH:
-      e = add_char_16(GATTS_CHAR_UUID_AUTH,
+        e = add_char_16(GATTS_CHAR_UUID_AUTH,
                       ESP_GATT_PERM_READ_ENC_MITM,
                       ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY);
-      ESP_LOGI(TAG, "ADD AUTH char -> %s", esp_err_to_name(e));
-      break;
-
+        break;
     case STEP_ADD_RECORDS:
-      e = add_char_16(GATTS_CHAR_UUID_RECORDS,
+        e = add_char_16(GATTS_CHAR_UUID_RECORDS,
                       ESP_GATT_PERM_READ_ENC_MITM,
                       ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY);
-      ESP_LOGI(TAG, "ADD RECORDS char -> %s", esp_err_to_name(e));
-      break;
-
+        break;
     case STEP_ADD_TIMER:
-      e = add_char_16(GATTS_CHAR_UUID_TIMER_STATE,
+        e = add_char_16(GATTS_CHAR_UUID_TIMER_STATE,
                       ESP_GATT_PERM_READ_ENC_MITM,
                       ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_INDICATE);
-      ESP_LOGI(TAG, "ADD TIMER_STATE char -> %s", esp_err_to_name(e));
-      break;
-
+        break;
     case STEP_ADD_TIMER_CCCD:
-      e = add_cccd_for_last_char();
-      ESP_LOGI(TAG, "ADD TIMER_STATE CCCD -> %s", esp_err_to_name(e));
-      break;
-
+        e = add_cccd_for_last_char();
+        break;
     case STEP_ADD_MEAS:
-      e = add_char_16(GATTS_CHAR_UUID_MEASUREMENT,
+        e = add_char_16(GATTS_CHAR_UUID_MEASUREMENT,
                       ESP_GATT_PERM_READ_ENC_MITM,
                       ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY);
-      ESP_LOGI(TAG, "ADD MEASUREMENT char -> %s", esp_err_to_name(e));
-      break;
-
+        break;
     case STEP_ADD_NOTIF:
-      e = add_char_16(GATTS_CHAR_UUID_NOTIFICATION,
+        e = add_char_16(GATTS_CHAR_UUID_NOTIFICATION,
                       ESP_GATT_PERM_READ_ENC_MITM,
                       ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_INDICATE);
-      ESP_LOGI(TAG, "ADD NOTIFICATION char -> %s", esp_err_to_name(e));
-      break;
-
+        break;
     case STEP_ADD_NOTIF_CCCD:
-      e = add_cccd_for_last_char();
-      ESP_LOGI(TAG, "ADD NOTIFICATION CCCD -> %s", esp_err_to_name(e));
-      break;
-
+        e = add_cccd_for_last_char();
+        break;
     case STEP_ADD_DEVICE:
-      e = add_char_16(GATTS_CHAR_UUID_DEVICE,
+        e = add_char_16(GATTS_CHAR_UUID_DEVICE,
                       ESP_GATT_PERM_READ_ENC_MITM,
                       ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_INDICATE);
-      ESP_LOGI(TAG, "ADD DEVICE char -> %s", esp_err_to_name(e));
-      break;
-
+        break;
     case STEP_ADD_DEVICE_CCCD:
-      e = add_cccd_for_last_char();
-      ESP_LOGI(TAG, "ADD DEVICE CCCD -> %s", esp_err_to_name(e));
-      break;
-
+        e = add_cccd_for_last_char();
+        break;
     case STEP_ADD_ACTIVATION:
-      e = add_char_16(GATTS_CHAR_UUID_ACTIVATION,
+        e = add_char_16(GATTS_CHAR_UUID_ACTIVATION,
                       ESP_GATT_PERM_WRITE_ENC_MITM,
                       ESP_GATT_CHAR_PROP_BIT_WRITE);
-      ESP_LOGI(TAG, "ADD ACTIVATION char -> %s", esp_err_to_name(e));
-      break;
-
+        break;
     case STEP_ADD_UPD_RECORDS:
-      e = add_char_16(GATTS_CHAR_UUID_UPDATING_RECORDS,
+        e = add_char_16(GATTS_CHAR_UUID_UPDATING_RECORDS,
                       ESP_GATT_PERM_WRITE_ENC_MITM,
                       ESP_GATT_CHAR_PROP_BIT_WRITE);
-      ESP_LOGI(TAG, "ADD UPD_RECORDS char -> %s", esp_err_to_name(e));
-      break;
-
+        break;
     case STEP_ADD_UPD_PASSKEY:
-      e = add_char_16(GATTS_CHAR_UUID_UPDATING_PASSKEY,
+        e = add_char_16(GATTS_CHAR_UUID_UPDATING_PASSKEY,
                       ESP_GATT_PERM_WRITE_ENC_MITM,
                       ESP_GATT_CHAR_PROP_BIT_WRITE);
-      ESP_LOGI(TAG, "ADD UPD_PASSKEY char -> %s", esp_err_to_name(e));
-      break;
-
+        break;
     case STEP_ADD_UPD_CONFIG:
-      e = add_char_16(GATTS_CHAR_UUID_UPDATING_CONFIG,
+        e = add_char_16(GATTS_CHAR_UUID_UPDATING_CONFIG,
                       ESP_GATT_PERM_WRITE_ENC_MITM,
                       ESP_GATT_CHAR_PROP_BIT_WRITE);
-      ESP_LOGI(TAG, "ADD UPD_CONFIG char -> %s", esp_err_to_name(e));
-      break;
-
+        break;
     case STEP_ADD_UPD_THERAPY_STATE:
-      e = add_char_16(GATTS_CHAR_UUID_UPDATING_THERAPY_STATE,
+        e = add_char_16(GATTS_CHAR_UUID_UPDATING_THERAPY_STATE,
                       ESP_GATT_PERM_WRITE_ENC_MITM,
                       ESP_GATT_CHAR_PROP_BIT_WRITE);
-      ESP_LOGI(TAG, "ADD UPD_THERAPY_STATE char -> %s", esp_err_to_name(e));
-      break;
-
+        break;
     case STEP_ADD_RECORDS_FEEDBACK:
-      e = add_char_16(GATTS_CHAR_UUID_RECORDS_FEEDBACK,
+        e = add_char_16(GATTS_CHAR_UUID_RECORDS_FEEDBACK,
                       ESP_GATT_PERM_WRITE_ENC_MITM,
                       ESP_GATT_CHAR_PROP_BIT_WRITE);
-      ESP_LOGI(TAG, "ADD RECORDS_FEEDBACK char -> %s", esp_err_to_name(e));
-      break;
-
+        break;
     case STEP_ADD_WIFI_CONFIG:
         e = add_char_16(GATTS_CHAR_UUID_WIFI_CONFIG,
                         ESP_GATT_PERM_WRITE_ENC_MITM,
                         ESP_GATT_CHAR_PROP_BIT_WRITE);
-        ESP_LOGI(TAG, "ADD WIFI_CONFIG char -> %s", esp_err_to_name(e));
         break;
-
     case STEP_DONE:
-      if (!s_service_started) {
-        esp_err_t se = esp_ble_gatts_start_service(gl_profile_tab[PROFILE_A_APP_ID].service_handle);
-        s_service_started = (se == ESP_OK);
-        ESP_LOGI(TAG, "SERVICE START -> %s", esp_err_to_name(se));
-      }
-      return;
-
+        if (!s_service_started) {
+            esp_err_t se = esp_ble_gatts_start_service(gl_profile_tab[PROFILE_A_APP_ID].service_handle);
+            s_service_started = (se == ESP_OK);
+            ESP_LOGI(TAG, "SERVICE START -> %s", esp_err_to_name(se));
+        }
+        return;
     default:
       return;
   }
@@ -213,7 +180,7 @@ static void apply_prof_task(void *arg){
 void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param) {
     switch (event) {
     case ESP_GATTS_REG_EVT:
-        ESP_LOGI(TAG, "GATT profile registered, app_id: %d", param->reg.app_id);
+        //ESP_LOGI(TAG, "GATT profile registered, app_id: %d", param->reg.app_id);
         esp_err_t err = esp_ble_gatts_create_service(gatts_if, &(esp_gatt_srvc_id_t){
             .is_primary = true,
             .id.inst_id = 0x00,
@@ -235,7 +202,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         else {
             uint16_t uuid = param->add_char.char_uuid.uuid.uuid16;
             uint16_t h    = param->add_char.attr_handle;
-            ESP_LOGI(TAG, "ADD_CHAR OK: uuid=0x%04X handle=%u", uuid, h);
+            //ESP_LOGI(TAG, "ADD_CHAR OK: uuid=0x%04X handle=%u", uuid, h);
 
             if (uuid == GATTS_CHAR_UUID_AUTH) {
             gl_profile_tab[PROFILE_A_APP_ID].auth_handle = h;

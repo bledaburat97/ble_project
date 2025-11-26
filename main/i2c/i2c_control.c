@@ -28,15 +28,15 @@ void init_i2c_master() {
 
     err = i2c_param_config(I2C_FIRST_MASTER_NUM, &conf);
     if (err != ESP_OK) {
-        ESP_LOGE("I2C", "I2C parametre yapılandırması başarısız! Hata: 0x%x", err);
+        ESP_LOGE("I2C", "I2C parameter configuration is unsuccessful! Error: 0x%x", err);
         return;
     }
 
     err = i2c_driver_install(I2C_FIRST_MASTER_NUM, conf.mode, 0, 0, 0);
     if (err != ESP_OK) {
-        ESP_LOGE("I2C", "I2C sürücüsü yüklenemedi! Hata: 0x%x", err);
+        ESP_LOGE("I2C", "I2C driver can not be loaded. Error: 0x%x", err);
     } else {
-        ESP_LOGI("I2C", "I2C sürücüsü başarıyla kuruldu.");
+        ESP_LOGI("I2C", "I2C driver is loaded.");
     }
 }
 

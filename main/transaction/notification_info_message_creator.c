@@ -26,6 +26,15 @@ static void on_timer_state_info_feedback_callback() {
     add_and_send_notification_info(helmet_status);
 }
 
+static void on_passed_duration_update() {
+    uint16_t passed_seconds = get_session_passed_seconds();
+    esp_err_t err = add_notification_log(PASSED_DURATION_UPDATED, passed_seconds);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to persist notification log: %s", esp_err_to_name(err));
+    }
+    send_notification_info(PASSED_DURATION_UPDATED, passed_seconds);
+}
+
 void send_notification_info(NotificationType type, uint16_t passed_seconds) {
     NotificationMessage message = {
         .type = type,
@@ -49,4 +58,5 @@ void add_and_send_notification_info(NotificationType notification_type) {
 
 void init_notification_info_message_creator() {
     register_timer_state_info_feedback_callback(on_timer_state_info_feedback_callback);
+    register_passed_duration_update(on_passed_duration_update);
 }

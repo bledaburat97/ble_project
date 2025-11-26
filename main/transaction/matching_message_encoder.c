@@ -32,6 +32,7 @@ static inline uint16_t FRAGMENT_CAPACITY(void) { return fragment_size; }
 
 void fragments_set_capacity(size_t cap) {
     if (cap > MAX_FRAGMENT_SIZE) cap = MAX_FRAGMENT_SIZE;
+    if (cap < MIN_FRAGMENT_SIZE) cap = MIN_FRAGMENT_SIZE;
     fragment_size = cap;
 }
 
@@ -161,6 +162,10 @@ uint16_t get_fragment_count() {
 
 void add_fragment_count(void) {
     uint16_t total = get_fragment_count();
+    if (total > 0xFF) {
+        ESP_LOGW(TAG, "Fragment count (%u) > 255, truncating to 255", (unsigned)total);
+        total = 0xFF;
+    }
     fragments[0][fragment_count_index] = (uint8_t)total;
 }
 

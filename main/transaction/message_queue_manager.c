@@ -199,7 +199,7 @@ static void queue_sender_task(void *pvParameters)
         TickType_t inter_message_delay = pdMS_TO_TICKS(dynamic_period);
 
         if (xQueueReceive(high_priority_queue, &entry, pdMS_TO_TICKS(100)) == pdTRUE) {
-            ESP_LOGE(TAG, "xQUEUE receive");
+            ESP_LOGD(TAG, "High priority queue received a message");
             send_res_t r = send_and_track(&entry);
             if (r == SEND_OK || r == SEND_FAIL) {
                 free(entry.data);
@@ -303,7 +303,6 @@ bool clear_pending_approval_record(uint16_t therapy_id)
 void register_device_info_feedback_callback(void (*callback)()) {
     if (device_info_listener_count < MAX_STATE_LISTENERS) {
         device_info_listeners[device_info_listener_count++] = callback;
-        ESP_LOGI(TAG, "Registered device info listener (%d total)", device_info_listener_count);
     } else {
         ESP_LOGW(TAG, "Max device info listeners reached.");
     }

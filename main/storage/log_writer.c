@@ -25,6 +25,7 @@ static size_t pending_log_count = 0;
 static bool is_cached_logs_existed = false;
 static uint8_t therapy_slot_buffer[THERAPY_SLOT_SIZE];
 static uint8_t write_buffer[MAX_LOG_ENTRY_SIZE];
+static uint8_t entry_buffer[MAX_LOG_ENTRY_SIZE];
 
 static uint32_t starting_local_offset = 0;
 
@@ -155,13 +156,6 @@ static bool create_log_entry(const BaseLogEntry* log, uint8_t* out_entry) {
     if (data_len > 0) {
         memcpy(&out_entry[1], log->data, data_len);
     }
-    else if (data_len == 0) {
-        memset(&out_entry[1], 0, MAX_LOG_ENTRY_SIZE - 4);
-    }
-    else{
-        ESP_LOGE(TAG, "data_len can not be smaller than zero.");
-        return false;
-    }
 
     out_entry[log->entry_size - 3] = (log->passed_seconds >> 8) & 0xFF;
     out_entry[log->entry_size - 2] = log->passed_seconds & 0xFF;
@@ -229,67 +223,17 @@ Tüm log yazma sürecini yöneten merkezi fonksiyon:
     last_saved_passed_duration güncellenir
     Hatalı girişlere karşı boyut/CRC koruması sağlar
 */
-esp_err_t append_log_entry(uint32_t offset, const BaseLogEntry* log) {
-    ESP_LOGI(TAG, "appending log entry with size: %u", log->entry_size);
-    do {
-        uint16_t therapy_count = read_therapy_count();
-        if (therapy_count == 0) break;
-        if (log->passed_seconds > 0) break; //passed secondds 0 değilse kontrole gerek yok.
-
-        uint32_t base_offset = ((therapy_count - 1) % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
-
-        uint16_t last_passed = 0;
-        bool have_last = read_max_passed_in_slot(base_offset, &last_passed);
-
-        if (!have_last) break; // slot boşsa/okunamadıysa atla
-
-        if (last_passed > 0) {
-            ESP_LOGW(TAG,
-                "Backdated log blocked: new passed=%u < last=%u (type=%u). "
-                "Injecting NOTIF_SHUT_DOWN_BY_BUTTON at last_passed and handling new log per policy.",
-                log->passed_seconds, last_passed, log->type);
-
-            // 1) Şu anki terapi slotuna shutdown logunu son süreyle yaz
-            BaseLogEntry shutdown_log = fill_base_log(NOTIF_SHUT_DOWN_BY_BUTTON, NULL, 0, last_passed);
-            if (shutdown_log.entry_size == 0) {
-                ESP_LOGE(TAG, "Failed to create shutdown log entry");
-                return ESP_FAIL;
-            }
-            esp_err_t sh_err = append_log_entry(base_offset, &shutdown_log);
-            if (sh_err != ESP_OK) {
-                ESP_LOGE(TAG, "Failed to append shutdown log: %s", esp_err_to_name(sh_err));
-                return sh_err;
-            }
-
-            // 2) Yeni log: cache'lenebilir ise cache'e al, değilse tamamen at
-            if (log->can_be_cached) {
-                ESP_LOGI(TAG, "Backdated log cached instead of flashing (type=%u, passed=%u).", log->type, log->passed_seconds);
-                is_cached_logs_existed = true;                 // unutma
-                esp_err_t c_err = cache_log_entry(log);
-                if (c_err != ESP_OK) {
-                    ESP_LOGE(TAG, "Failed to cache backdated log: %s", esp_err_to_name(c_err));
-                    return c_err;
-                }
-
-                return ESP_OK; // burada normal akışı bitiriyoruz
-            } else {
-                ESP_LOGW(TAG, "Backdated log dropped (type=%u, passed=%u) because it is not cacheable.", log->type, log->passed_seconds);
-                return ESP_OK; // hiçbir yere kaydetme
-            }
-        }
-    } while (0);
-
-    //ESP_LOGI(TAG, "Appending log entry to offset: %lu", offset);
-    uint8_t entry[MAX_LOG_ENTRY_SIZE] = {0};
-    ESP_LOGI(TAG, "entry size: %u", log->entry_size);
-    ESP_LOGI(TAG, "type: %u", log->type);
-    if (!create_log_entry(log, entry)) {
+static esp_err_t append_log_entry(uint32_t offset, const BaseLogEntry* log)
+{
+    //ESP_LOGI(TAG, "appending log entry (internal) with size: %u", log->entry_size);
+    memset(entry_buffer, 0, MAX_LOG_ENTRY_SIZE);
+    if (!create_log_entry(log, entry_buffer)) {
         ESP_LOGE(TAG, "Failed to create log entry from BaseLogEntry");
         return ESP_ERR_INVALID_ARG;
     }
 
     size_t expected_size = get_log_entry_size_info(log->type).total_length;
-    //ESP_LOGI(TAG, "Saving log with type:%u and expected size:%u", log->type, expected_size);
+    ESP_LOGI(TAG, "Saving log with type:%u and expected size:%u", log->type, expected_size);
 
     if (expected_size == 0 || expected_size > MAX_LOG_ENTRY_SIZE) {
         ESP_LOGE(TAG, "Invalid or oversized log type: type=0x%02X", log->type);
@@ -301,9 +245,9 @@ esp_err_t append_log_entry(uint32_t offset, const BaseLogEntry* log) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    uint8_t expected_crc = calculate_crc8(entry, log->entry_size - 1);
-    if (entry[log->entry_size - 1] != expected_crc) {
-        ESP_LOGW(TAG, "CRC mismatch: expected=0x%02X, got=0x%02X", expected_crc, entry[log->entry_size - 1]);
+    uint8_t expected_crc = calculate_crc8(entry_buffer, log->entry_size - 1);
+    if (entry_buffer[log->entry_size - 1] != expected_crc) {
+        ESP_LOGW(TAG, "CRC mismatch: expected=0x%02X, got=0x%02X", expected_crc, entry_buffer[log->entry_size - 1]);
     }
 
     if (!get_log_partition()) return ESP_ERR_INVALID_STATE;
@@ -334,7 +278,7 @@ esp_err_t append_log_entry(uint32_t offset, const BaseLogEntry* log) {
         }
     }
     else{
-        if(write_log_entry(offset + local_offset, entry, log->entry_size) == ESP_OK) {
+        if(write_log_entry(offset + local_offset, entry_buffer, log->entry_size) == ESP_OK) {
             starting_local_offset = local_offset + log->entry_size;
         }
         else{
@@ -344,6 +288,7 @@ esp_err_t append_log_entry(uint32_t offset, const BaseLogEntry* log) {
     }
     return ESP_OK;
 }
+
 
 //RAM’de bekleyen tüm logları belirtilen flash adresine sırasıyla yazar.
 //Örneğin bir terapi tamamlandığında veya belirli koşullar sağlandığında geçici logların hepsi flash'a aktarılır.
@@ -402,8 +347,8 @@ Ek işlevler:
 */
 
 
-esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t passed_seconds) {
-    return ESP_OK;
+esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t passed_seconds)
+{
     BaseLogEntry log = fill_base_log(type, data, data_len, passed_seconds);
 
     if (log.entry_size == 0) {
@@ -411,163 +356,154 @@ esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t p
         return ESP_FAIL;
     }
 
-    if(is_cached_logs_existed) {
-        ESP_LOGI(TAG, "cached log exists");
+    // Yeni terapi başlangıcı: passed_seconds = 0 ve cache flush triger'ı
+    bool is_new_therapy_start = (log.passed_seconds == 0) && (log.can_flush_cache);
 
-        if(log.can_be_cached) {
-            ESP_LOGI(TAG, "Log is cached.");
-            cache_log_entry(&log);
-        }
-        if(log.can_flush_cache) {
-            is_cached_logs_existed = false;
+    // --- 1) Yeni terapi başlatan loglar (TIMER_STATE_NEW_THERAPY_BY_*) ---
+    if (is_new_therapy_start) {
+        ESP_LOGI(TAG, "New therapy start log detected (type=%u).", log.type);
 
-            uint16_t therapy_count = read_therapy_count();
-            ESP_LOGI(TAG, "Therapy count is read as: %u", therapy_count);    
-            bool slot_is_finished = false;
-            uint32_t base_offset = 0;
-    
-            if (therapy_count > 0) {
-                base_offset = ((therapy_count - 1) % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
-                ESP_LOGI(TAG, "Base Offset of Slot: %lu", base_offset);
-                slot_is_finished = does_slot_contain_entry(base_offset, NOTIF_THERAPY_COMPLETED) 
-                        || does_slot_contain_entry(base_offset, NOTIF_THERAPY_STOPPED_BY_APP) 
-                        || does_slot_contain_entry(base_offset, NOTIF_SHUT_DOWN_BY_BUTTON);
-                
-                if(!slot_is_finished) { //TODO: ve son logdan itibaren 5 dk geçmişse.
-                    BaseLogEntry complete_log = fill_base_log(NOTIF_THERAPY_COMPLETED, NULL, 0, 0); //THERAPY_COMPLETED log with zero passed duration indicates that therapy terminated wrong.
-                    append_log_entry(base_offset, &complete_log);
-                    slot_is_finished = true;
-                }
+        uint16_t therapy_count = read_therapy_count();
+        uint32_t old_base_offset = 0;
 
-                if (slot_is_finished)
-                {
-                    ESP_LOGI(TAG, "Slot is completed, new slot is filling.");
-    
-                    uint16_t new_therapy_count = therapy_count + 1;
-                    esp_err_t count_err = write_therapy_count(new_therapy_count);
-                    ESP_LOGI(TAG, "New Therapy Count: %u", new_therapy_count);
-                    if (count_err != ESP_OK) {
-                        ESP_LOGE(TAG, "Failed to update therapy counter");
-                        return count_err;
+        // 1-a) Eski slotu finalize et (varsa)
+        if (therapy_count > 0) {
+            old_base_offset = ((therapy_count - 1) % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
+            ESP_LOGI(TAG, "Old slot base offset: %lu", old_base_offset);
+
+            bool slot_is_finished =
+                does_slot_contain_entry(old_base_offset, NOTIF_THERAPY_COMPLETED) ||
+                does_slot_contain_entry(old_base_offset, NOTIF_THERAPY_STOPPED_BY_APP) ||
+                does_slot_contain_entry(old_base_offset, NOTIF_SHUT_DOWN_BY_BUTTON);
+
+            if (!slot_is_finished) {
+                uint16_t last_passed = 0;
+                bool have_last = read_max_passed_in_slot(old_base_offset, &last_passed);
+
+                if (have_last && last_passed > 0) {
+                    ESP_LOGW(TAG,
+                        "Previous therapy slot is not finished. Injecting NOTIF_SHUT_DOWN_BY_BUTTON at passed=%u.",
+                        last_passed);
+
+                    BaseLogEntry shutdown_log =
+                        fill_base_log(NOTIF_SHUT_DOWN_BY_BUTTON, NULL, 0, last_passed);
+                    if (shutdown_log.entry_size == 0) {
+                        ESP_LOGE(TAG, "Failed to create shutdown log entry");
+                        return ESP_FAIL;
                     }
-        
-                    base_offset = ((new_therapy_count - 1) % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
-                    starting_local_offset = 0;
 
-                    ESP_LOGI(TAG, "New Offset: %lu", base_offset);
-        
-                    //önceden siliyoruz, her zaman en az bir slot boş kalıyor.
-                    if (new_therapy_count >= MAX_SAVED_THERAPY) {
-
-                        uint32_t deleting_slot_offset = (new_therapy_count % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
-                        esp_err_t erase_err = esp_partition_erase_range(get_log_partition(), deleting_slot_offset, THERAPY_SLOT_SIZE);
-                        if (erase_err != ESP_OK) {
-                            ESP_LOGE(TAG, "Failed to erase therapy slot before overwriting: %s", esp_err_to_name(erase_err));
-                            return erase_err;
-                        }
-                        ESP_LOGI(TAG, "Deleted slot offset: %lu", deleting_slot_offset);
+                    esp_err_t sh_err = append_log_entry(old_base_offset, &shutdown_log);
+                    if (sh_err != ESP_OK) {
+                        ESP_LOGE(TAG, "Failed to append shutdown log: %s", esp_err_to_name(sh_err));
+                        return sh_err;
                     }
+                } else {
+                    ESP_LOGW(TAG,
+                        "Previous therapy slot has no valid last_passed. Skipping SHUT_DOWN injection.");
                 }
             }
-    
-            else {
-                uint16_t new_therapy_count = therapy_count + 1;
-                esp_err_t count_err = write_therapy_count(new_therapy_count);
-                ESP_LOGI(TAG, "New Therapy Count: %u", new_therapy_count);
-                if (count_err != ESP_OK) {
-                    ESP_LOGE(TAG, "Failed to update therapy counter");
-                    return count_err;
-                }
-    
-                base_offset = ((new_therapy_count - 1) % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
-                starting_local_offset = 0;
-                ESP_LOGI(TAG, "New Base Offset of Slot: %lu", base_offset);
-            }
-    
-            ESP_LOGI(TAG, "Saved cache is flushing to a slot with base offset: %lu", base_offset);
-
-            return flush_cached_logs_to_slot(base_offset);
         }
+
+        // 1-b) Yeni terapi id'sini oluştur
+        uint16_t new_therapy_count = therapy_count + 1;
+        esp_err_t count_err = write_therapy_count(new_therapy_count);
+        ESP_LOGI(TAG, "New Therapy Count: %u", new_therapy_count);
+        if (count_err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to update therapy counter");
+            return count_err;
+        }
+
+        // 1-c) Yeni slotun base offset'i
+        uint32_t new_base_offset =
+            ((new_therapy_count - 1) % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
+        starting_local_offset = 0;
+        ESP_LOGI(TAG, "New slot base offset: %lu", new_base_offset);
+
+        // 1-d) Ring buffer dolduysa overwrite edilecek slotu önceden sil
+        if (new_therapy_count >= MAX_SAVED_THERAPY) {
+            uint32_t deleting_slot_offset =
+                (new_therapy_count % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
+            ESP_LOGI(TAG, "Erasing old slot before overwrite. Offset: %lu", deleting_slot_offset);
+            esp_err_t erase_err =
+                esp_partition_erase_range(get_log_partition(), deleting_slot_offset, THERAPY_SLOT_SIZE);
+            if (erase_err != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to erase therapy slot before overwriting: %s",
+                         esp_err_to_name(erase_err));
+                return erase_err;
+            }
+        }
+
+        // 1-e) Cache'te log varsa yeni slota flush et
+        if (is_cached_logs_existed && pending_log_count > 0) {
+            ESP_LOGI(TAG, "Saved cache is flushing to new slot with base offset: %lu", new_base_offset);
+            esp_err_t flush_err = flush_cached_logs_to_slot(new_base_offset);
+            if (flush_err != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to flush cached logs: %s", esp_err_to_name(flush_err));
+                return flush_err;
+            }
+        }
+        is_cached_logs_existed = false; // flush sonrası cache devre dışı
+
+        // 1-f) Bu TIMER_STATE_NEW_THERAPY_* logunu da yeni slota yaz
+        return append_log_entry(new_base_offset, &log);
     }
 
-    else
-    {
-        if(log.can_be_flashed) {
-            uint16_t therapy_count = read_therapy_count();
-            if(therapy_count == 0) {
-                ESP_LOGE(TAG, "There should be a saved therapy.");
-                return ESP_FAIL;
-            }
-            uint32_t base_offset = ((therapy_count - 1) % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
-            //ESP_LOGI(TAG, "Log is saving the slot of flash with the base offset of: %lu", base_offset);
-
-            if(log.can_start_cache) {
-                ESP_LOGI(TAG, "Cache is starting.");
-                is_cached_logs_existed = true;
-            }
-            return append_log_entry(base_offset, &log);
+    // --- 2) Yeni terapi başlangıcı DEĞİL, ama cache açıkken gelen loglar ---
+    if (is_cached_logs_existed) {
+        if (log.can_be_cached) {
+            ESP_LOGI(TAG, "Log is cached (type=%u).", log.type);
+            ESP_LOGE(TAG, "new log passed seconds: %u", log.passed_seconds);
+            return cache_log_entry(&log);
         }
-        
-        if(log.can_start_cache) {
+
+        // Normalde PASSED_DURATION_UPDATED gibi loglar can_be_cached=false.
+        // Bunlar terapi içindeyken gelir; o sırada is_cached_logs_existed genelde false olur.
+        // Yine de güvenli olsun diye:
+        ESP_LOGW(TAG,
+                 "Cache is active but log (type=%u) is not cacheable. Ignoring special handling.",
+                 log.type);
+        // Aşağıdaki normal flash akışına düşecek.
+    }
+
+    // --- 3) Cache açık değilken normal flash akışı ---
+    if (log.can_be_flashed) {
+        uint16_t therapy_count = read_therapy_count();
+        if (therapy_count == 0) {
+            ESP_LOGE(TAG, "There should be a saved therapy (therapy_count == 0).");
+            return ESP_FAIL;
+        }
+
+        uint32_t base_offset =
+            ((therapy_count - 1) % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
+
+        if (log.can_start_cache) {
+            ESP_LOGI(TAG, "Cache is starting with a flash log (type=%u).", log.type);
             is_cached_logs_existed = true;
-            ESP_LOGI(TAG, "Log is cached.");
-            cache_log_entry(&log);
+            // NOT: Bu log flash'a yazılıyor, pending cache'e eklemiyoruz.
         }
+        ESP_LOGI(TAG, "New log to be appended passed seconds: %u", log.passed_seconds);
+
+        return append_log_entry(base_offset, &log);
     }
 
+    // --- 4) Flash edilmeyecek ama cache başlatan loglar (ör: DEVICE_AWAKED) ---
+    if (log.can_start_cache) {
+        ESP_LOGI(TAG, "Cache logging is started (type=%u).", log.type);
+        is_cached_logs_existed = true;
+        ESP_LOGE(TAG, "new log passed seconds: %u", log.passed_seconds);
+        return cache_log_entry(&log);
+    }
+
+    // Ne flash, ne cache: sadece yoksay (şu anki tipler için pek yok ama güvenli)
+    ESP_LOGI(TAG, "Log (type=%u) is neither flashed nor cached. Ignoring.", log.type);
     return ESP_OK;
 }
 
 
 esp_err_t add_notification_log(uint8_t type, uint16_t passed_seconds) {
-    ESP_LOGE(TAG, "Log of notification type of %u is being added with passed_seconds: %u", type, passed_seconds);
+    ESP_LOGI(TAG, "Log of notification type of %u is being added with passed_seconds: %u", type, passed_seconds);
     uint8_t* data = NULL;
     return add_log(type, data, 0, passed_seconds);
-}
-
-//for test
-void test_add_log_flow() {
-
-    uint8_t* data_1 = NULL;
-    add_log(DEVICE_AWAKED, data_1, 0, 2);
-
-    uint8_t* data_2 = NULL;
-    add_log(NOTIF_HELMET_ON, data_2, 0, 4);
-
-    uint8_t data_3[] = {0x64, 0x50};
-    add_log(MEASUREMENT_CHANGED, data_3, sizeof(data_3), 6);
-
-    /*
-    uint8_t* data_4 = NULL;
-    add_log(DEVICE_INFO_MESSAGE_ACK, data_4, 0, 9);
-    */
-
-    uint8_t data_5[] = {0x00, 0x05, 0x04, 0xB0};
-    add_log(TIMER_STATE_NEW_THERAPY_BY_APP, data_5, sizeof(data_5), 20);
-
-    uint8_t data_6[] = {0x80, 0x80, 0x80, 0x80, 0x80, 0xFF};
-    add_log(NOTIF_BRIGHTNESS_UPDATED, data_6, sizeof(data_6), 24);
-
-    uint8_t data_7[] = {0x68, 0x4B};
-    add_log(MEASUREMENT_CHANGED, data_7, sizeof(data_7), 26);
-
-    uint8_t* data_8 = NULL;
-    add_log(NOTIF_HELMET_ON, data_8, 0, 28);
-
-    uint8_t* data_9 = NULL;
-    add_log(NOTIF_HELMET_ON, data_9, 0, 34);
-
-    uint8_t* data_10 = NULL;
-    add_log(NOTIF_HELMET_ON, data_10, 0, 260);
-
-    uint8_t data_11[] = {0x6C, 0x46};
-    add_log(MEASUREMENT_CHANGED, data_11, sizeof(data_11), 268);
-
-    uint8_t data_12[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0xFF};
-    add_log(NOTIF_BRIGHTNESS_UPDATED, data_12, sizeof(data_12), 270);
-
-    uint8_t* data_13 = NULL;
-    add_log(NOTIF_THERAPY_COMPLETED, data_13, 0, 280);
 }
 
 //for test
@@ -580,16 +516,6 @@ void erase_therapy_partition(uint32_t offset) {
         ESP_LOGI(TAG, "Therapy partition successfully erased.");
     }
 }
-/*
-//for test
-void print_cached_log_sizes() {
-    ESP_LOGI(TAG, "Pending log count: %d", pending_log_count);
-
-    for (size_t i = 0; i < pending_log_count; ++i) {
-        ESP_LOGI(TAG, "  Log[%d] size: %d", i, pending_logs[i].entry_size);
-    }
-}
-*/
 
 bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs, bool is_active_therapy) {
     ESP_LOGI(TAG, "Read records for therapy id: %u", therapy_id);
@@ -612,9 +538,6 @@ bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs, bool is_ac
 
     if (!therapy_logs->measurements || !therapy_logs->notifications || !therapy_logs->brightness_updates) {
         ESP_LOGE(TAG, "Memory allocation failed");
-        free(therapy_logs->measurements);
-        free(therapy_logs->notifications);
-        free(therapy_logs->brightness_updates);
         return false;
     }
 
@@ -668,6 +591,9 @@ bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs, bool is_ac
 
                 break;
 
+            case PASSED_DURATION_UPDATED:
+            case FLASH_SLOT_IS_FULL:
+                break;
             case BLE_CONNECTED:
                 if (count_notifications >= MAX_NOTIFICATION_LOGS) break;
 
@@ -766,14 +692,6 @@ bool read_therapy_info(uint16_t therapy_id, ReadTherapyInfo* therapy_info) {
                     ESP_LOGE(TAG, "Therapy with same therapy id is started more than once.");
                     return false; 
                 }
-                //TODO: değiştirilen kodu kontrol et.
-                /*
-                if (therapy_id != ((entry_ptr[size_info.total_length - 7] << 8) | entry_ptr[size_info.total_length - 6])) {
-                    ESP_LOGE(TAG, "Wrong therapy id is saved.: %u", ((entry_ptr[size_info.total_length - 7] << 8) | entry_ptr[size_info.total_length - 6]));
-                    return false;
-                }
-                therapy_info->therapy_duration = (entry_ptr[size_info.total_length - 5] << 8) | entry_ptr[size_info.total_length - 4];
-                */
                 uint16_t t_id = (data_ptr[0] << 8) | data_ptr[1];
                 uint16_t t_dur = (data_ptr[2] << 8) | data_ptr[3];
                 if (therapy_id != t_id) {
@@ -880,7 +798,3 @@ void read_and_print_test_logs(uint8_t therapy_id) {
     }
     ESP_LOGI(TAG, "All logs have been read from the buffer.");
 }
-
-
-
-

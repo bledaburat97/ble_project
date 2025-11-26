@@ -23,7 +23,6 @@ static void on_state_changed(DeviceState new_state){
         set_laser_drivers_status(false);
     }
     else if (new_state == STATE_INACTIVE) {
-        ESP_LOGI(TAG, "State inactive.");
         set_laser_drivers_status(false);
         /* TODO silinmeli mi?
         if (get_helmet_state()) {
@@ -32,7 +31,6 @@ static void on_state_changed(DeviceState new_state){
         */
     }
     else if (new_state == STATE_ACTIVE) {
-        ESP_LOGI(TAG, "State active.");
         set_laser_drivers_status(true);
     }
 }

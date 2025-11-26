@@ -21,17 +21,14 @@ static void (*temp_normal_callback)(uint8_t) = NULL;
 
 void register_temperature_alert(void (*callback)(uint8_t)) {
     temp_alert_callback = callback;
-    ESP_LOGI(TAG, "Temp alert callback is registered.");
 }
 
 void register_temperature_normal(void (*callback)(uint8_t)) {
     temp_normal_callback = callback;
-    ESP_LOGI(TAG, "Temp normal callback is registered.");
 }
 
 void set_alert_pin_normal_status(bool status) {
     normal_pin_status = status;
-    ESP_LOGI(TAG, "ALERT PIN NORMAL STATUS: %s", normal_pin_status ? "HIGH (NORMAL)" : "LOW");
 }
 
 void set_active_temp_sensor_count(uint8_t count) {
@@ -117,8 +114,7 @@ bool check_alert_status() {
     
     for (int i = 0; i < active_temp_sensor_count; i++) {
         int level = gpio_get_level(alert_gpio_list[i]);
-        ESP_LOGI(TAG, "Current ALERT PIN %d (%d): %s", i, alert_gpio_list[i],
-                 level ? "HIGH (NORMAL)" : "LOW");
+        ESP_LOGI(TAG, "Current alert pin of %d (%d): %s", i, alert_gpio_list[i], level ? "HIGH (NORMAL)" : "LOW");
         if (level != (int)normal_pin_status) {
             return true;
         }

@@ -64,6 +64,8 @@ idf_component_register(SRCS "i2c/temperature/temperature_sensor_controller.c"
                             "transaction/passkey_handler.c"
                             "transaction/wifi_config_handler.c"
 
+                            "buzzer/buzzer.c"
+
                         INCLUDE_DIRS "." 
                                 "lp_core"
                                 "C:/Users/bleda.burat/esp/v5.3.1/esp-idf/components/ulp/lp_core/"

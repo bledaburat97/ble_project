@@ -60,7 +60,7 @@ static void on_device_info_feedback_callback() {
             message.therapy_id = 0;
             message.duration = get_inactivity_duration();
             message.remaining_seconds = get_inactivity_remaining_seconds();
-            message.therapy_passed_seconds = get_current_therapy_passed_duration();
+            message.therapy_passed_seconds = 0;
         }
         else {
             ESP_LOGE(TAG, "Current therapy state is not set correctly");
@@ -118,7 +118,7 @@ static void on_device_info_feedback_callback() {
 }
 
 void add_and_send_new_other_state_info(NotificationType notification_type) {
-    ESP_LOGI(TAG, "add_and_send_new_other_state_info");
+    ESP_LOGI(TAG, "Add and send new other state info.");
 
     uint16_t therapy_passed_seconds = get_current_therapy_passed_duration();
     uint16_t passed_seconds = get_session_passed_seconds();
