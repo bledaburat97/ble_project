@@ -1,10 +1,14 @@
 #include "deep_sleep_manager.h"
 
 #include "state_manager.h"
+#include "timer_manager.h"
 
 #include "../i2c/laser/laser_driver_controller.h"
 
 #include "../device_configuration.h"
+
+#include "../storage/log_types.h"
+#include "../storage/log_writer.h"
 
 #include "driver/rtc_io.h" 
 #include "esp_sleep.h"
@@ -27,6 +31,10 @@ void set_deep_sleep_button() {
 }
 
 void enter_deep_sleep() {
+    uint16_t passed_seconds = get_session_passed_seconds();
+
+    esp_err_t err = add_notification_log(NOTIF_SHUT_DOWN_BY_BUTTON, passed_seconds);
+
     ESP_LOGI(TAG, "Entering to deep sleep");
     set_laser_drivers_status(false);
     set_deep_sleep_button();

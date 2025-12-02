@@ -268,6 +268,11 @@ void send_records_info_message_to_queue(uint16_t therapy_id, uint8_t* data, size
 void send_info_message_to_queue(MessageType message_type, uint8_t* data, size_t data_length) {
     ESP_LOGI(TAG, "Adding message of %u to queue to send it", message_type);
     
+    if (!high_priority_queue) {
+        ESP_LOGE(TAG, "High priority queue is NULL");
+        return;
+    }
+
     uint8_t* data_copy = (uint8_t*)malloc(data_length);
     if (data_copy == NULL) {
         ESP_LOGE(TAG, "Failed to allocate memory for message copy");
@@ -285,8 +290,30 @@ void send_info_message_to_queue(MessageType message_type, uint8_t* data, size_t 
     
     TickType_t time_out = 0; // asla block etme
     if(xQueueSend(high_priority_queue, &entry, time_out) != pdTRUE) {
-        ESP_LOGW(TAG, "Queue full, dropping message type=%u", (unsigned)message_type);
-        free(data_copy);
+        ESP_LOGW(TAG, "Queue full on first try, dropping oldest messages...");
+        
+        const int MAX_DROP = 10;
+        int dropped = 0;
+        MessageQueueEntry old_entry;
+
+        for (int i = 0; i < MAX_DROP; ++i) {
+            if (xQueueReceive(high_priority_queue, &old_entry, 0) != pdTRUE) {
+                break;
+            }
+
+            if (old_entry.data) {
+                free(old_entry.data);
+            }
+            dropped++;
+        }
+
+        ESP_LOGW(TAG, "Dropped %d old messages to make room", dropped);
+
+        if (xQueueSend(high_priority_queue, &entry, time_out) != pdTRUE) {
+            ESP_LOGW(TAG, "Queue still full after dropping, dropping new message type=%u",
+                     (unsigned)message_type);
+            free(data_copy);
+        }
     }
 }
 

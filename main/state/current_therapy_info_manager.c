@@ -3,6 +3,7 @@
 #include "timer_manager.h"
 
 #include "../storage/therapy_counter.h"
+#include "../storage/log_writer.h"
 
 #include "../transaction/default_configuration_handler.h"
 
@@ -18,7 +19,7 @@ static const char *TAG = "CurrentTherapyInfoManager";
 
 static CurrentTherapyState current_therapy_state = NONE;
 static uint16_t current_therapy_duration_s = 0;
-static uint32_t passed_ms_before_last_pause = 0;
+static uint32_t therapy_passed_ms_before_last_pause = 0;
 
 static inline uint32_t get_plan_duration_ms(void) {
     return (uint32_t)current_therapy_duration_s * 1000u;
@@ -37,13 +38,13 @@ static uint32_t clamp_elapsed_to_plan(uint32_t plan_ms, uint64_t candidate_ms) {
 static void accumulate_passed_duration(const char *reason) {
     uint32_t plan_ms   = get_plan_duration_ms();
     uint32_t direct_ms = get_therapy_passed_ms_direct();
-    uint64_t combined  = (uint64_t)passed_ms_before_last_pause + (uint64_t)direct_ms;
+    uint64_t combined  = (uint64_t)therapy_passed_ms_before_last_pause + (uint64_t)direct_ms;
 
     uint32_t new_total = clamp_elapsed_to_plan(plan_ms, combined);
     ESP_LOGI(TAG,
              "%s pause: stored=%" PRIu32 "ms, direct=%" PRIu32 "ms, plan=%" PRIu32 "ms => new=%" PRIu32 "ms",
-             reason, passed_ms_before_last_pause, direct_ms, plan_ms, new_total);
-    passed_ms_before_last_pause = new_total;
+             reason, therapy_passed_ms_before_last_pause, direct_ms, plan_ms, new_total);
+    therapy_passed_ms_before_last_pause = new_total;
 }
 
 
@@ -51,8 +52,26 @@ static void clear_current_therapy(void) {
     ESP_LOGI(TAG, "Clear current therapy.");
     current_therapy_duration_s = 0;
     current_therapy_state = NONE;
-    passed_ms_before_last_pause = 0;
+    therapy_passed_ms_before_last_pause = 0;
     clear_session_clock();
+}
+
+bool restore_uncompleted_therapy_if_exists(void) {
+    UncompletedTherapyInfo info;
+    if (!read_uncompleted_therapy(&info)) {
+        ESP_LOGI(TAG, "No uncompleted therapy found in flash.");
+        return false;
+    }
+
+    ESP_LOGI(TAG, "Restoring uncompleted therapy: id=%u, duration=%u s, last_passed=%u s",
+             info.therapy_id, info.therapy_duration, info.last_passed_seconds);
+
+    current_therapy_duration_s   = info.therapy_duration;
+    therapy_passed_ms_before_last_pause  = (uint32_t)info.therapy_passed_seconds * 1000u;
+    current_therapy_state        = PAUSED;
+
+    reset_session_clock(info.last_passed_seconds * 1000000);
+    return true;
 }
 
 void pause_therapy_because_of_alert(void) {
@@ -74,7 +93,7 @@ void pause_therapy(void) {
     current_therapy_state = PAUSED;
 
     accumulate_passed_duration("Manual");
-    ESP_LOGI(TAG, "passed_ms_before_last_pause: %" PRIu32, passed_ms_before_last_pause);
+    ESP_LOGI(TAG, "therapy_passed_ms_before_last_pause: %" PRIu32, therapy_passed_ms_before_last_pause);
 
     stop_therapy_timer();
     start_inactivity_timer();
@@ -95,15 +114,15 @@ static void set_new_therapy(uint16_t total_duration_s) {
     if (total_duration_s == 0) {
         ESP_LOGW(TAG, "Attempting to set a zero-duration therapy.");
     }
-    ESP_LOGE(TAG, "Set current therapy dur as %u", total_duration_s);
+    ESP_LOGI(TAG, "Set current therapy dur as %u", total_duration_s);
     current_therapy_duration_s = total_duration_s;
-    passed_ms_before_last_pause = 0;
+    therapy_passed_ms_before_last_pause = 0;
 }
 
 void start_therapy(bool is_by_app) {
     uint32_t plan_ms = get_plan_duration_ms();
 
-    if(passed_ms_before_last_pause == 0) {
+    if(therapy_passed_ms_before_last_pause == 0) {
         if(!is_by_app) {
             if(current_therapy_duration_s == 0) {
                 ESP_LOGW(TAG, "No current therapy; using default configuration");
@@ -116,10 +135,10 @@ void start_therapy(bool is_by_app) {
 
                 uint16_t default_therapy_duration = get_default_therapy_duration();
                 set_new_therapy(default_therapy_duration);
-                reset_session_clock();
+                reset_session_clock(0);
                 plan_ms = get_plan_duration_ms();
             }
-            ESP_LOGE(TAG, "Set therapy timer");
+            ESP_LOGI(TAG, "Set therapy timer");
             start_therapy_timer(current_therapy_duration_s, TIMER_STATE_NEW_THERAPY_BY_BUTTON);
             current_therapy_state = ACTIVE;
         }
@@ -127,14 +146,14 @@ void start_therapy(bool is_by_app) {
             ESP_LOGE(TAG, "App does not start default therapy.");
         }
     }
-    else if(passed_ms_before_last_pause >= plan_ms) {
-        ESP_LOGE(TAG, "Passed exceeds plan: %lu >= %lu", (unsigned long)passed_ms_before_last_pause, (unsigned long)plan_ms);
-        passed_ms_before_last_pause = plan_ms;
+    else if(therapy_passed_ms_before_last_pause >= plan_ms) {
+        ESP_LOGE(TAG, "Passed exceeds plan: %lu >= %lu", (unsigned long)therapy_passed_ms_before_last_pause, (unsigned long)plan_ms);
+        therapy_passed_ms_before_last_pause = plan_ms;
         return;
     }
     else {
         current_therapy_state = ACTIVE;
-        uint32_t remain_ms = plan_ms - passed_ms_before_last_pause;
+        uint32_t remain_ms = plan_ms - therapy_passed_ms_before_last_pause;
         uint16_t remain_s = (uint16_t)((remain_ms + 999u) / 1000u);
         if(!is_by_app) {
             start_therapy_timer(remain_s, TIMER_STATE_CONTINUE_THERAPY_BY_BUTTON);
@@ -157,7 +176,6 @@ void start_or_continue_therapy(bool is_by_app) {
         return;
     }
     current_therapy_state = ACTIVE;
-    stop_inactivity_timer();
     start_therapy(is_by_app);
 }
 
@@ -196,25 +214,25 @@ void start_new_therapy(uint16_t duration) {
         return;
     }
     set_new_therapy(duration);
-    reset_session_clock();
+    reset_session_clock(0);
     start_therapy_timer(duration, TIMER_STATE_NEW_THERAPY_BY_APP);
     current_therapy_state = ACTIVE;
 }
 
 uint16_t get_current_therapy_passed_duration(void) {
-    uint32_t total_ms = passed_ms_before_last_pause;
+    uint32_t total_ms = therapy_passed_ms_before_last_pause;
     if (current_therapy_state == ACTIVE) {
         total_ms += get_therapy_passed_ms_direct();
     }
     uint16_t sec = (uint16_t)(total_ms / 1000u);
     ESP_LOGI(TAG, "passed_ms_before_last_pause=%lu, total_ms=%lu (~%u s)",
-             (unsigned long)passed_ms_before_last_pause,
+             (unsigned long)therapy_passed_ms_before_last_pause,
              (unsigned long)total_ms, (unsigned)sec);
     return sec;
 }
 
 uint16_t get_passed_duration_before_last_pause(void) {
-    return (uint16_t)((passed_ms_before_last_pause) / 1000u);
+    return (uint16_t)((therapy_passed_ms_before_last_pause) / 1000u);
 }
 
 void init_current_therapy_info_manager(void) {

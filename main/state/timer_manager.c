@@ -1,6 +1,5 @@
 #include "timer_manager.h"
 
-#include "deep_sleep_manager.h"
 #include "state_manager.h"
 
 #include "../storage/log_writer.h"
@@ -40,7 +39,7 @@ static const uint32_t WATCHDOG_TIMEOUT_MS = 10 * 1000; // 10 saniye
 static int64_t session_start_us = -1; // -1: aktif oturum yok
 
 static void (*passed_duration_update_callback)() = NULL;
-
+static int64_t passed_duration_before_deep_sleep = 0;
 static inline bool is_session_running(void) { return session_start_us >= 0; }
 
 typedef enum {
@@ -53,10 +52,12 @@ typedef enum {
 QueueHandle_t g_systemEvtQ = NULL;
 
 void clear_session_clock(void) {
+    ESP_LOGW(TAG, "Session cleared");
     session_start_us = -1;
 }
 
-void reset_session_clock(void) { 
+void reset_session_clock(int64_t passed_time) {
+    passed_duration_before_deep_sleep = passed_time;
     session_start_us = esp_timer_get_time();
 }
 
@@ -348,15 +349,22 @@ void restart_duration_update_watchdog_timer(void) {
 }
 
 uint16_t get_session_passed_seconds(void) {
+    ESP_LOGI(TAG, "get session passed seconds.");
     if (!is_session_running()) {
         ESP_LOGI(TAG, "Session is not running currently.");
         return 0;
     }
 
     int64_t now_us = esp_timer_get_time();
+    ESP_LOGW(TAG, "Current time: %llu", now_us);
+    ESP_LOGW(TAG, "Session start: %llu", session_start_us);
 
-    int64_t diff = now_us - session_start_us;
-    if (diff < 0) diff = 0;
+    int64_t diff = now_us - session_start_us + passed_duration_before_deep_sleep;
+    ESP_LOGW(TAG, "Diff: %llu", diff);
+
+    if (diff < 0) {
+        diff = 0;
+    }
     return (uint16_t)(diff / 1000000LL); // saniye
 }
 

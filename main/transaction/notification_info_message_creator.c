@@ -32,7 +32,6 @@ static void on_passed_duration_update() {
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to persist notification log: %s", esp_err_to_name(err));
     }
-    send_notification_info(PASSED_DURATION_UPDATED, passed_seconds);
 }
 
 void send_notification_info(NotificationType type, uint16_t passed_seconds) {

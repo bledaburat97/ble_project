@@ -32,6 +32,13 @@ typedef struct {
     uint16_t passed_duration;
 } ReadTherapyInfo;
 
+typedef struct {
+    uint16_t therapy_id;
+    uint16_t therapy_duration;
+    uint16_t last_passed_seconds;
+    uint16_t therapy_passed_seconds;
+    uint8_t  last_brightness[6];
+} UncompletedTherapyInfo;
 
 esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t passed_seconds);
 esp_err_t add_notification_log(uint8_t type, uint16_t passed_seconds);
@@ -40,6 +47,9 @@ void erase_therapy_partition(uint32_t offset);
 bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs, bool is_active_therapy);
 bool read_therapy_info(uint16_t therapy_id, ReadTherapyInfo* therapy_info);
 void read_and_print_test_logs(uint8_t therapy_id);
+bool read_uncompleted_therapy(UncompletedTherapyInfo *out);
+void set_continue_uncompleted_therapy(bool status);
+
 #ifdef __cplusplus
 }
 #endif

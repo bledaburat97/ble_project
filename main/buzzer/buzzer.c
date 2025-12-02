@@ -83,10 +83,6 @@ void buzzer_beep(uint32_t freq_hz, uint32_t duration_ms, uint8_t volume_percent)
     buzzer_stop();
 }
 
-/* ---------------------------------------------------------
- *  ÖRNEK PATTERN’LER
- * ---------------------------------------------------------*/
-
 // Kısa yükselen 2 notalı "başarılı" sesi
 void buzzer_success_tone(void)
 {

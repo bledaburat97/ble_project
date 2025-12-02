@@ -27,7 +27,7 @@ uint16_t get_alert_duration(void);
 uint16_t get_alert_remaining_seconds(void);
 void restart_duration_update_watchdog_timer(void);
 uint16_t get_session_passed_seconds(void);
-void reset_session_clock(void);
+void reset_session_clock(int64_t passed_time);
 void clear_session_clock(void);
 uint32_t get_therapy_remaining_ms(void);
 uint32_t get_therapy_passed_ms_direct(void);

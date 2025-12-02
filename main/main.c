@@ -37,6 +37,7 @@
 #include "state/timer_manager.h"
 #include "state/state_manager.h"
 #include "state/mode_selector.h"
+#include "state/current_therapy_info_manager.h"
 
 #include "i2c/i2c_control.h"
 #include "i2c/laser/laser_driver_controller.h"
@@ -70,7 +71,6 @@
 
 static const char *TAG = "Main";
 
-
 void periodic_message_sender_task(void *pvParameters) {
     const TickType_t delay_ticks = pdMS_TO_TICKS(30 * 1000); 
     while (1) {
@@ -93,6 +93,7 @@ typedef struct {
     bool default_sleep_active;
     bool deep_sleep_button_control_active;
     bool creating_logs_permitted;
+    bool continue_uncompleted_therapy;
 } feature_config_t;
 
 static const feature_config_t feature_config = {
@@ -107,6 +108,7 @@ static const feature_config_t feature_config = {
     .default_sleep_active = false,
     .deep_sleep_button_control_active = true,
     .creating_logs_permitted = true,
+    .continue_uncompleted_therapy = false,
 };
 
 static void initialize_nvs_flash_module(void) {
@@ -245,6 +247,15 @@ static void initialize_button_components(const feature_config_t *config) {
 }
 
 static void finalize_device_startup(const feature_config_t *config) {
+
+    if(config->continue_uncompleted_therapy) {
+        bool restored = restore_uncompleted_therapy_if_exists();
+        if (restored) {
+            ESP_LOGI(TAG, "Device booted with an uncompleted therapy. Current therapy set to PAUSED.");
+        }
+        set_continue_uncompleted_therapy(true);
+    }
+
     if (config->creating_logs_permitted) {
         add_and_send_notification_info(DEVICE_AWAKED);
     }

@@ -28,6 +28,11 @@ static uint8_t write_buffer[MAX_LOG_ENTRY_SIZE];
 static uint8_t entry_buffer[MAX_LOG_ENTRY_SIZE];
 
 static uint32_t starting_local_offset = 0;
+static bool can_continue_uncompleted_therapy = false;
+
+void set_continue_uncompleted_therapy(bool status) {
+    can_continue_uncompleted_therapy = status;
+}
 
 static inline bool verify_crc(const uint8_t* entry_ptr, LogEntrySizeInfo entry_size_info) {
     if (entry_size_info.total_length < 4) return false; // en küçük kayıt 1(type)+0(data)+2(passed)+1(crc)
@@ -334,6 +339,220 @@ static bool does_slot_contain_entry(uint32_t base_offset, uint8_t type_of_entry)
     return false;
 }
 
+static bool is_pause_state_type(uint8_t type) {
+    return (type == TIMER_STATE_PAUSED_THERAPY) ||
+           (type == TIMER_STATE_LOW_TEMP_ALERT_1) ||
+           (type == TIMER_STATE_HIGH_TEMP_ALERT_1) ||
+           (type == TIMER_STATE_LOW_TEMP_ALERT_2) ||
+           (type == TIMER_STATE_HIGH_TEMP_ALERT_2) ||
+           (type == TIMER_STATE_LOW_TEMP_ALERT_3) ||
+           (type == TIMER_STATE_HIGH_TEMP_ALERT_3) ||
+           (type == TIMER_STATE_LOW_HUM_ALERT) ||
+           (type == TIMER_STATE_HIGH_HUM_ALERT) ||
+           (type == NOTIF_THERAPY_PAUSED_BY_BUTTON) ||
+           (type == NOTIF_THERAPY_PAUSED_BY_APP);
+}
+
+// "koşan terapiyi" temsil eden state mi?
+static bool is_start_or_continue_state(uint8_t type) {
+    return (type == TIMER_STATE_NEW_THERAPY_BY_BUTTON) ||
+           (type == TIMER_STATE_NEW_THERAPY_BY_APP) ||
+           (type == TIMER_STATE_CONTINUE_THERAPY_BY_BUTTON) ||
+           (type == TIMER_STATE_CONTINUE_THERAPY_BY_APP);
+}
+
+/**
+ * Son logun session passed'ını ve gerçek therapy_passed'i hesaplar.
+ * - base_offset: ilgili terapi slotunun base offset'i
+ * - out_last_session_passed: slot’taki son logun passed_seconds'ı
+ * - out_therapy_passed: hesaplanmış therapy_passed_seconds
+ */
+static bool compute_uncompleted_therapy_passed(uint32_t base_offset,
+                                               uint16_t *out_last_session_passed,
+                                               uint16_t *out_therapy_passed)
+{
+    if (!out_last_session_passed || !out_therapy_passed) {
+        return false;
+    }
+
+    const esp_partition_t *partition = get_log_partition();
+    if (!partition) {
+        ESP_LOGE(TAG, "Cannot read flash, partition is NULL!");
+        return false;
+    }
+
+    esp_err_t err = esp_partition_read(partition, base_offset,
+                                       therapy_slot_buffer, THERAPY_SLOT_SIZE);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to read slot at base_offset %lu: %s",
+                 base_offset, esp_err_to_name(err));
+        return false;
+    }
+
+    uint32_t local_offset = 0;
+    bool any_log = false;
+    uint16_t last_session_passed = 0;
+
+    bool last_start_state_found = false;
+    uint8_t  last_start_state_type = 0;
+    uint16_t last_start_state_session_passed = 0;
+    uint16_t last_start_state_therapy_passed = 0;
+    bool last_pause_state_found = false;
+    uint8_t  last_pause_state_type = 0;
+    uint16_t last_pause_state_session_passed = 0;
+
+    while (local_offset < THERAPY_SLOT_SIZE) {
+        uint8_t type = therapy_slot_buffer[local_offset];
+        if (type == 0xFF) {
+            break;
+        }
+
+        LogEntrySizeInfo si = get_log_entry_size_info(type);
+        if (si.total_length == 0 ||
+            local_offset + si.total_length > THERAPY_SLOT_SIZE) {
+            ESP_LOGE(TAG, "Corrupt or overflow log entry at local_offset %lu",
+                     local_offset);
+            break;
+        }
+
+        const uint8_t *entry_ptr = &therapy_slot_buffer[local_offset];
+        if (!verify_crc(entry_ptr, si)) {
+            ESP_LOGE(TAG, "CRC mismatch at local_offset=%lu. Stopping read.",
+                     local_offset);
+            break;
+        }
+
+        // Son logun session passed_seconds'ı (tüm loglar için geçerli)
+        uint16_t passed =
+            (entry_ptr[si.total_length - 3] << 8) |
+             entry_ptr[si.total_length - 2];
+
+        last_session_passed = passed;
+        any_log = true;
+
+        // TIMER_STATE_* ise, therapy_passed'i de çekmeye çalış
+        if (is_start_or_continue_state(type)) {
+            const uint8_t first_data_byte_index = 1;
+            const uint8_t *data_ptr = &entry_ptr[first_data_byte_index];
+
+            uint16_t therapy_passed = 0;
+
+            // TimerStateInfoMessage formatı:
+            // data[0-1] = therapy_id
+            // data[2-3] = duration
+            // data[4-5] = therapy_passed_seconds
+            if (si.data_length >= 6) {
+                therapy_passed =
+                    (data_ptr[4] << 8) | data_ptr[5];
+            } else {
+                // Eski kayıtlar için ya da henüz bu bilgiler eklenmemişse 0
+                therapy_passed = 0;
+            }
+            ESP_LOGI(TAG, "Timer start found, type: %u, last_state_session_passed: %u, last_state_therapy_passed: %u", type, passed, therapy_passed);
+            last_start_state_found = true;
+            last_start_state_type = type;
+            last_start_state_session_passed = passed;
+            last_start_state_therapy_passed = therapy_passed;
+        }
+
+        else if (is_pause_state_type(type)) {
+            ESP_LOGI(TAG, "Timer pause found, type: %u, last_state_session_passed: %u", type, passed);
+
+            last_pause_state_found = true;
+            last_pause_state_type = type;
+            last_pause_state_session_passed = passed;
+        }
+
+        local_offset += si.total_length;
+    }
+
+    if (!any_log) {
+        return false;
+    }
+
+    uint16_t therapy_passed = 0;
+
+    if (last_start_state_found) {
+        if(last_pause_state_found && last_pause_state_session_passed >= last_start_state_session_passed) {
+            therapy_passed = last_start_state_therapy_passed + last_pause_state_session_passed - last_start_state_session_passed;
+            ESP_LOGI(TAG, "Start and paused found, theerapy passed: %u", therapy_passed);
+        }
+        else {
+            therapy_passed =  last_start_state_therapy_passed + last_session_passed - last_start_state_session_passed;
+            ESP_LOGI(TAG, "Start found but paused not found, theerapy passed: %u", therapy_passed);
+        }
+    } else {
+        ESP_LOGI(TAG, "Start not found.");
+        therapy_passed = 0;
+    }
+
+    *out_last_session_passed = last_session_passed;
+    *out_therapy_passed = therapy_passed;
+    return true;
+}
+
+bool read_uncompleted_therapy(UncompletedTherapyInfo *out) {
+    if (!out) {
+        return false;
+    }
+
+    uint16_t therapy_count = read_therapy_count();
+    if (therapy_count == 0) {
+        // Daha önce hiç terapi yok
+        return false;
+    }
+
+    uint32_t base_offset = ((therapy_count - 1) % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
+
+    // Slot bitmiş mi? (COMPLETED / STOPPED / SHUT_DOWN varsa devam etmeyeceğiz)
+    bool slot_is_finished =
+        does_slot_contain_entry(base_offset, NOTIF_THERAPY_COMPLETED)   ||
+        does_slot_contain_entry(base_offset, NOTIF_THERAPY_STOPPED_BY_APP) ||
+        does_slot_contain_entry(base_offset, NOTIF_SHUT_DOWN_BY_BUTTON);
+
+    if (slot_is_finished) {
+        ESP_LOGI(TAG, "Last therapy slot is already finished. No uncompleted therapy.");
+        return false;
+    }
+
+    ReadTherapyInfo info = {0};
+    if (!read_therapy_info(therapy_count, &info)) {
+        ESP_LOGE(TAG, "Failed to read therapy info for last therapy_id=%u", therapy_count);
+        return false;
+    }
+
+    // Başlangıç logu yoksa (duration=0) devam edecek bir terapi de yok
+    if (info.therapy_duration == 0) {
+        ESP_LOGW(TAG, "Last therapy slot has no valid start log. Skipping resume.");
+        return false;
+    }
+
+    uint16_t last_session_passed = 0;
+    uint16_t therapy_passed = 0;
+    if (!compute_uncompleted_therapy_passed(base_offset,
+                                            &last_session_passed,
+                                            &therapy_passed)) {
+        ESP_LOGW(TAG, "Failed to compute uncompleted therapy passed time. Fallback to info.passed_duration.");
+        last_session_passed = info.passed_duration;
+        therapy_passed = info.passed_duration;
+    }
+
+    memset(out, 0, sizeof(*out));
+    out->therapy_id             = therapy_count;
+    out->therapy_duration       = info.therapy_duration;
+    out->last_passed_seconds    = last_session_passed;    // session-based
+    out->therapy_passed_seconds = therapy_passed;         // gerçek terapi süresi
+    memcpy(out->last_brightness, info.brightness, 6);
+
+    ESP_LOGI(TAG,
+             "Found uncompleted therapy: id=%u, duration=%u, last_session=%u, therapy_passed=%u",
+             out->therapy_id,
+             out->therapy_duration,
+             out->last_passed_seconds,
+             out->therapy_passed_seconds);
+
+    return true;
+}
 
 /*
 Logu oluşturur ve özelliğine bakılır:
@@ -447,6 +666,32 @@ esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t p
         // 1-f) Bu TIMER_STATE_NEW_THERAPY_* logunu da yeni slota yaz
         return append_log_entry(new_base_offset, &log);
     }
+
+    ESP_LOGI(TAG, "Passed seconds: %u", log.passed_seconds);
+    ESP_LOGI(TAG, "Log type: %u", log.type);
+
+    if (can_continue_uncompleted_therapy && (log.type == TIMER_STATE_CONTINUE_THERAPY_BY_BUTTON || log.type == TIMER_STATE_CONTINUE_THERAPY_BY_APP)) {
+        uint16_t therapy_count = read_therapy_count();
+        if (therapy_count == 0) {
+            ESP_LOGE(TAG, "CONTINUE_THERAPY log received but therapy_count is 0");
+            return ESP_FAIL;
+        }
+
+        uint32_t old_base_offset = ((therapy_count - 1) % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
+
+        if (is_cached_logs_existed && pending_log_count > 0) {
+            ESP_LOGI(TAG, "Flushing cached logs to existing slot with base offset: %lu", old_base_offset);
+            esp_err_t flush_err = flush_cached_logs_to_slot(old_base_offset);
+            if (flush_err != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to flush cached logs: %s", esp_err_to_name(flush_err));
+                return flush_err;
+            }
+        }
+
+        is_cached_logs_existed = false;
+        return append_log_entry(old_base_offset, &log);
+    }
+
 
     // --- 2) Yeni terapi başlangıcı DEĞİL, ama cache açıkken gelen loglar ---
     if (is_cached_logs_existed) {
