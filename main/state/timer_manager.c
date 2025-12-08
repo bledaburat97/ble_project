@@ -295,7 +295,7 @@ uint32_t get_inactivity_remaining_ms(void) {
     TickType_t nominal = pdMS_TO_TICKS((uint32_t)INACTIVITY_THRESHOLD_SECONDS * 1000u);
 
     if (remain > (nominal + pdMS_TO_TICKS(1000u)) * 2)
-        return INACTIVITY_THRESHOLD_SECONDS;
+        return (uint32_t)INACTIVITY_THRESHOLD_SECONDS * 1000u;
 
     #ifdef pdTICKS_TO_MS
     return (uint32_t)pdTICKS_TO_MS(remain);
@@ -349,23 +349,30 @@ void restart_duration_update_watchdog_timer(void) {
 }
 
 uint16_t get_session_passed_seconds(void) {
-    ESP_LOGI(TAG, "get session passed seconds.");
     if (!is_session_running()) {
         ESP_LOGI(TAG, "Session is not running currently.");
         return 0;
     }
 
     int64_t now_us = esp_timer_get_time();
-    ESP_LOGW(TAG, "Current time: %llu", now_us);
-    ESP_LOGW(TAG, "Session start: %llu", session_start_us);
+    //ESP_LOGW(TAG, "Current time: %llu", now_us);
+    //ESP_LOGW(TAG, "Session start: %llu", session_start_us);
 
     int64_t diff = now_us - session_start_us + passed_duration_before_deep_sleep;
-    ESP_LOGW(TAG, "Diff: %llu", diff);
+    //ESP_LOGW(TAG, "Diff: %llu", diff);
 
     if (diff < 0) {
         diff = 0;
     }
-    return (uint16_t)(diff / 1000000LL); // saniye
+
+    const int64_t max_diff_us = (int64_t)UINT16_MAX * 1000000LL;
+    if (diff > max_diff_us) {
+        ESP_LOGE(TAG, "Session diff overflow (>%u s). Clamping.", UINT16_MAX);
+        return UINT16_MAX;
+    }
+
+    uint64_t seconds = (uint64_t)diff / 1000000ULL;
+    return (uint16_t)seconds;
 }
 
 static void ManagerTask(void *arg) {

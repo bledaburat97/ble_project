@@ -19,7 +19,6 @@ static const char *TAG = "GeneralManager";
 
 static void on_state_changed(DeviceState new_state){
     if (new_state == STATE_TEMPERATURE_ALERT) {
-        //set_laser_drivers_gpio_pin_status(false);
         set_laser_drivers_status(false);
     }
     else if (new_state == STATE_INACTIVE) {
@@ -47,8 +46,8 @@ void start_device() {
 }
 
 static void turn_off_device_because_of_inactivity() {
-    if (!stop_inactivity_timer()) {
-        return;
+    if(is_inactivity_timer_running()) {
+        stop_inactivity_timer();
     }
     set_device_state(STATE_IDLE);
 }
@@ -86,8 +85,8 @@ static void on_timer_end(NotificationType notification_type) {
             uint16_t current_therapy_duration = get_current_therapy_duration();
             terminate_therapy();
 
-            if(current_therapy_duration == 20) {
-                start_therapy(false);
+            if(current_therapy_duration == INFINITE_THERAPY_DURATION) {
+                start_or_continue_therapy_by_button();
                 return;
             }
 

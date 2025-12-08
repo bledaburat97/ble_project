@@ -77,7 +77,7 @@ void init_passkey_handler() {
         save_parameter_u32(NVS_PASSKEY_KEY, passkey);
     }
     ESP_LOGI(TAG, "passkey: %lu", passkey);
-    save_parameter_u32(NVS_PASSKEY_KEY, passkey);
+    //save_parameter_u32(NVS_PASSKEY_KEY, passkey); //TODO: Kaldırıldı, bir hataya sebep vermiş mi kontrol et.
     esp_ble_gap_set_security_param(ESP_BLE_SM_SET_STATIC_PASSKEY, &passkey, sizeof(passkey));
     register_on_write_updating_passkey_callback(on_passkey_updated);
 }

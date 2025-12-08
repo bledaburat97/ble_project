@@ -66,7 +66,7 @@ static void handle_status_change_message(const StatusChangeMessage *msg)
             ESP_LOGE(TAG, "CONTINUE received but device state is not INACTIVE (state=%d)", get_device_state());
             return;
         }
-        start_or_continue_therapy(true);
+        continue_therapy_by_app();
     }
 }
 

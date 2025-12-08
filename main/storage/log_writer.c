@@ -13,6 +13,9 @@
 #include "esp_log.h"
 #include <string.h>
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 #define TAG "LogWriter"
 
 #define THERAPY_SLOT_SIZE 4096
@@ -217,6 +220,19 @@ static bool read_max_passed_in_slot(uint32_t base_offset, uint16_t *out_max_pass
     return false;
 }
 
+static esp_err_t load_therapy_slot(uint32_t base_offset) {
+    const esp_partition_t* log_partition = get_log_partition();
+    if (!log_partition) {
+        ESP_LOGE(TAG, "Cannot read flash, partition is NULL!");
+        return ESP_ERR_INVALID_ARG;
+    }
+    esp_err_t err = esp_partition_read(log_partition, base_offset, therapy_slot_buffer, THERAPY_SLOT_SIZE);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to read therapy slot: %s", esp_err_to_name(err));
+    }
+    return err;
+}
+
 /*
 Tüm log yazma sürecini yöneten merkezi fonksiyon:
     create_log_entry ile byte array oluşturur
@@ -228,7 +244,7 @@ Tüm log yazma sürecini yöneten merkezi fonksiyon:
     last_saved_passed_duration güncellenir
     Hatalı girişlere karşı boyut/CRC koruması sağlar
 */
-static esp_err_t append_log_entry(uint32_t offset, const BaseLogEntry* log)
+static esp_err_t append_log_entry_with_loaded_slot(uint32_t offset, const BaseLogEntry* log)
 {
     //ESP_LOGI(TAG, "appending log entry (internal) with size: %u", log->entry_size);
     memset(entry_buffer, 0, MAX_LOG_ENTRY_SIZE);
@@ -255,56 +271,65 @@ static esp_err_t append_log_entry(uint32_t offset, const BaseLogEntry* log)
         ESP_LOGW(TAG, "CRC mismatch: expected=0x%02X, got=0x%02X", expected_crc, entry_buffer[log->entry_size - 1]);
     }
 
-    if (!get_log_partition()) return ESP_ERR_INVALID_STATE;
-
-    esp_err_t err = esp_partition_read(get_log_partition(), offset, therapy_slot_buffer, THERAPY_SLOT_SIZE);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to read therapy slot: %s", esp_err_to_name(err));
-        return err;
-    }
-
     uint32_t local_offset;
     bool is_slot_getting_full = false;
 
     bool found = find_next_log_offset(log->entry_size, log->type, &is_slot_getting_full, &local_offset);
     if (!found) {
-        //ESP_LOGW(TAG, "No space found for log entry.");
         return ESP_ERR_NO_MEM;
     }
 
-    if(is_slot_getting_full) {
-        if(write_slot_as_full(offset + local_offset, log->passed_seconds) == ESP_OK) {
+    if (is_slot_getting_full) {
+        esp_err_t werr = write_slot_as_full(offset + local_offset, log->passed_seconds);
+        if (werr == ESP_OK) {
             ESP_LOGI(TAG, "Slot is full written at offset %lu", offset + local_offset);
             starting_local_offset = local_offset + sizeof(Notification_t);
+        } else {
+            ESP_LOGE(TAG, "Failed to write log entry at offset %lu: %s", offset + local_offset, esp_err_to_name(werr));
+            return werr;
         }
-        else{
-            ESP_LOGE(TAG, "Failed to write log entry at offset %lu: %s", offset + local_offset, esp_err_to_name(err));
-            return ESP_FAIL;
-        }
-    }
-    else{
-        if(write_log_entry(offset + local_offset, entry_buffer, log->entry_size) == ESP_OK) {
+    } else {
+        esp_err_t werr = write_log_entry(offset + local_offset, entry_buffer, log->entry_size);
+        if (werr == ESP_OK) {
             starting_local_offset = local_offset + log->entry_size;
-        }
-        else{
-            ESP_LOGE(TAG, "Failed to write log entry at offset %lu: %s", offset + local_offset, esp_err_to_name(err));
-            return ESP_FAIL;
+        } else {
+            ESP_LOGE(TAG, "Failed to write log entry at offset %lu: %s", offset + local_offset, esp_err_to_name(werr));
+            return werr;
         }
     }
     return ESP_OK;
 }
 
+static esp_err_t append_log_entry(uint32_t base_offset, const BaseLogEntry* log)
+{
+    esp_err_t err = load_therapy_slot(base_offset);
+    if (err != ESP_OK) {
+        return err;
+    }
+    return append_log_entry_with_loaded_slot(base_offset, log);
+}
 
 //RAM’de bekleyen tüm logları belirtilen flash adresine sırasıyla yazar.
 //Örneğin bir terapi tamamlandığında veya belirli koşullar sağlandığında geçici logların hepsi flash'a aktarılır.
 static esp_err_t flush_cached_logs_to_slot(uint32_t offset) {
-    ESP_LOGI(TAG, "Flush cached logs.");
+    ESP_LOGI(TAG, "Flush cached logs. pending log count: %u", pending_log_count);
+
+    esp_err_t err = load_therapy_slot(offset);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to load slot before flush: %s", esp_err_to_name(err));
+        return err;
+    }
 
     for (int i = 0; i < pending_log_count; i++) {
-        esp_err_t err = append_log_entry(offset, &pending_logs[i]);
+        err = append_log_entry_with_loaded_slot(offset, &pending_logs[i]);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "Failed to flush log[%d]: %s", i, esp_err_to_name(err));
             return err;
+        }
+
+        // WDT ve scheduler'a nefes
+        if ((i & 0x7) == 0) {   // her 8 log’da bir
+            vTaskDelay(1);      // ~1 tick
         }
     }
 
@@ -312,12 +337,19 @@ static esp_err_t flush_cached_logs_to_slot(uint32_t offset) {
     return ESP_OK;
 }
 
+
 //İstenilen flash slotunda istenilen log var mı diye kontrol edilir.
 //Örneğin bir slot tamamlanmış mı (yani THERAPY_COMPLETED log'u var mı) diye anlamak için.
 static bool does_slot_contain_entry(uint32_t base_offset, uint8_t type_of_entry) {
     uint32_t local_offset = 0;
 
-    esp_err_t err = esp_partition_read(get_log_partition(), base_offset, therapy_slot_buffer, THERAPY_SLOT_SIZE);
+    const esp_partition_t* log_partition = get_log_partition();
+    if (!log_partition) {
+        ESP_LOGE(TAG, "Cannot read flash, partition is NULL!");
+        return false;
+    }
+
+    esp_err_t err = esp_partition_read(log_partition, base_offset, therapy_slot_buffer, THERAPY_SLOT_SIZE);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to read therapy slot: %s", esp_err_to_name(err));
         return false;
@@ -394,11 +426,9 @@ static bool compute_uncompleted_therapy_passed(uint32_t base_offset,
     uint16_t last_session_passed = 0;
 
     bool last_start_state_found = false;
-    uint8_t  last_start_state_type = 0;
     uint16_t last_start_state_session_passed = 0;
     uint16_t last_start_state_therapy_passed = 0;
     bool last_pause_state_found = false;
-    uint8_t  last_pause_state_type = 0;
     uint16_t last_pause_state_session_passed = 0;
 
     while (local_offset < THERAPY_SLOT_SIZE) {
@@ -450,7 +480,6 @@ static bool compute_uncompleted_therapy_passed(uint32_t base_offset,
             }
             ESP_LOGI(TAG, "Timer start found, type: %u, last_state_session_passed: %u, last_state_therapy_passed: %u", type, passed, therapy_passed);
             last_start_state_found = true;
-            last_start_state_type = type;
             last_start_state_session_passed = passed;
             last_start_state_therapy_passed = therapy_passed;
         }
@@ -459,7 +488,6 @@ static bool compute_uncompleted_therapy_passed(uint32_t base_offset,
             ESP_LOGI(TAG, "Timer pause found, type: %u, last_state_session_passed: %u", type, passed);
 
             last_pause_state_found = true;
-            last_pause_state_type = type;
             last_pause_state_session_passed = passed;
         }
 
@@ -475,11 +503,11 @@ static bool compute_uncompleted_therapy_passed(uint32_t base_offset,
     if (last_start_state_found) {
         if(last_pause_state_found && last_pause_state_session_passed >= last_start_state_session_passed) {
             therapy_passed = last_start_state_therapy_passed + last_pause_state_session_passed - last_start_state_session_passed;
-            ESP_LOGI(TAG, "Start and paused found, theerapy passed: %u", therapy_passed);
+            ESP_LOGI(TAG, "Start and paused found, therapy passed: %u", therapy_passed);
         }
         else {
             therapy_passed =  last_start_state_therapy_passed + last_session_passed - last_start_state_session_passed;
-            ESP_LOGI(TAG, "Start found but paused not found, theerapy passed: %u", therapy_passed);
+            ESP_LOGI(TAG, "Start found but paused not found, therapy passed: %u", therapy_passed);
         }
     } else {
         ESP_LOGI(TAG, "Start not found.");
@@ -508,7 +536,8 @@ bool read_uncompleted_therapy(UncompletedTherapyInfo *out) {
     bool slot_is_finished =
         does_slot_contain_entry(base_offset, NOTIF_THERAPY_COMPLETED)   ||
         does_slot_contain_entry(base_offset, NOTIF_THERAPY_STOPPED_BY_APP) ||
-        does_slot_contain_entry(base_offset, NOTIF_SHUT_DOWN_BY_BUTTON);
+        does_slot_contain_entry(base_offset, NOTIF_SHUT_DOWN_BY_BUTTON) ||
+        does_slot_contain_entry(base_offset, NOTIF_ENTER_DEEP_SLEEP);
 
     if (slot_is_finished) {
         ESP_LOGI(TAG, "Last therapy slot is already finished. No uncompleted therapy.");
@@ -593,7 +622,8 @@ esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t p
             bool slot_is_finished =
                 does_slot_contain_entry(old_base_offset, NOTIF_THERAPY_COMPLETED) ||
                 does_slot_contain_entry(old_base_offset, NOTIF_THERAPY_STOPPED_BY_APP) ||
-                does_slot_contain_entry(old_base_offset, NOTIF_SHUT_DOWN_BY_BUTTON);
+                does_slot_contain_entry(old_base_offset, NOTIF_SHUT_DOWN_BY_BUTTON) ||
+                does_slot_contain_entry(old_base_offset, NOTIF_ENTER_DEEP_SLEEP);
 
             if (!slot_is_finished) {
                 uint16_t last_passed = 0;
@@ -601,11 +631,11 @@ esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t p
 
                 if (have_last && last_passed > 0) {
                     ESP_LOGW(TAG,
-                        "Previous therapy slot is not finished. Injecting NOTIF_SHUT_DOWN_BY_BUTTON at passed=%u.",
+                        "Previous therapy slot is not finished. Injecting NOTIF_ENTER_DEEP_SLEEP at passed=%u.",
                         last_passed);
 
                     BaseLogEntry shutdown_log =
-                        fill_base_log(NOTIF_SHUT_DOWN_BY_BUTTON, NULL, 0, last_passed);
+                        fill_base_log(NOTIF_ENTER_DEEP_SLEEP, NULL, 0, last_passed);
                     if (shutdown_log.entry_size == 0) {
                         ESP_LOGE(TAG, "Failed to create shutdown log entry");
                         return ESP_FAIL;
@@ -643,8 +673,13 @@ esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t p
             uint32_t deleting_slot_offset =
                 (new_therapy_count % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
             ESP_LOGI(TAG, "Erasing old slot before overwrite. Offset: %lu", deleting_slot_offset);
-            esp_err_t erase_err =
-                esp_partition_erase_range(get_log_partition(), deleting_slot_offset, THERAPY_SLOT_SIZE);
+            const esp_partition_t *log_partition = get_log_partition();
+            if (!log_partition) {
+                ESP_LOGE(TAG, "Cannot read flash, partition is NULL!");
+                return ESP_ERR_INVALID_ARG;
+            }
+
+            esp_err_t erase_err = esp_partition_erase_range(log_partition, deleting_slot_offset, THERAPY_SLOT_SIZE);
             if (erase_err != ESP_OK) {
                 ESP_LOGE(TAG, "Failed to erase therapy slot before overwriting: %s",
                          esp_err_to_name(erase_err));
@@ -667,8 +702,8 @@ esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t p
         return append_log_entry(new_base_offset, &log);
     }
 
-    ESP_LOGI(TAG, "Passed seconds: %u", log.passed_seconds);
-    ESP_LOGI(TAG, "Log type: %u", log.type);
+    //ESP_LOGI(TAG, "Passed seconds: %u", log.passed_seconds);
+    //ESP_LOGI(TAG, "Log type: %u", log.type);
 
     if (can_continue_uncompleted_therapy && (log.type == TIMER_STATE_CONTINUE_THERAPY_BY_BUTTON || log.type == TIMER_STATE_CONTINUE_THERAPY_BY_APP)) {
         uint16_t therapy_count = read_therapy_count();
@@ -753,7 +788,12 @@ esp_err_t add_notification_log(uint8_t type, uint16_t passed_seconds) {
 
 //for test
 void erase_therapy_partition(uint32_t offset) {
-    esp_err_t erase_err = esp_partition_erase_range(get_log_partition(), offset, THERAPY_SLOT_SIZE);
+    const esp_partition_t *log_partition = get_log_partition();
+    if (!log_partition) {
+        ESP_LOGE(TAG, "Cannot read flash, partition is NULL!");
+        return;
+    }
+    esp_err_t erase_err = esp_partition_erase_range(log_partition, offset, THERAPY_SLOT_SIZE);
     if (erase_err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to erase therapy slot before overwriting: %s", esp_err_to_name(erase_err));
     }
@@ -781,7 +821,17 @@ bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs, bool is_ac
     therapy_logs->notifications = malloc(MAX_NOTIFICATION_LOGS * 3);
     therapy_logs->brightness_updates = malloc(MAX_BRIGHTNESS_LOGS * 8);
 
-    if (!therapy_logs->measurements || !therapy_logs->notifications || !therapy_logs->brightness_updates) {
+    if (!therapy_logs->measurements || !therapy_logs->notifications || !therapy_logs->brightness_updates) 
+    {
+        if (therapy_logs->measurements) {
+            free(therapy_logs->measurements);
+        }
+        if (therapy_logs->notifications) {
+            free(therapy_logs->notifications);
+        }
+        if (therapy_logs->brightness_updates) {
+            free(therapy_logs->brightness_updates);
+        }
         ESP_LOGE(TAG, "Memory allocation failed");
         return false;
     }
@@ -818,7 +868,7 @@ bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs, bool is_ac
 
         switch (type) {
             case MEASUREMENT_CHANGED:
-                if (therapy_logs->count_measurements >= MAX_MEASUREMENT_LOGS) break;
+                if (count_measurements >= MAX_MEASUREMENT_LOGS) break;
 
                 memcpy(&therapy_logs->measurements[count_measurements * 4], data_ptr, size_info.data_length); // data
                 therapy_logs->measurements[count_measurements * 4 + size_info.data_length] = entry_ptr[first_passed_duration_byte_index]; // passed_seconds (1st byte)
@@ -948,6 +998,7 @@ bool read_therapy_info(uint16_t therapy_id, ReadTherapyInfo* therapy_info) {
                 break;
             }
             case NOTIF_SHUT_DOWN_BY_BUTTON:
+            case NOTIF_ENTER_DEEP_SLEEP:
             case NOTIF_THERAPY_STOPPED_BY_APP:
             case NOTIF_THERAPY_COMPLETED:
                 therapy_info->is_over = true;

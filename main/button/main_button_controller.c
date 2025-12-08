@@ -12,6 +12,8 @@
 
 #include "../device_configuration.h"
 
+#include "../storage/log_writer.h"
+
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -26,7 +28,7 @@ static const char *TAG = "MainButtonController";
 
 static void start_or_pause_therapy() {
     if (get_device_state() == STATE_INACTIVE) {
-        start_or_continue_therapy(false);
+        start_or_continue_therapy_by_button();
     } else if (get_device_state() == STATE_ACTIVE) {
         pause_therapy();
         add_and_send_notification_info(NOTIF_THERAPY_PAUSED_BY_BUTTON);
@@ -109,6 +111,8 @@ void wait_for_button_to_sleep(void *pvParameters) {
 
             if(press_duration_ticks >= very_long_press_ticks) {
                 ESP_LOGI(TAG, "LONG: Enter deep sleep");
+                uint16_t passed_seconds = get_session_passed_seconds();
+                add_notification_log(NOTIF_SHUT_DOWN_BY_BUTTON, passed_seconds);
                 enter_deep_sleep();
             } else if (press_duration_ticks >= long_press_ticks) {
                 change_mode_indicator_gpio_pin_status();

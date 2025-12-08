@@ -22,12 +22,6 @@ esp_err_t ble_send_message(uint16_t char_handle, uint8_t* data, size_t data_leng
 }
 
 esp_err_t send_notification_char_as_indication(const uint8_t *data, size_t len, uint32_t timeout_ms) {
-    /*if (!s_conf_sem) { ESP_LOGE(TAG, "s_conf_sem is null"); return ESP_FAIL; }
-    if (g_ind_inflight) { ESP_LOGE(TAG, "another message is in flight."); return ESP_ERR_INVALID_STATE; }
-
-    drain_conf_sem();
-    g_ind_inflight = true;
-*/
     esp_err_t ret = esp_ble_gatts_send_indicate(
         gl_profile_tab[PROFILE_A_APP_ID].gatts_if,
         gl_profile_tab[PROFILE_A_APP_ID].conn_id,
@@ -39,14 +33,6 @@ esp_err_t send_notification_char_as_indication(const uint8_t *data, size_t len, 
     if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to send: %s", esp_err_to_name(ret));
     else               ESP_LOGI(TAG, "Successfully sent.");
     return ret;
-
-/*
-    if (ret != ESP_OK) { g_ind_inflight = false; ESP_LOGE(TAG, "ret is not ok: %s", esp_err_to_name(ret)); return ret; }
-    if (xSemaphoreTake(s_conf_sem, pdMS_TO_TICKS(timeout_ms)) != pdTRUE) { g_ind_inflight = false; ESP_LOGE(TAG, "Indication CONF timeout"); return ESP_ERR_TIMEOUT; }
-
-    g_ind_inflight = false;
-    return (s_last_conf_status == ESP_GATT_OK) ? ESP_OK : ESP_FAIL;
-    */
 }
 
 // Bu fonksiyon public API’de (ble_control.h), ama implementasyonu burada:

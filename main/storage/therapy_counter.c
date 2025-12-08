@@ -25,6 +25,10 @@ esp_err_t init_therapy_counter_partition() {
 }
 
 void erase_therapy_counter_partition() {
+    if (!counter_partition) {
+        ESP_LOGE(TAG, "Counter partition is NULL. Call init_therapy_counter_partition() first.");
+        return;
+    }
     esp_err_t err = esp_partition_erase_range(counter_partition, 0, counter_partition->size);
     if (err == ESP_OK) {
         ESP_LOGI(TAG, "Counter partition successfully erased.");
@@ -34,6 +38,10 @@ void erase_therapy_counter_partition() {
 }
 
 uint16_t read_therapy_count() {
+    if (!counter_partition) {
+        ESP_LOGE(TAG, "Counter partition is NULL. Call init_therapy_counter_partition() first.");
+    }
+
     uint16_t therapy_count = 0;
 
     for (int i = 0; i < 4096; i += 2) {
@@ -78,13 +86,18 @@ uint16_t read_therapy_count() {
         ESP_LOGE(TAG, "Therapy log limit reached (%d)", therapy_count);
         therapy_count = MAX_THERAPY_COUNT;
     }
-    ESP_LOGI(TAG, "Total Therapy Count: %u", therapy_count);
+    //ESP_LOGI(TAG, "Total Therapy Count: %u", therapy_count);
 
     return therapy_count;
 
 }
 
 esp_err_t write_therapy_count(uint16_t new_count) {
+    if (!counter_partition) {
+        ESP_LOGE(TAG, "Counter partition is NULL. Call init_therapy_counter_partition() first.");
+        return ESP_ERR_INVALID_ARG;
+    }
+
     if (new_count > MAX_THERAPY_COUNT || new_count == 0) {
         return ESP_ERR_NO_MEM; // Tüm alan dolmuş
     }
@@ -93,7 +106,7 @@ esp_err_t write_therapy_count(uint16_t new_count) {
     int cleared_bits = (new_count - 1) % 8 + 1;
     uint8_t new_value = 0xFF >> cleared_bits;
 
-    ESP_LOGI(TAG, "new therapy count: %u", new_value);
+    ESP_LOGI(TAG, "new therapy count value: %u", new_value);
     uint8_t buffer[2] = {new_value, new_value}; // redundant kayıt
     return esp_partition_write(counter_partition, record_index * 2, buffer, 2);
 }

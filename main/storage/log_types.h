@@ -48,6 +48,8 @@ typedef enum {
     PASSED_DURATION_UPDATED, 
     FLASH_SLOT_IS_FULL, 
     TEST,
+    NOTIF_DEVICE_NOT_AWAKED,
+    NOTIF_ENTER_DEEP_SLEEP,
 } NotificationType;
 
 // General notification event (all others)

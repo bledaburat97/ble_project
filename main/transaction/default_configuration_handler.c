@@ -21,7 +21,7 @@ static uint8_t default_brightness[6] = {100,100,100,100,100,100};
 
 static uint16_t clamp_duration(uint16_t s) {
     if (s < 10) return 10;
-    if (s > 3600) return 3600;
+    if (s > MAX_THERAPY_DURATION) return MAX_THERAPY_DURATION;
     return s;
 }
 

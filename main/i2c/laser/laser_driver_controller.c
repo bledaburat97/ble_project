@@ -186,7 +186,6 @@ static const RegionPiece* get_region_piece_of_driver_by_id(uint8_t region_id, co
 
 static uint8_t convert_brightness_percentage_to_brightness(uint8_t brightness_percentage)
 {
-    //ESP_LOGI(LASER_TAG, "Brightness percentage: %u", brightness_percentage);
     if (brightness_percentage > 100)
     {
         brightness_percentage = 100;
@@ -208,12 +207,10 @@ void set_brightness_of_region(uint8_t region_id, uint8_t brightness_percentage)
         const LP5036Info *info = &lp5036Infos[i];
 
         const RegionPiece *region_piece = get_region_piece_of_driver_by_id(region_id, info);
-
         if (region_piece == NULL) {
-            //ESP_LOGI(LASER_TAG, "DriverRegion with ID %d not found", region_id);
+            //ESP_LOGW(LASER_TAG, "DriverRegion with ID %d not found", region_id);
             continue;
         }
-
 
         if(region_piece->is_bank)
         {
@@ -232,7 +229,6 @@ void set_brightness_of_region(uint8_t region_id, uint8_t brightness_percentage)
                     if (write_register(info->address, OUT0_COLOR_REG + j, &brightness, 1, info->i2c_master_num) != ESP_OK) {
                         ESP_LOGE(LASER_TAG, "Failed to write OUT0_COLOR_REG brightness for address 0x%02X, for led index %d", info->address, j);
                     }
-                    //vTaskDelay(pdMS_TO_TICKS(10));
                 }
             }
             //ESP_LOGI(LASER_TAG, "Individual leds are running.");
@@ -275,24 +271,10 @@ void initialize_laser_driver_gpio(){
     };
 
     gpio_config(&io_conf_led_driver);
-    /*
-    ESP_LOGI(LASER_TAG, "led Gpio is initialized successfully.");
-
-        gpio_config_t io_conf_laser_driver = {
-        .pin_bit_mask = (1ULL << LASER_DRIVER_ENABLE_GPIO),
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_up_en = GPIO_PULLUP_ENABLE,
-        .pull_down_en = GPIO_PULLDOWN_ENABLE,
-        .intr_type = GPIO_INTR_DISABLE
-    };
-
-    gpio_config(&io_conf_laser_driver);
-    */
 }
 
 void set_laser_drivers_gpio_pin_status(bool status) {
     gpio_set_level(LED_DRIVER_ENABLE_GPIO, status);
-    //gpio_set_level(LASER_DRIVER_ENABLE_GPIO, status);
 }
 
 void update_device_config1(bool status, DeviceConfig1UpdateType type) {

@@ -1,5 +1,5 @@
-#ifndef BLE_STATE_MANAGER_H
-#define BLE_STATE_MANAGER_H
+#ifndef BLE_CONNECTION_STATE_MANAGER_H
+#define BLE_CONNECTION_STATE_MANAGER_H
 
 #include <stdint.h>
 #include <stdbool.h>

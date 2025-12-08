@@ -1,7 +1,6 @@
 #include "../include/ble_connection_state_manager.h"
 
 #include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "freertos/semphr.h"
@@ -14,7 +13,8 @@ static const char *TAG = "BLEConnectionStateManager";
 
 void set_ble_connection_status(bool status) {
     if (ble_mutex == NULL) {
-        ESP_LOGI(TAG, "ble mutex is null.");
+        ESP_LOGE(TAG, "ble mutex is null, cannot update connection status");
+        return;
     }
     if (xSemaphoreTake(ble_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
         ble_connection_status = status;
@@ -26,6 +26,10 @@ void set_ble_connection_status(bool status) {
 }
 
 bool get_ble_connection_status() {
+    if (ble_mutex == NULL) {
+        ESP_LOGE(TAG, "ble mutex is null, cannot read connection status");
+        return false;
+    }
     bool status = false;
     if (xSemaphoreTake(ble_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
         status = ble_connection_status;

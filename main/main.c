@@ -136,8 +136,9 @@ static bool activate_device_if_needed(const feature_config_t *config) {
         return false;
     }
     ESP_LOGI(TAG, "Deep sleep.");
-        enter_deep_sleep();
-        return false;
+    esp_err_t err = add_notification_log(NOTIF_DEVICE_NOT_AWAKED, 0);
+    enter_deep_sleep();
+    return false;
 }
 
 static void initialize_storage_components(const feature_config_t *config) {
