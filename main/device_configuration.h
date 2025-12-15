@@ -1,8 +1,7 @@
-#include "driver/gpio.h"
-
 #ifndef DEVICE_CONFIGURATION_H
 #define DEVICE_CONFIGURATION_H
 
+#include "driver/gpio.h"
 
 #define I2C_MASTER_SCL_IO_1 GPIO_NUM_14
 #define I2C_MASTER_SDA_IO_1 GPIO_NUM_15
@@ -18,7 +17,6 @@
 #define LP5036_ADDRESS_2 0x30   // u6
 #define LP5036_ADDRESS_3 0x32 //u13
 
-#define NUM_OF_LP5036 3  //TODO: Değiştir.
 #define TOTAL_REGION_COUNT 6  //TODO: Değiştir.
 #define MAX_NUM_OF_LED_OF_LP5036 36
 #define NUM_OF_LASER_DRIVERS 3

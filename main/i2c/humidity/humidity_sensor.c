@@ -6,22 +6,34 @@
 #include <math.h>
 
 static const char *TAG = "HumiditySensor";
+static const float RAW_MAX = 65536.0f;  // 2^16
 
 // HDC1080 ham veriden sıcaklık ve nem dönüştürme formülleri
 // T(°C) = (raw / 2^16) * 165 - 40
 // RH(%) = (raw / 2^16) * 100
-static float _convert_raw_temp(uint16_t raw)
+
+/**
+ * @brief HDC1080 sıcaklık ham verisini °C cinsine dönüştürür.
+ */
+static float convert_raw_temp(uint16_t raw)
 {
-    return ((float)raw / 65536.0f) * 165.0f - 40.0f;
+    return ((float)raw / RAW_MAX) * 165.0f - 40.0f;
 }
 
-static float _convert_raw_humidity(uint16_t raw)
+/**
+ * @brief HDC1080 nem ham verisini %RH cinsine dönüştürür.
+ */
+static float convert_raw_humidity(uint16_t raw)
 {
-    return ((float)raw / 65536.0f) * 100.0f;
+    return ((float)raw / RAW_MAX) * 100.0f;
 }
 
-// Sadece pointer yazmak için helper (ölçüm tetikleme)
-static esp_err_t _write_pointer_only(uint8_t device_address, uint8_t reg_address)
+/**
+ * @brief Sadece register pointer'ını yazan yardımcı fonksiyon.
+ *
+ * Özellikle ölçüm tetiklemek için, istenen register adresini ayarlamak amacıyla kullanılır.
+ */
+static esp_err_t write_pointer_only(uint8_t device_address, uint8_t reg_address)
 {
     esp_err_t err = i2c_master_write_to_device(
         I2C_FIRST_MASTER_NUM,
@@ -32,16 +44,27 @@ static esp_err_t _write_pointer_only(uint8_t device_address, uint8_t reg_address
     );
 
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to write pointer 0x%02X to device 0x%02X, err=0x%x",
-                 reg_address, device_address, err);
+        ESP_LOGE(TAG,
+                 "Failed to write pointer 0x%02X to device 0x%02X, err=0x%x",
+                 reg_address,
+                 device_address,
+                 err);
     }
+
     return err;
 }
 
+/**
+ * @brief HDC1080 konfigürasyon register'ını yazar.
+ *
+ * @param device_address HDC1080 I2C adresi
+ * @param config         HDC1080_ConfigReg bitfield değeri
+ */
 void hdc1080_set_configuration(uint8_t device_address, HDC1080_ConfigReg config)
 {
     ESP_LOGI(TAG, "Set configuration for HDC1080 at addr: 0x%02X", device_address);
 
+    // Bitfield yapısını 16-bit ham değere çevir
     uint16_t config_value = *(uint16_t *)&config;
 
     uint8_t buf[2];
@@ -50,19 +73,27 @@ void hdc1080_set_configuration(uint8_t device_address, HDC1080_ConfigReg config)
 
     write_register(device_address, HDC1080_CONFIG_REG, buf, 2, I2C_FIRST_MASTER_NUM);
 
-    // Okuyup doğrulama (opsiyonel)
     uint8_t readback[2] = {0};
-    read_register(device_address, HDC1080_CONFIG_REG, readback, 2, I2C_FIRST_MASTER_NUM);
+    (void)read_register(device_address, HDC1080_CONFIG_REG, readback, 2, I2C_FIRST_MASTER_NUM);
 }
 
-// MODE=1 (T+RH) için ölçüm tetikleme (pointer'ı 0x00'a yazmak yeterli) 
+/**
+ * @brief MODE=1 (T+RH) için ölçüm tetikler.
+ *
+ * T ve RH ölçümünü başlatmak için pointer'ı sıcaklık register'ına (0x00) yazmak yeterlidir.
+ */
 void hdc1080_trigger_measurement_trh(uint8_t device_address)
 {
-    ESP_LOGD(TAG, "Trigger T+RH measurement");
-    _write_pointer_only(device_address, HDC1080_TEMPERATURE_REG);
+    (void)write_pointer_only(device_address, HDC1080_TEMPERATURE_REG);
 }
 
-
+/**
+ * @brief Tek seferde sıcaklık ve nem okur (T+RH).
+ *
+ * @param device_address HDC1080 I2C adresi
+ * @param temperature_c  (out, opsiyonel) Sıcaklık °C
+ * @param humidity_rh    (out, opsiyonel) Nem %RH
+ */
 void hdc1080_read_temperature_humidity(
         uint8_t device_address,
         float *temperature_c,
@@ -80,14 +111,14 @@ void hdc1080_read_temperature_humidity(
 
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to read T+RH from HDC1080, err=0x%x", ret);
-        return; // Hata durumunda conversion yapma
+        return;
     }
 
     uint16_t raw_temp = ((uint16_t)buf[0] << 8) | buf[1];
     uint16_t raw_rh   = ((uint16_t)buf[2] << 8) | buf[3];
 
-    float t = _convert_raw_temp(raw_temp);
-    float h = _convert_raw_humidity(raw_rh);
+    float t = convert_raw_temp(raw_temp);
+    float h = convert_raw_humidity(raw_rh);
 
     if (temperature_c) {
         *temperature_c = t;
@@ -96,16 +127,20 @@ void hdc1080_read_temperature_humidity(
         *humidity_rh = h;
     }
 
-    //ESP_LOGI(TAG, "Humidity measured: %.2f%% (T=%.2f°C)", h, t);
 }
 
-
+/**
+ * @brief T+RH ölçümü tetikler ve yalnızca nem değerini döner.
+ *
+ * @param device_address HDC1080 I2C adresi
+ * @return float Nem değeri (%RH)
+ */
 float hdc1080_read_humidity(uint8_t device_address)
 {
-    float temp_dummy;
-    float rh;
-    hdc1080_trigger_measurement_trh(device_address);
+    float temp_dummy = 0.0f;
+    float rh         = 0.0f;
 
+    hdc1080_trigger_measurement_trh(device_address);
     vTaskDelay(pdMS_TO_TICKS(20));
 
     hdc1080_read_temperature_humidity(device_address, &temp_dummy, &rh);

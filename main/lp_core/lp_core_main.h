@@ -22,8 +22,7 @@ typedef enum {
 
 void initialize_lp_core(void);
 
-
 extern const uint8_t lp_core_main_bin_start[] asm("_binary_lp_core_firmware_bin_start");
 extern const uint8_t lp_core_main_bin_end[] asm("_binary_lp_core_firmware_bin_end");
 
-#endif // LP_CORE_MAIN_H
+#endif 

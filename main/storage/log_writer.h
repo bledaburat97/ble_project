@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LOG_WRITER_H
+#define LOG_WRITER_H
 
 #include "storage/log_types.h"
 #ifndef UNIT_TESTING
@@ -52,4 +53,6 @@ void set_continue_uncompleted_therapy(bool status);
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif

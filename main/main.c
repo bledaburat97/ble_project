@@ -99,12 +99,12 @@ typedef struct {
 static const feature_config_t feature_config = {
     .ble_active = true,
     .state_and_timer_active = true,
-    .lp_prox_sensor_active = false,
+    .lp_prox_sensor_active = true,
     .therapy_counter_partition_active = true,
     .log_partition_active = true,
     .laser_and_led_drivers_active = true,
     .temperature_sensor_active = true,
-    .hp_prox_sensor_active = false,
+    .hp_prox_sensor_active = true,
     .default_sleep_active = false,
     .deep_sleep_button_control_active = true,
     .creating_logs_permitted = true,
@@ -136,7 +136,7 @@ static bool activate_device_if_needed(const feature_config_t *config) {
         return false;
     }
     ESP_LOGI(TAG, "Deep sleep.");
-    esp_err_t err = add_notification_log(NOTIF_DEVICE_NOT_AWAKED, 0);
+    add_notification_log(NOTIF_DEVICE_NOT_AWAKED, 0);
     enter_deep_sleep();
     return false;
 }
@@ -211,7 +211,7 @@ static void initialize_proximity_components(const feature_config_t *config) {
     }
     initialize_proximity_int_gpio();
     initialize_proximity_sensors(config->hp_prox_sensor_active, config->lp_prox_sensor_active);
-    xTaskCreate(monitor_proximity_int_task, "Monitor Proximity Int Task", 2048, NULL, 1, NULL);
+    xTaskCreate(monitor_proximity_int_task, "Monitor Proximity Int Task", 4096, NULL, 1, NULL);
     //xTaskCreate(proximity_read_task, "ProximityReadTask", 2048, NULL, 5, NULL);
 }
 

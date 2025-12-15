@@ -24,7 +24,6 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#ifndef UNIT_TESTING
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
@@ -32,14 +31,6 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_mac.h"
-#else
-#include "fake_freertos.h"
-#include "fake_task.h"
-#include "fake_esp_log.h"
-#include "fake_esp_err.h"
-#include "fake_esp_mac.h"
-#include "fake_semphr.h"
-#endif
 
 static const char *TAG = "IncomingMessageHandler";
 
@@ -125,19 +116,6 @@ static void on_write_of_activation_message(const uint8_t *buf, size_t len) {
         ESP_LOGI(TAG, "Laser Data received: %d", activation_message.brightness[i]);
     }
     ESP_LOGI(TAG, "Activation duration: %u", activation_message.duration);
-}
-
-static void periodic_message_sender_task(void *pvParameters) {
-
-    vTaskDelay(pdMS_TO_TICKS(60000));
-    ESP_LOGI(TAG, "SIM: short-press (software)");
-    
-    while(1) {
-        ESP_LOGI(TAG, "Do short press");
-        do_short_press();
-    
-        vTaskDelay(pdMS_TO_TICKS(20000));
-    }
 }
 
 /*
@@ -234,9 +212,4 @@ static void periodic_message_sender_task(void *pvParameters) {
 void init_incoming_message_handler(){
     register_on_write_activation_callback(on_write_of_activation_message);
     register_on_write_updating_therapy_state_callback(on_write_of_therapy_state);
-    /*
-    if (xTaskCreate(periodic_message_sender_task, "PeriodicMsgSender", 4096, NULL, 5, NULL) != pdPASS) {
-        ESP_LOGE(TAG, "Failed to create periodic message sender task");
-    }
-    */
 }

@@ -22,12 +22,14 @@
 #include "esp_timer.h"
 #include "freertos/queue.h"
 
-
 static const char *TAG = "TimerManager";
+
+#define HELMET_OFF_DEBOUNCE_MS 1000
 
 static TimerHandle_t therapy_timer = NULL;
 static TimerHandle_t inactivity_timer = NULL;
 static TimerHandle_t alert_timer = NULL;
+static TimerHandle_t helmet_off_debounce_timer = NULL;
 
 static uint16_t active_therapy_timer_duration = DEFAULT_THERAPY_DURATION;
 
@@ -355,11 +357,8 @@ uint16_t get_session_passed_seconds(void) {
     }
 
     int64_t now_us = esp_timer_get_time();
-    //ESP_LOGW(TAG, "Current time: %llu", now_us);
-    //ESP_LOGW(TAG, "Session start: %llu", session_start_us);
 
     int64_t diff = now_us - session_start_us + passed_duration_before_deep_sleep;
-    //ESP_LOGW(TAG, "Diff: %llu", diff);
 
     if (diff < 0) {
         diff = 0;
@@ -423,4 +422,63 @@ void init_timer_manager() {
 
 void register_passed_duration_update(void (*callback)()) {
     passed_duration_update_callback = callback;
+}
+
+static void helmet_off_debounce_timer_callback(TimerHandle_t xTimer) {
+    ESP_LOGI(TAG, "Helmet off debounce timer expired");
+    // Burada ekstra bir şey yapmana gerek yok.
+    // Timer tek-seferlik (one-shot) olduğu için kendiliğinden duracak.
+    // Sadece ileride istersen buradan event üretip on_timer_end'e bağlayabilirsin.
+}
+
+bool start_helmet_off_debounce_timer(void) {
+    if (helmet_off_debounce_timer == NULL) {
+        helmet_off_debounce_timer = xTimerCreate(
+            "HelmetOffDebounce",
+            pdMS_TO_TICKS(HELMET_OFF_DEBOUNCE_MS),
+            pdFALSE,          // one-shot
+            NULL,
+            helmet_off_debounce_timer_callback
+        );
+
+        if (helmet_off_debounce_timer == NULL) {
+            ESP_LOGE(TAG, "Failed to create helmet off debounce timer");
+            return false;
+        }
+    }
+
+    // Zaten çalışıyorsa önce durdur, sonra yeniden başlat
+    if (xTimerIsTimerActive(helmet_off_debounce_timer) == pdTRUE) {
+        if (xTimerStop(helmet_off_debounce_timer, 0) != pdPASS) {
+            ESP_LOGW(TAG, "Failed to stop helmet off debounce timer before restart");
+        }
+    }
+
+    if (xTimerStart(helmet_off_debounce_timer, 0) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to start helmet off debounce timer");
+        return false;
+    }
+
+    return true;
+}
+
+bool stop_helmet_off_debounce_timer(void) {
+    if (helmet_off_debounce_timer == NULL) {
+        return true;
+    }
+
+    if (xTimerIsTimerActive(helmet_off_debounce_timer) == pdTRUE) {
+        if (xTimerStop(helmet_off_debounce_timer, 0) != pdPASS) {
+            ESP_LOGE(TAG, "Failed to stop helmet off debounce timer");
+            return false;
+        }
+    }
+
+    // İster burada delete et, ister ileride reuse et.
+    // Reuse daha basit, o yüzden delete etmiyorum.
+    return true;
+}
+
+bool is_helmet_off_debounce_timer_running(void) {
+    return is_timer_running(helmet_off_debounce_timer);
 }

@@ -1,8 +1,8 @@
-#include <stdint.h>
-#include <stdbool.h>
-
 #ifndef GENERAL_MANAGER_H
 #define GENERAL_MANAGER_H
+
+#include <stdint.h>
+#include <stdbool.h>
 
 void change_helmet_state(bool helmet_state);
 void init_general_manager();

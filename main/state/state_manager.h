@@ -1,7 +1,8 @@
-#include <stdbool.h>
 
 #ifndef STATE_MANAGER_H
 #define STATE_MANAGER_H
+
+#include <stdbool.h>
 
 typedef enum {
     STATE_TEMPERATURE_ALERT,

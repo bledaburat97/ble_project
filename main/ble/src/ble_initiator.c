@@ -43,27 +43,27 @@ static void clear_all_bonds_for_debug() {
                 for (int i = 0; i < out; ++i) {
                     esp_err_t r = esp_ble_remove_bond_device(list[i].bd_addr);
                     if (r == ESP_OK) {
-                        ESP_LOGI("BLEInitiator",
+                        ESP_LOGI(TAG,
                                  "Removed bond: %02X:%02X:%02X:%02X:%02X:%02X",
                                  list[i].bd_addr[0], list[i].bd_addr[1], list[i].bd_addr[2],
                                  list[i].bd_addr[3], list[i].bd_addr[4], list[i].bd_addr[5]);
                     } 
                     else {
-                        ESP_LOGW("BLEInitiator", "remove_bond_device failed: %s", esp_err_to_name(r));
+                        ESP_LOGW(TAG, "remove_bond_device failed: %s", esp_err_to_name(r));
                     }
                 }
             } 
             else {
-                ESP_LOGW("BLEInitiator", "get_bond_device_list failed: %s", esp_err_to_name(e));
+                ESP_LOGW(TAG, "get_bond_device_list failed: %s", esp_err_to_name(e));
             }
             free(list);
         } 
         else {
-            ESP_LOGE("BLEInitiator", "malloc failed for bond list (num=%d)", dev_num);
+            ESP_LOGE(TAG, "malloc failed for bond list (num=%d)", dev_num);
         }
     } 
     else {
-        ESP_LOGI("BLEInitiator", "No bonded devices.");
+        ESP_LOGI(TAG, "No bonded devices.");
     }
 }
 

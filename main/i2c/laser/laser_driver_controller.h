@@ -1,10 +1,9 @@
+#ifndef LASER_DRIVER_CONTROLLER_H
+#define LASER_DRIVER_CONTROLLER_H
 
 #include <stdint.h>
 #include <stdbool.h>
 #include "../../device_configuration.h"
-
-#ifndef LASER_DRIVER_CONTROLLER_H
-#define LASER_DRIVER_CONTROLLER_H
 
 typedef struct {
     uint8_t region_id;
@@ -17,7 +16,7 @@ typedef struct {
     RegionPiece region_piece_list[TOTAL_REGION_COUNT];
     uint8_t address;
     uint8_t i2c_master_num;
-} LP5036Info;
+} LaserDriverInfo;
 
 typedef enum {
     LED_GLOBAL_OFF = 0x00,

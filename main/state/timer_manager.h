@@ -1,9 +1,9 @@
+#ifndef TIMER_MANAGER_H
+#define TIMER_MANAGER_H
+
 #include <stdint.h>
 #include "storage/log_types.h"
 #include "state_manager.h"
-
-#ifndef TIMER_MANAGER_H
-#define TIMER_MANAGER_H
 
 void init_timer_manager();
 
@@ -33,4 +33,7 @@ uint32_t get_therapy_remaining_ms(void);
 uint32_t get_therapy_passed_ms_direct(void);
 uint16_t get_active_therapy_duration(void);
 void register_passed_duration_update(void (*callback)());
+bool start_helmet_off_debounce_timer(void);
+bool stop_helmet_off_debounce_timer(void);
+bool is_helmet_off_debounce_timer_running(void);
 #endif 

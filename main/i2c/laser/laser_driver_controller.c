@@ -20,12 +20,9 @@
 #define MIN_BRIGHTNESS 0x00
 #define LED0_BRIGHTNESS_REG 0x08
 
-static const char *LASER_TAG = "LaserDriverControl";
+static const char *TAG = "LaserDriverControl";
 
-static LP5036Info lp5036Infos[NUM_OF_LP5036];
-
-static const LP5036Info not_banked_test_lp5036Infos[NUM_OF_LP5036] = {
-    
+static const LaserDriverInfo DRIVER_INFO_LIST[NUM_OF_LASER_DRIVERS] = {
     {
         .address = LP5036_ADDRESS_1, //u402 DRIVER
         .region_piece_count = 2,
@@ -77,9 +74,9 @@ static const LP5036Info not_banked_test_lp5036Infos[NUM_OF_LP5036] = {
         },
         .i2c_master_num = I2C_FIRST_MASTER_NUM
     }
-        /*
-
-
+      
+    // 
+    /*
     {
         .address = LP5036_ADDRESS_1, //u14 DRIVER
         .region_piece_count = 3,
@@ -114,154 +111,250 @@ static const LP5036Info not_banked_test_lp5036Infos[NUM_OF_LP5036] = {
         },
         .i2c_master_num = I2C_FIRST_MASTER_NUM
     }
-        */
+    */
         
 };
+/**
+ * Bank modunda çalışan region parçaları için LED_CONFIG0/1 register’larını
+ * doldurur. Şu an region_piece->is_bank true olan yapı bırakılmadığı için
+ * aktifte yalnızca mapping hazır durumda.
+ */
+static void set_banked_leds(void)
+{
+    for (uint8_t i = 0; i < NUM_OF_LASER_DRIVERS; i++) {
+        const LaserDriverInfo *driver_info = &DRIVER_INFO_LIST[i];
 
-static void set_banked_leds() {
-    for (uint8_t i = 0; i < NUM_OF_LP5036; i++) {
-        const LP5036Info *info = &lp5036Infos[i];
-
-        for (uint8_t j = 0; j < info->region_piece_count; j++) {
-            const RegionPiece *region_piece = &info->region_piece_list[j];
+        for (uint8_t j = 0; j < driver_info->region_piece_count; j++) {
+            const RegionPiece *region_piece = &driver_info->region_piece_list[j];
 
             if (region_piece == NULL) {
-                ESP_LOGE(LASER_TAG, "DriverRegion is not found");
+                ESP_LOGE(TAG, "Driver region is NULL (index=%u)", j);
                 continue;
             }
             if (region_piece->region_id == 0) {
                 continue;
             }
+
+            if (!region_piece->is_bank) {
+                continue;
+            }
+
             uint16_t led_config = 0;
 
-            if (region_piece->is_bank) {
-                for (uint8_t led_index = 0; led_index < MAX_NUM_OF_LED_OF_LP5036; led_index++) {
-                    if ((region_piece->led_list >> led_index) & 1) {
-                        if(led_index % 3 == 0) {
-                            uint8_t x = led_index / 3;
-                            led_config |= (1 << x);
-                        }
+            for (uint8_t led_index = 0; led_index < MAX_NUM_OF_LED_OF_LP5036; led_index++) {
+                if ((region_piece->led_list >> led_index) & 0x01U) {
+                    if (led_index % 3 == 0) {
+                        uint8_t bank_index = (uint8_t)(led_index / 3);
+                        led_config |= (uint16_t)(1U << bank_index);
                     }
                 }
-
-                if (led_config != 0) {
-                    uint8_t led_config0_data = led_config & 0xFF;
-                    uint8_t led_config1_data = (led_config >> 8) & 0xFF;
-                    
-                    ESP_LOGI(LASER_TAG, "set_banked_leds write_register() called with:");
-                    ESP_LOGI(LASER_TAG, "  device_address: 0x%02X", info->address);
-                    ESP_LOGI(LASER_TAG, "  reg_address: 0x%02X", LED_CONFIG0_REG);
-                    ESP_LOGI(LASER_TAG, "  led_config0_data: 0x%02X", led_config0_data);
-                    ESP_LOGI(LASER_TAG, "  led_config1_data: 0x%02X", led_config1_data);
-                    ESP_LOGI(LASER_TAG, "  length: %d", 1);
-                    ESP_LOGI(LASER_TAG, "  i2c_master_number: %d", info->i2c_master_num);
-
-                    if (write_register(info->address, LED_CONFIG0_REG, &led_config0_data, 1, info->i2c_master_num) != ESP_OK) {
-                        ESP_LOGE(LASER_TAG, "Failed to write LED_CONFIG0_REG for address 0x%02X", info->address);
-                    }
-                    vTaskDelay(pdMS_TO_TICKS(100));
-
-                    if (write_register(info->address, LED_CONFIG1_REG, &led_config1_data, 1, info->i2c_master_num) != ESP_OK) {
-                        ESP_LOGE(LASER_TAG, "Failed to write LED_CONFIG1_REG for address 0x%02X", info->address);
-                    }
-                    vTaskDelay(pdMS_TO_TICKS(100));
-                    ESP_LOGI(LASER_TAG, "LED CONFIG is done");
-                }
-                break;
             }
+
+            if (led_config == 0) {
+                continue;
+            }
+
+            uint8_t led_config0_data = (uint8_t)(led_config & 0xFFU);
+            uint8_t led_config1_data = (uint8_t)((led_config >> 8) & 0xFFU);
+
+            ESP_LOGI(TAG,
+                     "Configuring banked LEDs: addr=0x%02X, LED_CONFIG0=0x%02X, LED_CONFIG1=0x%02X",
+                     driver_info->address, led_config0_data, led_config1_data);
+
+            if (write_register(driver_info->address,
+                               LED_CONFIG0_REG,
+                               &led_config0_data,
+                               1,
+                               driver_info->i2c_master_num) != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to write LED_CONFIG0_REG for address 0x%02X", driver_info->address);
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(100));
+
+            if (write_register(driver_info->address,
+                               LED_CONFIG1_REG,
+                               &led_config1_data,
+                               1,
+                               driver_info->i2c_master_num) != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to write LED_CONFIG1_REG for address 0x%02X", driver_info->address);
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(100));
+            ESP_LOGI(TAG, "Banked LED configuration completed for address 0x%02X", driver_info->address);
+
+            break; // Bu drivern için bank region zaten bulundu
         }
     }
 }
 
-static const RegionPiece* get_region_piece_of_driver_by_id(uint8_t region_id, const LP5036Info *info) {
-        
-    for (uint8_t i = 0; i < info->region_piece_count; i++) {
-        const RegionPiece *region = &info->region_piece_list[i];
+static const RegionPiece *get_region_piece_of_driver_by_id(uint8_t region_id, uint8_t driver_index)
+{
+    const LaserDriverInfo *driver_info = &DRIVER_INFO_LIST[driver_index];
+
+    for (uint8_t i = 0; i < driver_info->region_piece_count; i++) {
+        const RegionPiece *region = &driver_info->region_piece_list[i];
         if (region->region_id == region_id) {
-            return &info->region_piece_list[i];
+            return region;
         }
     }
+
     return NULL;
 }
 
-static uint8_t convert_brightness_percentage_to_brightness(uint8_t brightness_percentage)
+/**
+ * 0–100 arası parlaklık yüzdesini 0–255 arası register değerine çevirir.
+ */
+static uint8_t convert_brightness_percentage_to_brightness(const uint8_t brightness_percentage)
 {
-    if (brightness_percentage > 100)
-    {
-        brightness_percentage = 100;
+    if (brightness_percentage > 100U) {
+        return MAX_BRIGHTNESS;
     }
-    return (uint8_t)(((uint16_t)brightness_percentage * 255) / 100);
+
+    return (uint8_t)(((uint16_t)brightness_percentage * MAX_BRIGHTNESS) / 100U);
 }
 
-void set_brightness_of_region(uint8_t region_id, uint8_t brightness_percentage)
+/**
+ * Verilen region_id içindeki tüm LED’lerin parlaklığını ayarlar.
+ * Region mapping, DRIVER_INFO_LIST tablosundan okunur.
+ */
+void set_brightness_of_region(uint8_t region_id, const uint8_t brightness_percentage)
 {
-    uint8_t brightness = convert_brightness_percentage_to_brightness(brightness_percentage);
-    ESP_LOGI(LASER_TAG, "brightness: %u, region id: %u", brightness, region_id);
-    if (region_id < 1 || region_id > TOTAL_REGION_COUNT) {
-        ESP_LOGE(LASER_TAG, "Invalid region ID: %d", region_id);
+    if (region_id < 1U || region_id > TOTAL_REGION_COUNT) {
+        ESP_LOGE(TAG, "Invalid region ID: %u", region_id);
         return;
     }
 
-    for(uint8_t i = 0; i < NUM_OF_LP5036; i++)
-    {
-        const LP5036Info *info = &lp5036Infos[i];
+    uint8_t brightness = convert_brightness_percentage_to_brightness(brightness_percentage);
+    ESP_LOGI(TAG, "Set brightness=%u (%%=%u) for region_id=%u",
+             brightness, brightness_percentage, region_id);
 
-        const RegionPiece *region_piece = get_region_piece_of_driver_by_id(region_id, info);
+    for (uint8_t i = 0; i < NUM_OF_LASER_DRIVERS; i++) {
+        const LaserDriverInfo *driver_info = &DRIVER_INFO_LIST[i];
+
+        const RegionPiece *region_piece = get_region_piece_of_driver_by_id(region_id, i);
         if (region_piece == NULL) {
-            //ESP_LOGW(LASER_TAG, "DriverRegion with ID %d not found", region_id);
             continue;
         }
 
-        if(region_piece->is_bank)
-        {
-            if (write_register(info->address, BANK_BRIGHTNESS_REG, &brightness, 1, info->i2c_master_num) != ESP_OK) {
-                ESP_LOGE(LASER_TAG, "Failed to write BANK_BRIGHTNESS brightness for address 0x%02X", info->address);
+        if (region_piece->is_bank) {
+            if (write_register(driver_info->address,
+                               BANK_BRIGHTNESS_REG,
+                               &brightness,
+                               1,
+                               driver_info->i2c_master_num) != ESP_OK) {
+                ESP_LOGE(TAG,
+                         "Failed to write BANK_BRIGHTNESS_REG for address 0x%02X",
+                         driver_info->address);
+            } else {
+                ESP_LOGI(TAG, "Bank brightness updated for driver 0x%02X", driver_info->address);
             }
-            ESP_LOGI(LASER_TAG, "Banked leds are running.");
 
             vTaskDelay(pdMS_TO_TICKS(100));
-        }
-        else
-        {
-            //TODO: OUT0 parlaklık set ediyorsa:
-            for (uint8_t j = 0; j < MAX_NUM_OF_LED_OF_LP5036; j++) {
-                if ((region_piece->led_list >> j) & 1) {
-                    if (write_register(info->address, OUT0_COLOR_REG + j, &brightness, 1, info->i2c_master_num) != ESP_OK) {
-                        ESP_LOGE(LASER_TAG, "Failed to write OUT0_COLOR_REG brightness for address 0x%02X, for led index %d", info->address, j);
+        } else {
+            for (uint8_t led_index = 0; led_index < MAX_NUM_OF_LED_OF_LP5036; led_index++) {
+                if ((region_piece->led_list >> led_index) & 0x01U) {
+                    uint8_t reg = (uint8_t)(OUT0_COLOR_REG + led_index);
+                    if (write_register(driver_info->address,
+                                       reg,
+                                       &brightness,
+                                       1,
+                                       driver_info->i2c_master_num) != ESP_OK) {
+                        ESP_LOGE(TAG,
+                                 "Failed to write OUT_COLOR_REG (0x%02X) for addr=0x%02X, led_index=%u",
+                                 reg, driver_info->address, led_index);
                     }
                 }
             }
-            //ESP_LOGI(LASER_TAG, "Individual leds are running.");
         }
-        
     }
 }
 
-static void set_laser_driver_status(uint8_t laser_driver_index, bool status) {
-    if(laser_driver_index >= NUM_OF_LP5036){
-        return;
-    } 
+/**
+ * Tek bir LP5036 driver’ın DEVICE_CONFIG0_REG içindeki CHIP_EN bitini yönetir.
+ */
+static bool set_laser_driver_status(uint8_t laser_driver_index, bool status)
+{
+    ESP_LOGE(TAG, "Set laser driver status");
+    if (laser_driver_index >= NUM_OF_LASER_DRIVERS) {
+        return false;
+    }
+
     uint8_t chip_en = status ? 0x40 : 0x00;
-    //ESP_LOGI(LASER_TAG, "set_laser_drivers_status write_register() called with:");
-    //ESP_LOGI(LASER_TAG, "  device_address: 0x%02X", lp5036Infos[laser_driver_index].address);
-    //ESP_LOGI(LASER_TAG, "  reg_address: 0x%02X", DEVICE_CONFIG0_REG);
-    //ESP_LOGI(LASER_TAG, "  data: 0x%02X", chip_en);
-    //ESP_LOGI(LASER_TAG, "  length: %d", 1);
-    //ESP_LOGI(LASER_TAG, "  i2c_master_number: %d", lp5036Infos[laser_driver_index].i2c_master_num);
-    if (write_register(lp5036Infos[laser_driver_index].address, DEVICE_CONFIG0_REG, &chip_en, 1, lp5036Infos[laser_driver_index].i2c_master_num) != ESP_OK) {
-        ESP_LOGE(LASER_TAG, "Failed to write DEVICE_CONFIG0_REG for address 0x%02X, for status: %d", lp5036Infos[laser_driver_index].address, status);
+    const LaserDriverInfo *driver_info = &DRIVER_INFO_LIST[laser_driver_index];
+
+    const int max_attempts = 3;
+    esp_err_t ret = ESP_FAIL;
+
+    for (int attempt = 1; attempt <= max_attempts; ++attempt) {
+        ret = write_register(driver_info->address,
+                             DEVICE_CONFIG0_REG,
+                             &chip_en,
+                             1,
+                             driver_info->i2c_master_num);
+        if (ret == ESP_OK) {
+            break;
+        }
+
+        ESP_LOGW(TAG,
+                 "Failed to write DEVICE_CONFIG0_REG for addr 0x%02X (status=%d), "
+                 "attempt %d/%d, err=0x%x",
+                 driver_info->address,
+                 status,
+                 attempt,
+                 max_attempts,
+                 ret);
+
+        vTaskDelay(pdMS_TO_TICKS(5));  // küçük bir bekleme
     }
-    vTaskDelay(pdMS_TO_TICKS(100)); 
+
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG,
+                 "I2C write still failing for DEVICE_CONFIG0_REG (addr=0x%02X, status=%d)",
+                 driver_info->address, status);
+        return false;
+    }
+
+    if (!status) {
+        uint8_t reg_val = 0;
+        if (read_register(driver_info->address,
+                          DEVICE_CONFIG0_REG,
+                          &reg_val,
+                          1,
+                          driver_info->i2c_master_num) == ESP_OK) {
+
+            if (reg_val & 0x40) {
+                ESP_LOGE(TAG,
+                         "CHIP_EN bit is still 1 after disable! addr=0x%02X, reg=0x%02X",
+                         driver_info->address, reg_val);
+                return false;
+            }
+        } else {
+            ESP_LOGE(TAG,
+                     "Failed to read-back DEVICE_CONFIG0_REG after disable, addr=0x%02X",
+                     driver_info->address);
+            return false;
+        }
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(100));
+    return true;
 }
 
+/**
+ * Tüm LP5036 driver’ların CHIP_EN durumunu topluca aç/kapat.
+ */
 void set_laser_drivers_status(bool status)
 {
-    for(uint8_t lp5036_index = 0; lp5036_index < NUM_OF_LP5036; lp5036_index++){
-        set_laser_driver_status(lp5036_index, status);
+    for (uint8_t driver_index = 0; driver_index < NUM_OF_LASER_DRIVERS; driver_index++) {
+        set_laser_driver_status(driver_index, status);
     }
 }
 
-void initialize_laser_driver_gpio(){
+/**
+ * LP5036 sürücülerini enable eden GPIO pinini output olarak konfigüre eder.
+ */
+void initialize_laser_driver_gpio(void)
+{
     gpio_config_t io_conf_led_driver = {
         .pin_bit_mask = (1ULL << LED_DRIVER_ENABLE_GPIO),
         .mode = GPIO_MODE_OUTPUT,
@@ -273,42 +366,68 @@ void initialize_laser_driver_gpio(){
     gpio_config(&io_conf_led_driver);
 }
 
-void set_laser_drivers_gpio_pin_status(bool status) {
+/**
+ * LED_DRIVER_ENABLE_GPIO seviyesini ayarlar.
+ */
+void set_laser_drivers_gpio_pin_status(bool status)
+{
     gpio_set_level(LED_DRIVER_ENABLE_GPIO, status);
 }
 
-void update_device_config1(bool status, DeviceConfig1UpdateType type) {
+/**
+ * Tüm driver’larda DEVICE_CONFIG1_REG içindeki belirli bitleri (type) set/clear eder.
+ */
+void update_device_config1(bool status, DeviceConfig1UpdateType type)
+{
+    for (uint8_t driver_index = 0; driver_index < NUM_OF_LASER_DRIVERS; driver_index++) {
+        const LaserDriverInfo *driver_info = &DRIVER_INFO_LIST[driver_index];
 
-    for(uint8_t lp5036_index = 0; lp5036_index < NUM_OF_LP5036; lp5036_index++)
-    {
-        uint8_t device_config1_result;
-        if (read_register(lp5036Infos[lp5036_index].address, DEVICE_CONFIG1_REG, &device_config1_result, 1, lp5036Infos[lp5036_index].i2c_master_num) != ESP_OK) {
-            ESP_LOGE(LASER_TAG, "Failed to read DEVICE_CONFIG1_REG for address 0x%02X", lp5036Infos[lp5036_index].address);
+        uint8_t device_config1_value = 0;
+        if (read_register(driver_info->address,
+                          DEVICE_CONFIG1_REG,
+                          &device_config1_value,
+                          1,
+                          driver_info->i2c_master_num) != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to read DEVICE_CONFIG1_REG for address 0x%02X",
+                     driver_info->address);
             continue;
         }
-        
+
         if (status) {
-            device_config1_result |= (1 << type);
+            device_config1_value |= (uint8_t)(1U << type);
         } else {
-            device_config1_result &= ~(1 << type);
+            device_config1_value &= (uint8_t)~(1U << type);
         }
 
-        // Write the modified value back to DEVICE_CONFIG1_REG
-        if (write_register(lp5036Infos[lp5036_index].address, DEVICE_CONFIG1_REG, &device_config1_result, 1, lp5036Infos[lp5036_index].i2c_master_num) != ESP_OK) {
-            ESP_LOGE(LASER_TAG, "Failed to write DEVICE_CONFIG1_REG for address 0x%02X", lp5036Infos[lp5036_index].address);
+        if (write_register(driver_info->address,
+                           DEVICE_CONFIG1_REG,
+                           &device_config1_value,
+                           1,
+                           driver_info->i2c_master_num) != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to write DEVICE_CONFIG1_REG for address 0x%02X",
+                     driver_info->address);
         } else {
-            ESP_LOGI(LASER_TAG, "Successfully updated type %d for address 0x%02X to %d", lp5036Infos[lp5036_index].address, type, status);
+            ESP_LOGI(TAG,
+                     "Updated DEVICE_CONFIG1_REG: addr=0x%02X, type=%d, status=%d",
+                     driver_info->address, type, status);
         }
     }
 }
 
-void initialize_laser_drivers() 
+/**
+ * Lazer driver altyapısının başlangıç konfigürasyonu:
+ * - Enable GPIO configure
+ * - Driverları global enable hattı ile aç
+ * - CHIP_EN bitlerini kapat
+ * - Banked led konfigurasyonunu uygula
+ */
+void initialize_laser_drivers(void)
 {
-    memcpy(lp5036Infos, not_banked_test_lp5036Infos, sizeof(LP5036Info) * NUM_OF_LP5036);
-
     initialize_laser_driver_gpio();
     set_laser_drivers_gpio_pin_status(true);
     set_laser_drivers_status(false);
+
     vTaskDelay(pdMS_TO_TICKS(100));
+
     set_banked_leds();
 }

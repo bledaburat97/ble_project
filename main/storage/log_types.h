@@ -1,4 +1,6 @@
-#pragma once
+#ifndef LOG_TYPES_H
+#define LOG_TYPES_H
+
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -75,3 +77,5 @@ typedef struct {
     bool can_start_cache;
     bool can_flush_cache;
 } BaseLogEntry;
+
+#endif

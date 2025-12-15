@@ -55,11 +55,11 @@ void process_lp_queue_task(void *arg) {
                 __atomic_store_n(&ulp_lp_core_device_address, task.lp_core_device_address, __ATOMIC_RELAXED);
                 __atomic_store_n(&ulp_lp_core_byte_count, task.lp_core_byte_count, __ATOMIC_RELAXED);
 
-                ESP_LOGI("MAIN", "Queue'dan çıktı: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu", task.lp_core_command, task.lp_core_register, task.lp_core_value, task.lp_core_device_address, task.lp_core_byte_count);
+                ESP_LOGI(TAG, "Queue'dan çıktı: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu", task.lp_core_command, task.lp_core_register, task.lp_core_value, task.lp_core_device_address, task.lp_core_byte_count);
             }
             else {
                 // Kuyruk boş ve LP-Core boşta. Görevi kısa bir süre uykuya alarak CPU'yu serbest bırak.
-                vTaskDelay(pdMS_TO_TICKS(50));
+                vTaskDelay(pdMS_TO_TICKS(5));
             }
         }
         else if(current_lp_command == WRITE_COMPLETED) {
@@ -87,7 +87,7 @@ void process_lp_queue_task(void *arg) {
             __atomic_store_n(&ulp_lp_core_command, NO_COMMAND, __ATOMIC_RELAXED);
         }
         else {
-            vTaskDelay(pdMS_TO_TICKS(100));
+            vTaskDelay(pdMS_TO_TICKS(5));
         }
     }
 }

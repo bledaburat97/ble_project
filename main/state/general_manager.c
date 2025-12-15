@@ -16,6 +16,7 @@
 #include "esp_log.h"
 
 static const char *TAG = "GeneralManager";
+static bool s_therapy_was_active_when_helmet_off = false;
 
 static void on_state_changed(DeviceState new_state){
     if (new_state == STATE_TEMPERATURE_ALERT) {
@@ -23,11 +24,6 @@ static void on_state_changed(DeviceState new_state){
     }
     else if (new_state == STATE_INACTIVE) {
         set_laser_drivers_status(false);
-        /* TODO silinmeli mi?
-        if (get_helmet_state()) {
-            //set_laser_drivers_status(true); //lazeri çalıştırmak demek değil. lazerin çalışabilir durumda olması.
-        }
-        */
     }
     else if (new_state == STATE_ACTIVE) {
         set_laser_drivers_status(true);
@@ -103,24 +99,46 @@ static void on_timer_end(NotificationType notification_type) {
 }
 
 void change_helmet_state(bool helmet_state) {
-    if(helmet_state == get_helmet_state()) {
+    bool old_helmet_state = get_helmet_state();
+
+    if (helmet_state == old_helmet_state) {
         return;
     }
 
-    if(!set_helmet_state(helmet_state)){
+    if (!set_helmet_state(helmet_state)) {
         ESP_LOGE(TAG, "Helmet state can not be set.");
         return;
     }
 
     if (helmet_state) {
         ESP_LOGI(TAG, "Helmet is on.");
+
+        if (is_helmet_off_debounce_timer_running()) {
+            stop_helmet_off_debounce_timer();
+
+            if (s_therapy_was_active_when_helmet_off &&
+                get_current_therapy_state() == PAUSED) {
+                ESP_LOGI(TAG, "Helmet back on during debounce window, continue therapy by app.");
+                continue_therapy_by_app();
+            }
+
+            s_therapy_was_active_when_helmet_off = false;
+        }
+
         add_and_send_notification_info(NOTIF_HELMET_ON);
     }
     else {
         ESP_LOGI(TAG, "Helmet state gets off");
-        add_and_send_notification_info(NOTIF_HELMET_OFF);
-        if (get_device_state() == STATE_ACTIVE) {
+
+        DeviceState device_state = get_device_state();
+        s_therapy_was_active_when_helmet_off = (device_state == STATE_ACTIVE);
+        if(s_therapy_was_active_when_helmet_off) {
             pause_therapy();
+        }
+        add_and_send_notification_info(NOTIF_HELMET_OFF);
+        
+        if (!start_helmet_off_debounce_timer()) {
+            ESP_LOGE(TAG, "Failed to start helmet off debounce timer");
         }
     }
 }

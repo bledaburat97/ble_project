@@ -1,4 +1,6 @@
-#pragma once
+#ifndef BLE_INTERNAL_H
+#define BLE_INTERNAL_H
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
@@ -137,3 +139,5 @@ typedef enum {
   STEP_ADD_WIFI_CONFIG,
   STEP_DONE
 } build_step_t;
+
+#endif

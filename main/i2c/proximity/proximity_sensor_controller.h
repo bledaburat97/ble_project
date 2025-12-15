@@ -1,8 +1,9 @@
-#include <stdint.h>
-#include <stdbool.h>
 
 #ifndef PROXIMITY_SENSOR_CONTROLLER_H
 #define PROXIMITY_SENSOR_CONTROLLER_H
+
+#include <stdint.h>
+#include <stdbool.h>
 
 typedef enum {
     LOW = 0,

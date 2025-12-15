@@ -1,12 +1,7 @@
 #include <stdint.h>
 
-#ifndef UNIT_TESTING
 #include "driver/i2c.h"
 #include "esp_err.h"
-#else
-#include "fake_i2c.h"
-#include "fake_esp_err.h"
-#endif
 
 #ifndef I2C_CONTROL_H
 #define I2C_CONTROL_H

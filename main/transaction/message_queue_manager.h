@@ -1,11 +1,10 @@
+#ifndef MESSAGE_QUEUE_MANAGER_H
+#define MESSAGE_QUEUE_MANAGER_H
+
 #include <string.h>
 #include <stdint.h>
 #include "ble/include/ble_controller.h"
 #include <stdbool.h>
-
-#ifndef MESSAGE_QUEUE_MANAGER_H
-#define MESSAGE_QUEUE_MANAGER_H
-
 
 typedef struct {
     MessageType type;           // Mesaj tipi
@@ -14,18 +13,6 @@ typedef struct {
     uint16_t id;                // Records için therapy_id, diğerlerinde 0
     bool wait_for_response;
 } MessageQueueEntry;
-
-typedef struct {
-    MessageType type;           // Mesaj tipi
-    uint32_t send_timestamp;    // Gönderildiği zaman (esp_timer_get_time / esp_log_timestamp)
-    uint16_t message_id;        // Mesaj ID (Aynı type için ayırt edici ID) -- öneririm
-} PendingApprovalMessage;
-
-typedef struct {
-    uint16_t therapy_id;
-    uint32_t send_timestamp;    // Gönderildiği zaman (esp_timer_get_time / esp_log_timestamp)
-    uint8_t retry_count;
-} PendingApprovalRecords;
 
 typedef struct {
     bool     active;        // şu anda bir terapi record’u beklemede mi?

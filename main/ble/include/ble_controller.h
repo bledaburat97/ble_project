@@ -1,11 +1,12 @@
-#pragma once
+#ifndef BLE_CONTROLLER_H
+#define BLE_CONTROLLER_H
+
 #include <stdint.h>
 #include <stdbool.h>
 #include "esp_err.h"
 #include "esp_gatts_api.h"
 #include "esp_gap_ble_api.h"
 
-// Dışarıya açılan tipler (projen zaten tanımlıyorsa buradan kaldır)
 typedef enum {
     RECORDS_INFO_MESSAGE,
     TIMER_STATE_INFO_MESSAGE,
@@ -43,3 +44,5 @@ void use_indication(bool on);
 void use_indication_for_critical(bool on);
 
 bool ble_wait_for_indication_conf(esp_gatt_status_t *out_status, uint32_t timeout_ms);
+
+#endif

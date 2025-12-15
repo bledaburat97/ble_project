@@ -1,4 +1,5 @@
-#pragma once
+#ifndef BUZZER_H
+#define BUZZER_H
 
 #include "esp_err.h"
 #include <stdint.h>
@@ -12,3 +13,5 @@ void buzzer_success_tone(void);
 void buzzer_error_tone(void);
 void buzzer_notification_tone(void);
 void buzzer_therapy_start_tone(void);
+
+#endif

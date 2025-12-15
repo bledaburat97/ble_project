@@ -33,7 +33,7 @@ void set_deep_sleep_button() {
 void enter_deep_sleep() {
     uint16_t passed_seconds = get_session_passed_seconds();
 
-    esp_err_t err = add_notification_log(NOTIF_ENTER_DEEP_SLEEP, passed_seconds);
+    add_notification_log(NOTIF_ENTER_DEEP_SLEEP, passed_seconds);
 
     ESP_LOGI(TAG, "Entering to deep sleep");
     set_laser_drivers_status(false);

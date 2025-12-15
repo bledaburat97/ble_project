@@ -1,4 +1,5 @@
-#pragma once
+#ifndef THERAPY_COUNTER_H
+#define THERAPY_COUNTER_H
 
 #ifndef UNIT_TESTING
 #include "esp_err.h"
@@ -16,4 +17,6 @@ esp_err_t write_therapy_count(uint16_t new_count);
 void erase_therapy_counter_partition();
 #ifdef __cplusplus
 }
+#endif
+
 #endif

@@ -1,4 +1,3 @@
-// buzzer.c
 #include "buzzer.h"
 #include "driver/ledc.h"
 #include "freertos/FreeRTOS.h"

@@ -5,11 +5,13 @@
 #include "ulp_lp_core_utils.h"
 #include "ulp_lp_core_i2c.h"
 
+static const char *TAG = "LPCoreMain";
+
 void initialize_lp_core(void)
 {
     size_t firmware_size = lp_core_main_bin_end - lp_core_main_bin_start;
 
-    ESP_LOGI("LP_CORE_MAIN", "LP-Core firmware boyutu: %d byte", firmware_size);
+    ESP_LOGI(TAG, "LP-Core firmware boyutu: %d byte", firmware_size);
     ESP_ERROR_CHECK(ulp_lp_core_load_binary(lp_core_main_bin_start, lp_core_main_bin_end - lp_core_main_bin_start));
 
    ulp_lp_core_cfg_t cfg = {
@@ -19,10 +21,10 @@ void initialize_lp_core(void)
     // LP-Core'u başlat
     esp_err_t ret = ulp_lp_core_run(&cfg);
     if (ret != ESP_OK) {
-        ESP_LOGE("LP_CORE_MAIN", "LP-Core baslatilamadi!");
+        ESP_LOGE(TAG, "LP-Core baslatilamadi!");
     }
     else{
-        ESP_LOGI("LP_CORE_MAIN", "LP-Core baslatildi!");
+        ESP_LOGI(TAG, "LP-Core baslatildi!");
     }
 }
 

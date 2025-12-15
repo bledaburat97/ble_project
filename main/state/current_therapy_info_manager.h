@@ -1,9 +1,11 @@
+
+#ifndef CURRENT_THERAPY_INFO_MANAGER_H
+#define CURRENT_THERAPY_INFO_MANAGER_H
+
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
 
-#ifndef CURRENT_THERAPY_INFO_MANAGER_H
-#define CURRENT_THERAPY_INFO_MANAGER_H
 
 typedef enum {
     ACTIVE = 0,
@@ -12,8 +14,6 @@ typedef enum {
 } CurrentTherapyState;
 
 void init_current_therapy_info_manager();
-
-void try_continue_therapy(bool is_by_app);
 void start_new_therapy(uint16_t duration);            // therapy_id’yi içeride üretmiyorsan, çağıran set_new_therapy() yapsın
 void pause_therapy(void);
 void pause_therapy_because_of_alert(void);

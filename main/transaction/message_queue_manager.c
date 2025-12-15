@@ -21,7 +21,6 @@
 
 static const char *TAG = "MessageQueueManager";
 static void (*timer_state_info_feedback_callback)() = NULL;
-static void (*record_pending_approval_timeout_callback)(uint16_t) = NULL;
 static void (*send_record_again_callback)(uint16_t) = NULL;
 static void (*send_new_record_callback)(uint16_t) = NULL;
 

@@ -536,7 +536,6 @@ bool read_uncompleted_therapy(UncompletedTherapyInfo *out) {
     bool slot_is_finished =
         does_slot_contain_entry(base_offset, NOTIF_THERAPY_COMPLETED)   ||
         does_slot_contain_entry(base_offset, NOTIF_THERAPY_STOPPED_BY_APP) ||
-        does_slot_contain_entry(base_offset, NOTIF_SHUT_DOWN_BY_BUTTON) ||
         does_slot_contain_entry(base_offset, NOTIF_ENTER_DEEP_SLEEP);
 
     if (slot_is_finished) {
@@ -622,7 +621,6 @@ esp_err_t add_log(uint8_t type, const uint8_t* data, size_t data_len, uint16_t p
             bool slot_is_finished =
                 does_slot_contain_entry(old_base_offset, NOTIF_THERAPY_COMPLETED) ||
                 does_slot_contain_entry(old_base_offset, NOTIF_THERAPY_STOPPED_BY_APP) ||
-                does_slot_contain_entry(old_base_offset, NOTIF_SHUT_DOWN_BY_BUTTON) ||
                 does_slot_contain_entry(old_base_offset, NOTIF_ENTER_DEEP_SLEEP);
 
             if (!slot_is_finished) {
@@ -823,15 +821,6 @@ bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs, bool is_ac
 
     if (!therapy_logs->measurements || !therapy_logs->notifications || !therapy_logs->brightness_updates) 
     {
-        if (therapy_logs->measurements) {
-            free(therapy_logs->measurements);
-        }
-        if (therapy_logs->notifications) {
-            free(therapy_logs->notifications);
-        }
-        if (therapy_logs->brightness_updates) {
-            free(therapy_logs->brightness_updates);
-        }
         ESP_LOGE(TAG, "Memory allocation failed");
         return false;
     }
@@ -924,9 +913,6 @@ bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs, bool is_ac
     }
 
     if (therapy_logs->count_notifications == 0 && therapy_logs->count_brightness == 0 && therapy_logs->count_measurements == 0) {
-        free(therapy_logs->measurements);
-        free(therapy_logs->notifications);
-        free(therapy_logs->brightness_updates);
         return false;
     }
     ESP_LOGI(TAG, "Read records for therapy id: %u is successful.", therapy_id);
@@ -997,7 +983,6 @@ bool read_therapy_info(uint16_t therapy_id, ReadTherapyInfo* therapy_info) {
                 
                 break;
             }
-            case NOTIF_SHUT_DOWN_BY_BUTTON:
             case NOTIF_ENTER_DEEP_SLEEP:
             case NOTIF_THERAPY_STOPPED_BY_APP:
             case NOTIF_THERAPY_COMPLETED:

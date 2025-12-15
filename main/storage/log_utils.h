@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LOG_UTILS_H
+#define LOG_UTILS_H
 
 #include <stdint.h>
 #include <stddef.h>
@@ -15,4 +16,6 @@ LogEntrySizeInfo get_log_entry_size_info(uint8_t type);
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif

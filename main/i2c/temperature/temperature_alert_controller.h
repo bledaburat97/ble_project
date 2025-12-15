@@ -1,8 +1,8 @@
-#include <stdint.h>
-#include "stdbool.h"
-
 #ifndef TEMPERATURE_ALERT_CONTROLLER_H
 #define TEMPERATURE_ALERT_CONTROLLER_H
+
+#include <stdint.h>
+#include "stdbool.h"
 
 void set_alert_pin_normal_status(bool status);
 void set_active_temp_sensor_count(uint8_t count);
