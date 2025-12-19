@@ -7,8 +7,8 @@
  * @brief HDC1080 acquisition mode selection.
  */
 typedef enum {
-    HDC1080_MODE_SINGLE = 0,  ///< Only T or RH measurement (based on pointer register)
-    HDC1080_MODE_BOTH   = 1   ///< Measure temperature then humidity (recommended)
+    HDC1080_MODE_SINGLE = 0,
+    HDC1080_MODE_BOTH   = 1
 } HDC1080_Mode;
 
 /**

@@ -42,7 +42,7 @@ void monitor_proximity_int_task(void *param)
 
         UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
         if (watermark < 100) {
-            ESP_LOGW("Monitor Proximi", "Low stack watermark: %u words", watermark);
+            ESP_LOGW(TAG, "Low stack watermark: %u words", watermark);
         }
 
         vTaskDelay(pdMS_TO_TICKS(100));
