@@ -25,6 +25,36 @@ static uint8_t s_last_notified_temperature_byte = 0xFF;
 static void (*s_temp_update_callback)(uint8_t) = NULL;
 static void (*s_temp_alert_callback)(uint8_t) = NULL;
 
+static uint8_t s_alerted_sensor_mask = 0x00;
+
+static bool is_valid_sensor_index(uint8_t sensor_index)
+{
+    return sensor_index < TEMPERATURE_SENSOR_COUNT;
+}
+
+static void add_alerted_sensor(uint8_t sensor_index)
+{
+    if (!is_valid_sensor_index(sensor_index)) {
+        ESP_LOGE(TAG, "Invalid sensor index in alert: %u", sensor_index);
+        return;
+    }
+    s_alerted_sensor_mask |= (uint8_t)(1U << sensor_index);
+}
+
+static void remove_alerted_sensor(uint8_t sensor_index)
+{
+    if (!is_valid_sensor_index(sensor_index)) {
+        ESP_LOGE(TAG, "Invalid sensor index in normal: %u", sensor_index);
+        return;
+    }
+    s_alerted_sensor_mask &= (uint8_t)~(1U << sensor_index);
+}
+
+bool is_any_alerted_sensor(void)
+{
+    return s_alerted_sensor_mask != 0x00;
+}
+
 /**
  * 0–64 °C aralığındaki float sıcaklığı 1 byte’a sıkıştırır.
  * - İlk 6 bit: tam sayı (0–63)
@@ -115,7 +145,6 @@ void temperature_read_task(void *param)
         float rounded_temperature     = round_down_to_half(average_temperature);
         uint8_t rounded_temperature_byte = convert_float_to_byte(rounded_temperature);
 
-        // fabsf ile integer uyarısından kaçınmak için manuel absolute difference
         int diff = (int)s_last_notified_temperature_byte - (int)rounded_temperature_byte;
         if (diff < 0) {
             diff = -diff;
@@ -173,7 +202,6 @@ static void set_normal_thresholds(uint8_t sensor_index)
  */
 static void on_temp_alert_callback(uint8_t sensor_index)
 {
-    // TODO: Gerekirse burada s_last_notified_temperature_byte güncellenebilir.
     float average_temperature = measure_average_temperature();
     float rounded_temperature = round_down_to_half(average_temperature);
 
@@ -183,9 +211,11 @@ static void on_temp_alert_callback(uint8_t sensor_index)
 
     increase_thresholds(sensor_index);
 
-    if (s_temp_alert_callback) {
+    if (s_temp_alert_callback && !is_any_alerted_sensor()) {
         s_temp_alert_callback(sensor_index);
     }
+
+    add_alerted_sensor(sensor_index);
 }
 
 /**
@@ -200,6 +230,8 @@ static void on_temp_normal_callback(uint8_t sensor_index)
 
     ESP_LOGI(TAG, "Temperature NORMAL from sensor index=%u", sensor_index);
     ESP_LOGI(TAG, "Saved (rounded) temperature: %.2f°C", rounded_temperature);
+
+    remove_alerted_sensor(sensor_index);
 
     set_normal_thresholds(sensor_index);
 }
@@ -230,6 +262,8 @@ void initialize_temperature_sensor(void)
     set_alert_pin_normal_status(config.pol != ALERT_ACTIVE_HIGH);
 
     set_active_temp_sensor_count(TEMPERATURE_SENSOR_COUNT);
+
+    s_alerted_sensor_mask = 0x00;
 
     register_temperature_alert(on_temp_alert_callback);
     register_temperature_normal(on_temp_normal_callback);

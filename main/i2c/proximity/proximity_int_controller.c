@@ -1,8 +1,6 @@
 #include "proximity_int_controller.h"
 
 #include "proximity_sensor_controller.h"
-#include "../temperature/temperature_alert_controller.h"
-#include "../../state/state_manager.h"
 #include "../../device_configuration.h"
 
 #include "esp_log.h"
@@ -24,7 +22,6 @@ static void check_proximity_sensor(uint8_t asserted_sensor_index)
     bool is_lp = (asserted_sensor_index == 1U);
     request_excess_status(is_lp);
 }
-
 
 void monitor_proximity_int_task(void *param)
 {

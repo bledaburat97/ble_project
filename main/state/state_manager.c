@@ -117,7 +117,6 @@ DeviceState get_device_state() {
 }
 
 bool get_helmet_state() {
-    return true;
     bool helmet_state_copy = false;
     if (xSemaphoreTake(s_state_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
         helmet_state_copy = s_helmet_state;

@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifndef TEMPERATURE_SENSOR_CONTROLLER_H
 #define TEMPERATURE_SENSOR_CONTROLLER_H
@@ -9,4 +10,5 @@ uint8_t measure_and_get_temperature();
 uint8_t get_temperature();
 void register_temperature_update(void (*callback)(uint8_t));
 void register_temp_alert_callback(void (*callback)(uint8_t));
+bool is_any_alerted_sensor(void);
 #endif 

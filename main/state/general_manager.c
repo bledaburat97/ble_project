@@ -57,6 +57,7 @@ static void set_inactivity_after_alert_expires() {
     }
 }
 
+//yeni yapıya geçildi
 static void on_timer_end(NotificationType notification_type) {
     if(notification_type == NOTIF_ALERT_TIMER_EXPIRED)
     {
@@ -98,6 +99,7 @@ static void on_timer_end(NotificationType notification_type) {
     }
 }
 
+//yeni yapıya geçildi
 void change_helmet_state(bool helmet_state) {
     bool old_helmet_state = get_helmet_state();
 
@@ -143,6 +145,7 @@ void change_helmet_state(bool helmet_state) {
     }
 }
 
+//yeni yapıya geçildi
 static void on_temp_alert(uint8_t sensor_index) {
     ESP_LOGE(TAG, "On temp alert");
     if (get_device_state() != STATE_TEMPERATURE_ALERT){

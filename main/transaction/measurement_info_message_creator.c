@@ -13,6 +13,8 @@
 #include "../state/timer_manager.h"
 #include "../state/current_therapy_info_manager.h"
 
+#include "../manager/timer_info_getter.h"
+
 #include "esp_log.h"
 #include <stdlib.h>
 #include <string.h>

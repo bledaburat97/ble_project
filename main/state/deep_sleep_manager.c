@@ -1,7 +1,6 @@
 #include "deep_sleep_manager.h"
 
-#include "state_manager.h"
-#include "timer_manager.h"
+#include "../manager/session_timer_manager.h"
 
 #include "../i2c/laser/laser_driver_controller.h"
 

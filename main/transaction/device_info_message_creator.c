@@ -14,6 +14,8 @@
 #include "../ble/include/ble_connection_state_manager.h"
 #include "../ble/include/ble_controller.h"
 
+#include "../manager/timer_info_getter.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include "esp_err.h"

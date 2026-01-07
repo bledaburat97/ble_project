@@ -16,9 +16,6 @@ idf_component_register(SRCS "i2c/temperature/temperature_sensor_controller.c"
 
                             "main.c"
 
-                            "state/timer_manager.c"
-                            "state/state_manager.c"
-
                             "nvs/storage_manager.c"
 
                             "lp_core/lp_core_queue_manager.c"
@@ -41,8 +38,6 @@ idf_component_register(SRCS "i2c/temperature/temperature_sensor_controller.c"
                             "helper/binary_message_parser.c" 
 
                             "state/deep_sleep_manager.c"
-                            "state/current_therapy_info_manager.c"
-                            "state/general_manager.c"
                             "state/mode_selector.c"
 
                             "button/main_button_controller.c"
@@ -52,7 +47,6 @@ idf_component_register(SRCS "i2c/temperature/temperature_sensor_controller.c"
                             "storage/log_partition_manager.c"
                             "storage/therapy_counter.c"
 
-                            "transaction/incoming_message_handler.c"
                             "transaction/matching_message_encoder.c"
                             "transaction/message_queue_manager.c"
                             "transaction/device_info_message_creator.c"
@@ -63,6 +57,19 @@ idf_component_register(SRCS "i2c/temperature/temperature_sensor_controller.c"
                             "transaction/default_configuration_handler.c"
                             "transaction/passkey_handler.c"
                             "transaction/wifi_config_handler.c"
+
+                            "manager/therapy_duration_manager.c"
+                            "manager/current_therapy_state_manager.c"
+                            "manager/device_event_router.c"
+                            "manager/device_initiator.c"
+                            "manager/device_manager.c"
+                            "manager/helmet_off_debounce_timer_manager.c"
+                            "manager/state_controller.c"
+                            "manager/therapy_id_manager.c"
+                            "manager/timer_controller.c"
+                            "manager/session_timer_manager.c"
+
+                            "common/device_states.c"
 
                             "buzzer/buzzer.c"
 

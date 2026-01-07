@@ -10,9 +10,11 @@ typedef enum {
     HIGH = 1
 } ProximityThresholdType;
 
-void initialize_proximity_sensors(bool hp_prox_sensor_exist, bool lp_prox_sensor_exist);
+typedef void (*helmet_state_callback)(bool helmet_on);
+
+void initialize_proximity_sensors(bool hp_prox_sensor_exist, bool lp_prox_sensor_exist, helmet_state_callback callback);
 void request_excess_status(bool is_lp);
 void check_interrupt_status(uint8_t status, bool is_lp);
-void read_proximity_of_sensors();
 void proximity_read_task(void *pvParameters);
+bool get_helmet_state();
 #endif 

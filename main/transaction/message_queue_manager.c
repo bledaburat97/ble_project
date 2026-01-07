@@ -195,6 +195,12 @@ static void queue_sender_task(void *pvParameters)
             continue;
         }
 
+        if (high_priority_queue == NULL || low_priority_queue == NULL) {
+            ESP_LOGE(TAG, "Queues are NULL inside sender task! high=%p low=%p", high_priority_queue, low_priority_queue);
+            vTaskDelay(pdMS_TO_TICKS(1000));
+            continue;
+        }
+
         TickType_t inter_message_delay = pdMS_TO_TICKS(dynamic_period);
 
         if (xQueueReceive(high_priority_queue, &entry, pdMS_TO_TICKS(100)) == pdTRUE) {
@@ -230,17 +236,27 @@ static void queue_sender_task(void *pvParameters)
 void init_message_queue_manager()
 {
     high_priority_queue = xQueueCreate(MAX_PENDING_MESSAGES, sizeof(MessageQueueEntry));
-    low_priority_queue = xQueueCreate(MAX_PENDING_MESSAGES, sizeof(MessageQueueEntry));
+    low_priority_queue  = xQueueCreate(MAX_PENDING_MESSAGES, sizeof(MessageQueueEntry));
 
     if (high_priority_queue == NULL || low_priority_queue == NULL) {
-        ESP_LOGE(TAG, "Failed to create message queues!");
+        ESP_LOGE(TAG, "Failed to create message queues! high=%p low=%p", high_priority_queue, low_priority_queue);
+        return;
     }
     register_dynamic_period_change_callback(on_dynamic_period_change);
-    xTaskCreatePinnedToCore(queue_sender_task, "queue_sender", 4096, NULL, 5, NULL, tskNO_AFFINITY);
+
+    BaseType_t ok = xTaskCreatePinnedToCore(queue_sender_task, "queue_sender", 4096, NULL, 5, NULL, tskNO_AFFINITY);
+    if (ok != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create queue_sender_task");
+    }
 }
 
 void send_records_info_message_to_queue(uint16_t therapy_id, uint8_t* data, size_t data_length, bool wait_for_response) {
     ESP_LOGI(TAG, "Adding records message of %u to queue to send it", therapy_id);
+
+    if (low_priority_queue == NULL) {
+        ESP_LOGE(TAG, "Low priority queue is NULL");
+        return;
+    }
 
     uint8_t* data_copy = (uint8_t*)malloc(data_length);
     if (data_copy == NULL) {
@@ -255,26 +271,31 @@ void send_records_info_message_to_queue(uint16_t therapy_id, uint8_t* data, size
         .data = data_copy,
         .data_length = data_length,
         .id = therapy_id,
-        .wait_for_response = wait_for_response // yalnızca son fragment true
+        .wait_for_response = wait_for_response
     };
-    
-    if(xQueueSend(low_priority_queue, &entry, portMAX_DELAY) != pdTRUE) {
-        ESP_LOGE(TAG, "Failed to send message to queue");
+
+    if (xQueueSend(low_priority_queue, &entry, 0) != pdTRUE) {
+        ESP_LOGE(TAG, "Failed to send records message to queue (queue full?)");
         free(data_copy);
     }
 } 
 
 void send_info_message_to_queue(MessageType message_type, uint8_t* data, size_t data_length) {
-    ESP_LOGI(TAG, "Adding message of %u to queue to send it", message_type);
+    //ESP_LOGI(TAG, "Queue handles: high=%p low=%p", high_priority_queue, low_priority_queue);
     
     if (!high_priority_queue) {
         ESP_LOGE(TAG, "High priority queue is NULL");
         return;
     }
 
+    if (!data || data_length == 0) {
+        ESP_LOGE(TAG, "Invalid payload (data=%p len=%u)", data, (unsigned)data_length);
+        return;
+    }
+
     uint8_t* data_copy = (uint8_t*)malloc(data_length);
-    if (data_copy == NULL) {
-        ESP_LOGE(TAG, "Failed to allocate memory for message copy");
+    if (!data_copy) {
+        ESP_LOGE(TAG, "malloc failed (len=%u)", (unsigned)data_length);
         return;
     }
     memcpy(data_copy, data, data_length);
@@ -286,33 +307,23 @@ void send_info_message_to_queue(MessageType message_type, uint8_t* data, size_t 
         .id = 0,
         .wait_for_response = false
     };
-    
-    TickType_t time_out = 0; // asla block etme
-    if(xQueueSend(high_priority_queue, &entry, time_out) != pdTRUE) {
-        ESP_LOGW(TAG, "Queue full on first try, dropping oldest messages...");
-        
-        const int MAX_DROP = 10;
-        int dropped = 0;
-        MessageQueueEntry old_entry;
 
-        for (int i = 0; i < MAX_DROP; ++i) {
-            if (xQueueReceive(high_priority_queue, &old_entry, 0) != pdTRUE) {
-                break;
-            }
+    if (xQueueSend(high_priority_queue, &entry, 0) == pdTRUE) {
+        return;
+    }
 
-            if (old_entry.data) {
-                free(old_entry.data);
-            }
-            dropped++;
-        }
+    MessageQueueEntry old_entry;
+    int dropped = 0;
+    for (int i = 0; i < 10; i++) {
+        if (xQueueReceive(high_priority_queue, &old_entry, 0) != pdTRUE) break;
+        free(old_entry.data); // <-- sadece %100 heap olduğunu garanti ediyorsan
+        dropped++;
+    }
+    ESP_LOGW(TAG, "Queue full. Dropped %d messages", dropped);
 
-        ESP_LOGW(TAG, "Dropped %d old messages to make room", dropped);
-
-        if (xQueueSend(high_priority_queue, &entry, time_out) != pdTRUE) {
-            ESP_LOGW(TAG, "Queue still full after dropping, dropping new message type=%u",
-                     (unsigned)message_type);
-            free(data_copy);
-        }
+    if (xQueueSend(high_priority_queue, &entry, 0) != pdTRUE) {
+        ESP_LOGW(TAG, "Queue still full. Dropping new message type=%u", (unsigned)message_type);
+        free(data_copy);
     }
 }
 

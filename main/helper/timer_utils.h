@@ -3,7 +3,7 @@
 #ifndef TIMER_UTILS_H
 #define TIMER_UTILS_H
 
-#include "../state/state_manager.h"
+#include "../common/device_states.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"

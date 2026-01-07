@@ -32,7 +32,12 @@ BaseType_t queue_add_task(uint32_t command, uint32_t reg, uint32_t value, uint32
         .lp_core_byte_count = byte_count
     };
 
-    return xQueueSend(lp_core_queue, &new_task, portMAX_DELAY);
+    
+    if (xQueueSend(lp_core_queue, &new_task, pdMS_TO_TICKS(50)) != pdTRUE) {
+        ESP_LOGW(TAG, "LP core queue full, dropping cmd=%lu reg=%lu", command, reg);
+        return pdFAIL;
+    }
+    return pdPASS;
 }
 
 BaseType_t queue_get_task(lp_core_task_t *task, TickType_t timeout) {
@@ -55,7 +60,7 @@ void process_lp_queue_task(void *arg) {
                 __atomic_store_n(&ulp_lp_core_device_address, task.lp_core_device_address, __ATOMIC_RELAXED);
                 __atomic_store_n(&ulp_lp_core_byte_count, task.lp_core_byte_count, __ATOMIC_RELAXED);
 
-                ESP_LOGI(TAG, "Queue'dan çıktı: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu", task.lp_core_command, task.lp_core_register, task.lp_core_value, task.lp_core_device_address, task.lp_core_byte_count);
+                //ESP_LOGI(TAG, "Queue'dan çıktı: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu", task.lp_core_command, task.lp_core_register, task.lp_core_value, task.lp_core_device_address, task.lp_core_byte_count);
             }
             else {
                 // Kuyruk boş ve LP-Core boşta. Görevi kısa bir süre uykuya alarak CPU'yu serbest bırak.
@@ -63,12 +68,14 @@ void process_lp_queue_task(void *arg) {
             }
         }
         else if(current_lp_command == WRITE_COMPLETED) {
+            /*
             ESP_LOGI(TAG, "Write tamamlandı: Command=%lu, Register=%lu, Value=%lu, Device Address=%lu, Byte count=%lu",
                      current_lp_command,
                      __atomic_load_n(&ulp_lp_core_register, __ATOMIC_RELAXED),
                      __atomic_load_n(&ulp_lp_core_value, __ATOMIC_RELAXED),
                      __atomic_load_n(&ulp_lp_core_device_address, __ATOMIC_RELAXED),
                      __atomic_load_n(&ulp_lp_core_byte_count, __ATOMIC_RELAXED));
+            */
             __atomic_store_n(&ulp_lp_core_command, NO_COMMAND, __ATOMIC_RELAXED);
             if(__atomic_load_n(&ulp_lp_core_register, __ATOMIC_RELAXED) == 139) {
                 all_config_written = true;

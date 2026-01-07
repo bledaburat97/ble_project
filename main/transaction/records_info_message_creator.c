@@ -13,11 +13,10 @@
 
 #include "../helper/binary_message_parser.h"
 
-
-
-#include "../state/state_manager.h"
-#include "../state/current_therapy_info_manager.h"
-#include "../state/timer_manager.h"
+#include "../manager/session_timer_manager.h"
+#include "../manager/current_therapy_state_manager.h"
+#include "../manager/therapy_id_manager.h"
+#include "../manager/therapy_duration_manager.h"
 
 #include "../device_configuration.h"
 
@@ -58,7 +57,7 @@ static bool set_records(uint16_t therapy_id) {
         if(read_therapy_info(therapy_id, &therapy_info)) {
             if(therapy_id == get_current_therapy_id()) {
                 ESP_LOGI(TAG, "current start_encoding_for_new_therapy of therapy id: %u",therapy_id);
-                start_encoding_for_new_therapy(therapy_id, get_current_therapy_duration(), get_session_passed_seconds());
+                start_encoding_for_new_therapy(therapy_id, get_planned_therapy_duration_s(), get_session_passed_seconds());
             }
 
             else {
@@ -149,7 +148,7 @@ static void on_active_or_paused_therapy_existed()
     send_records_info_message(current_id);
 }
 
-void on_write_of_record_request_message(const uint8_t *buf, size_t len) {
+static void on_write_of_record_request_message(const uint8_t *buf, size_t len) {
     if(is_record_pending()) {
         ESP_LOGI(TAG, "is_record_pending true");
         return;

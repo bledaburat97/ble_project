@@ -1,7 +1,6 @@
 #include "mode_selector.h"
 
 #include "general_manager.h"
-#include "state_manager.h"
 
 #include "../transaction/default_configuration_handler.h"
 #include "../i2c/laser/laser_driver_controller.h"

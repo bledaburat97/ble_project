@@ -15,7 +15,6 @@ typedef struct {
     uint8_t region_piece_count;
     RegionPiece region_piece_list[TOTAL_REGION_COUNT];
     uint8_t address;
-    uint8_t i2c_master_num;
 } LaserDriverInfo;
 
 typedef enum {

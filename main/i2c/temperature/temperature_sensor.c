@@ -54,11 +54,11 @@ void set_configuration(uint8_t device_address, TempSensorConfigReg config)
 {
     uint8_t config_byte = *(uint8_t *)&config;
 
-    write_register(device_address, CONFIG_REG, &config_byte, 1, I2C_FIRST_MASTER_NUM);
+    write_register(device_address, CONFIG_REG, &config_byte, 1);
 
     // Opsiyonel read-back (şu an sadece okunuyor, doğrulama yapılmıyor)
     uint8_t configuration_bytes[2] = {0};
-    (void)read_register(device_address, CONFIG_REG, configuration_bytes, 2, I2C_FIRST_MASTER_NUM);
+    (void)read_register(device_address, CONFIG_REG, configuration_bytes, 2);
 }
 
 /**
@@ -77,10 +77,10 @@ void set_threshold_temperature(uint8_t device_address,
 
     if (type == LOW) {
         ESP_LOGI(TAG, "New low temperature limit: %.2f°C", threshold_in_degree);
-        write_register(device_address, LOW_THRESHOLD_REG, threshold, 2, I2C_FIRST_MASTER_NUM);
+        write_register(device_address, LOW_THRESHOLD_REG, threshold, 2);
     } else if (type == HIGH) {
         ESP_LOGI(TAG, "New high temperature limit: %.2f°C", threshold_in_degree);
-        write_register(device_address, HIGH_THRESHOLD_REG, threshold, 2, I2C_FIRST_MASTER_NUM);
+        write_register(device_address, HIGH_THRESHOLD_REG, threshold, 2);
     }
 }
 
@@ -91,7 +91,7 @@ float read_temperature_of_sensor(uint8_t device_address)
 {
     uint8_t temperature_bytes[2] = {0};
 
-    read_register(device_address, TEMPERATURE_REG, temperature_bytes, 2, I2C_FIRST_MASTER_NUM);
+    read_register(device_address, TEMPERATURE_REG, temperature_bytes, 2);
 
     float temperature = convert_bytes_to_float(temperature_bytes[0], temperature_bytes[1]);
     return temperature;

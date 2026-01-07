@@ -2,8 +2,6 @@
 
 #include "../i2c_control.h"
 
-#include "../../state/state_manager.h"
-
 #include "../../device_configuration.h"
 
 #include "esp_log.h"
@@ -37,8 +35,7 @@ static const LaserDriverInfo DRIVER_INFO_LIST[NUM_OF_LASER_DRIVERS] = {
                 .led_list = 0x0000000FFFF00000, //SMD Lazer 2
                 .is_bank = false
             }
-        },
-        .i2c_master_num = I2C_FIRST_MASTER_NUM
+        }
     },
     {
         .address = LP5036_ADDRESS_2, //u401 DRIVER
@@ -54,8 +51,7 @@ static const LaserDriverInfo DRIVER_INFO_LIST[NUM_OF_LASER_DRIVERS] = {
                 .led_list = 0x0000000FFF800000, //SMD Lazer 2
                 .is_bank = false
             }
-        },
-        .i2c_master_num = I2C_FIRST_MASTER_NUM
+        }
     },
     {
         .address = LP5036_ADDRESS_3, //u400 DRIVER
@@ -71,8 +67,7 @@ static const LaserDriverInfo DRIVER_INFO_LIST[NUM_OF_LASER_DRIVERS] = {
                 .led_list = 0x0000000FFFC00000, //SMD Lazer 2
                 .is_bank = false
             }
-        },
-        .i2c_master_num = I2C_FIRST_MASTER_NUM
+        }
     }
       
     // 
@@ -164,8 +159,7 @@ static void set_banked_leds(void)
             if (write_register(driver_info->address,
                                LED_CONFIG0_REG,
                                &led_config0_data,
-                               1,
-                               driver_info->i2c_master_num) != ESP_OK) {
+                               1) != ESP_OK) {
                 ESP_LOGE(TAG, "Failed to write LED_CONFIG0_REG for address 0x%02X", driver_info->address);
             }
 
@@ -174,8 +168,7 @@ static void set_banked_leds(void)
             if (write_register(driver_info->address,
                                LED_CONFIG1_REG,
                                &led_config1_data,
-                               1,
-                               driver_info->i2c_master_num) != ESP_OK) {
+                               1) != ESP_OK) {
                 ESP_LOGE(TAG, "Failed to write LED_CONFIG1_REG for address 0x%02X", driver_info->address);
             }
 
@@ -240,8 +233,7 @@ void set_brightness_of_region(uint8_t region_id, const uint8_t brightness_percen
             if (write_register(driver_info->address,
                                BANK_BRIGHTNESS_REG,
                                &brightness,
-                               1,
-                               driver_info->i2c_master_num) != ESP_OK) {
+                               1) != ESP_OK) {
                 ESP_LOGE(TAG,
                          "Failed to write BANK_BRIGHTNESS_REG for address 0x%02X",
                          driver_info->address);
@@ -257,8 +249,7 @@ void set_brightness_of_region(uint8_t region_id, const uint8_t brightness_percen
                     if (write_register(driver_info->address,
                                        reg,
                                        &brightness,
-                                       1,
-                                       driver_info->i2c_master_num) != ESP_OK) {
+                                       1) != ESP_OK) {
                         ESP_LOGE(TAG,
                                  "Failed to write OUT_COLOR_REG (0x%02X) for addr=0x%02X, led_index=%u",
                                  reg, driver_info->address, led_index);
@@ -289,8 +280,7 @@ static bool set_laser_driver_status(uint8_t laser_driver_index, bool status)
         ret = write_register(driver_info->address,
                              DEVICE_CONFIG0_REG,
                              &chip_en,
-                             1,
-                             driver_info->i2c_master_num);
+                             1);
         if (ret == ESP_OK) {
             break;
         }
@@ -319,8 +309,7 @@ static bool set_laser_driver_status(uint8_t laser_driver_index, bool status)
         if (read_register(driver_info->address,
                           DEVICE_CONFIG0_REG,
                           &reg_val,
-                          1,
-                          driver_info->i2c_master_num) == ESP_OK) {
+                          1) == ESP_OK) {
 
             if (reg_val & 0x40) {
                 ESP_LOGE(TAG,
@@ -386,8 +375,7 @@ void update_device_config1(bool status, DeviceConfig1UpdateType type)
         if (read_register(driver_info->address,
                           DEVICE_CONFIG1_REG,
                           &device_config1_value,
-                          1,
-                          driver_info->i2c_master_num) != ESP_OK) {
+                          1) != ESP_OK) {
             ESP_LOGE(TAG, "Failed to read DEVICE_CONFIG1_REG for address 0x%02X",
                      driver_info->address);
             continue;
@@ -402,8 +390,7 @@ void update_device_config1(bool status, DeviceConfig1UpdateType type)
         if (write_register(driver_info->address,
                            DEVICE_CONFIG1_REG,
                            &device_config1_value,
-                           1,
-                           driver_info->i2c_master_num) != ESP_OK) {
+                           1) != ESP_OK) {
             ESP_LOGE(TAG, "Failed to write DEVICE_CONFIG1_REG for address 0x%02X",
                      driver_info->address);
         } else {

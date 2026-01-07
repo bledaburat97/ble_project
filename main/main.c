@@ -69,6 +69,8 @@
 #include "lp_core_firmware.h"
 #include "nvs_flash.h"
 
+#include "manager/device_initiator.h"
+
 static const char *TAG = "Main";
 
 void periodic_message_sender_task(void *pvParameters) {
@@ -166,18 +168,9 @@ static void initialize_ble_components(const feature_config_t *config) {
     if (config->ble_active) {
         init_ble();
         init_message_queue_manager();
-        init_incoming_message_handler();
         init_passkey_handler();
         init_default_configuration_handler();
         init_message_creators();
-    }
-
-}
-
-static void initialize_state_management_components(const feature_config_t *config) {
-    if (config->state_and_timer_active) {
-        init_timer_manager();
-        init_general_manager();
     }
 }
 
@@ -202,9 +195,9 @@ static void initialize_temperature_components(const feature_config_t *config) {
     xTaskCreate(temperature_read_task, "Temperature Update Task", 2048, NULL, 1, NULL);
     xTaskCreate(humidity_read_task, "humidity_read_task", 2048, NULL, 1, NULL);
 
-    //xTaskCreate(monitor_alert_task, "Monitor Alert Task", 2048, NULL, 1, NULL);
+    xTaskCreate(monitor_alert_task, "Monitor Alert Task", 2048, NULL, 1, NULL);
 }
-
+/*
 static void initialize_proximity_components(const feature_config_t *config) {
     if (!config->lp_prox_sensor_active && !config->hp_prox_sensor_active) {
         return;
@@ -214,7 +207,7 @@ static void initialize_proximity_components(const feature_config_t *config) {
     xTaskCreate(monitor_proximity_int_task, "Monitor Proximity Int Task", 4096, NULL, 1, NULL);
     //xTaskCreate(proximity_read_task, "ProximityReadTask", 2048, NULL, 5, NULL);
 }
-
+*/
 static void initialize_laser_components(const feature_config_t *config) {
     if (!config->laser_and_led_drivers_active) {
         return;
@@ -237,7 +230,7 @@ static void initialize_sensor_and_driver_components(const feature_config_t *conf
     initialize_lp_core_components(config);
     initialize_laser_components(config);
     initialize_temperature_components(config);
-    initialize_proximity_components(config);
+    //initialize_proximity_components(config); TODO: device_manager'a taşındı.
 }
 
 static void initialize_button_components(const feature_config_t *config) {
@@ -248,7 +241,7 @@ static void initialize_button_components(const feature_config_t *config) {
 }
 
 static void finalize_device_startup(const feature_config_t *config) {
-
+    /*
     if(config->continue_uncompleted_therapy) {
         bool restored = restore_uncompleted_therapy_if_exists();
         if (restored) {
@@ -256,6 +249,7 @@ static void finalize_device_startup(const feature_config_t *config) {
         }
         set_continue_uncompleted_therapy(true);
     }
+    */
 
     if (config->creating_logs_permitted) {
         add_and_send_notification_info(DEVICE_AWAKED);
@@ -264,13 +258,11 @@ static void finalize_device_startup(const feature_config_t *config) {
     ESP_LOGI(TAG, "Device awakes.");
 
     if (config->state_and_timer_active) {
-        start_device();
+        //start_device();
     }
 
     ESP_LOGI(TAG, "System Ready.");
 }
-
-
 
 void app_main(void) {
     initialize_nvs_flash_module();
@@ -281,12 +273,13 @@ void app_main(void) {
 
     initialize_storage_components(&feature_config);
     initialize_ble_components(&feature_config);
-    initialize_state_management_components(&feature_config);
+    //initialize_state_management_components(&feature_config);
 
     //xTaskCreate(periodic_message_sender_task, "PeriodicMsgSender", 2048, NULL, 5, NULL);
 
     initialize_sensor_and_driver_components(&feature_config);
     initialize_button_components(&feature_config);
+    init_device_manager();
     finalize_device_startup(&feature_config);
     initialize_mode_indicator_gpio();
     init_wifi_config();

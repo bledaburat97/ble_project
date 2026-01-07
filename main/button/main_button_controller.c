@@ -1,9 +1,9 @@
 #include "main_button_controller.h"
 
-#include "../state/deep_sleep_manager.h"
-#include "../state/state_manager.h"
-#include "../state/timer_manager.h"
-#include "../state/current_therapy_info_manager.h"
+//#include "../state/deep_sleep_manager.h"
+//#include "../state/state_manager.h"
+//#include "../state/timer_manager.h"
+//#include "../state/current_therapy_info_manager.h"
 #include "../state/mode_selector.h"
 
 #include "../transaction/incoming_message_handler.h"
@@ -23,6 +23,7 @@ static const TickType_t k_short_press_window = pdMS_TO_TICKS(1000);
 
 static uint16_t s_short_press_count = 0;
 static TickType_t s_last_short_press_tick = 0;
+static void (*button_press_callback)(ButtonPressType) = NULL;
 
 static const char *TAG = "MainButtonController";
 
@@ -33,6 +34,8 @@ static const char *TAG = "MainButtonController";
  * - If device is ACTIVE  : pauses therapy and sends NOTIF_THERAPY_PAUSED_BY_BUTTON.
  * - Otherwise            : logs a warning about unexpected state.
  */
+// yeni yapı
+/*
 static void start_or_pause_therapy(void)
 {
     DeviceState device_state = get_device_state();
@@ -46,6 +49,7 @@ static void start_or_pause_therapy(void)
         ESP_LOGW(TAG, "Short press ignored: unexpected device state (%d).", device_state);
     }
 }
+*/
 
 /**
  * @brief Handle a completed short-press sequence.
@@ -58,7 +62,8 @@ static void start_or_pause_therapy(void)
 static void on_short_press_sequence(uint16_t press_count)
 {
     if (press_count == 1) {
-        start_or_pause_therapy();
+        if (button_press_callback) button_press_callback(SHORT);
+        //start_or_pause_therapy();
         return;
     }
 
@@ -118,14 +123,16 @@ static inline void maybe_finalize_short_press_sequence(void)
  * - Eğer indicator LED aktifse: kısa basışlar sekans olarak takip edilir.
  * - Değilse                 : tek basış olarak start_or_pause_therapy çağrılır.
  */
-void do_short_press(void)
+static void do_short_press(void)
 {
     if (get_indicator_led_status()) {
         track_short_press();
         return;
     }
 
-    start_or_pause_therapy();
+    if (button_press_callback) {
+        button_press_callback(SHORT);
+    }
 }
 
 /**
@@ -172,9 +179,10 @@ void wait_for_button_to_sleep(void *pvParameters)
 
             if (press_duration_ticks >= very_long_press_ticks) {
                 ESP_LOGI(TAG, "Very long press detected: entering deep sleep.");
-                uint16_t passed_seconds = get_session_passed_seconds();
-                add_notification_log(NOTIF_SHUT_DOWN_BY_BUTTON, passed_seconds);
-                enter_deep_sleep();
+                if (button_press_callback) button_press_callback(LONG);
+                //uint16_t passed_seconds = get_session_passed_seconds();
+                //add_notification_log(NOTIF_SHUT_DOWN_BY_BUTTON, passed_seconds);
+                //enter_deep_sleep();
             } else if (press_duration_ticks >= long_press_ticks) {
                 ESP_LOGI(TAG, "Long press detected: toggling mode indicator.");
                 change_mode_indicator_gpio_pin_status();
@@ -188,4 +196,8 @@ void wait_for_button_to_sleep(void *pvParameters)
 
         vTaskDelay(poll_delay_ticks);
     }
+}
+
+void register_button_press_callback(void (*callback)(ButtonPressType)) {
+    button_press_callback = callback;
 }

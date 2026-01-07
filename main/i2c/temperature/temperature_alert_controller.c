@@ -1,7 +1,5 @@
 #include "temperature_alert_controller.h"
 
-#include "../../state/state_manager.h"
-
 #include "../../device_configuration.h"
 
 #include "esp_log.h"

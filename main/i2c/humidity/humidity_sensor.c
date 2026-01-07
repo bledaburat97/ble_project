@@ -71,10 +71,10 @@ void hdc1080_set_configuration(uint8_t device_address, HDC1080_ConfigReg config)
     buf[0] = (uint8_t)(config_value >> 8);
     buf[1] = (uint8_t)(config_value & 0xFF);
 
-    write_register(device_address, HDC1080_CONFIG_REG, buf, 2, I2C_FIRST_MASTER_NUM);
+    write_register(device_address, HDC1080_CONFIG_REG, buf, 2);
 
     uint8_t readback[2] = {0};
-    (void)read_register(device_address, HDC1080_CONFIG_REG, readback, 2, I2C_FIRST_MASTER_NUM);
+    (void)read_register(device_address, HDC1080_CONFIG_REG, readback, 2);
 }
 
 /**
