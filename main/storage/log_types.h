@@ -75,7 +75,6 @@ typedef struct {
     bool can_be_cached;
     bool can_be_flashed;
     bool can_start_cache;
-    bool can_flush_cache;
 } BaseLogEntry;
 
 #endif

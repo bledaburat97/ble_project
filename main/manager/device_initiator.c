@@ -12,7 +12,7 @@
 #include "../i2c/laser/laser_driver_controller.h"
 
 #include "../ble/include/ble_internal.h"
-#include "../storage/log_writer.h"
+#include "../storage/log_resume.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -29,10 +29,10 @@ void init_device_manager(void)
 
     init_state_controller();
     init_timer_controller();
-
+    
     if (is_uncompleted_therapy_recoverable) {
         UncompletedTherapyInfo info;
-        if (read_uncompleted_therapy(&info)) {
+        if (log_resume_read_uncompleted_therapy(&info)) {
             ESP_LOGI(TAG, "Uncompleted therapy found in flash.");
             post_uncompleted_therapy_set_event(info);
         } else {

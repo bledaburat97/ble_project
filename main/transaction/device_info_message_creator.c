@@ -4,17 +4,16 @@
 
 #include "../helper/binary_message_encoder.h"
 
-#include "../state/current_therapy_info_manager.h"
-#include "../state/timer_manager.h"
-
-#include "../storage/log_writer.h"
 #include "../storage/log_types.h"
-#include "../storage/therapy_counter.h"
 
 #include "../ble/include/ble_connection_state_manager.h"
 #include "../ble/include/ble_controller.h"
 
 #include "../manager/timer_info_getter.h"
+#include "../manager/current_therapy_state_manager.h"
+#include "../manager/therapy_id_manager.h"
+#include "../manager/session_timer_manager.h"
+#include "../manager/message_saver.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -23,18 +22,6 @@
 #include "esp_log.h"
 
 static const char *TAG = "DeviceInfoMessageCreator";
-
-static uint16_t resolve_last_saved_therapy_id(void) {
-    uint16_t therapy_count = read_therapy_count();
-    if (get_current_therapy_state() == NONE) {
-        return therapy_count;
-    }
-    if (therapy_count == 0) {
-        ESP_LOGW(TAG, "Therapy counter returned zero while a session is active.");
-        return 0;
-    }
-    return (uint16_t)(therapy_count - 1u);
-}
 
 static void send_device_info(uint16_t passed_seconds) {
     DeviceInfoMessage message = {0};
@@ -45,7 +32,7 @@ static void send_device_info(uint16_t passed_seconds) {
         return;
     }
 
-    message.last_saved_therapy_id = resolve_last_saved_therapy_id();
+    message.last_saved_therapy_id = get_last_completed_therapy_id();
     ESP_LOGI(TAG, "Sending device info with last saved therapy id: %u", message.last_saved_therapy_id);
 
     message.passed_seconds = passed_seconds;
@@ -58,7 +45,7 @@ static void send_device_info(uint16_t passed_seconds) {
 
 static void perform_post_connect_operations(void) {
     uint16_t passed_seconds = get_session_passed_seconds();
-    esp_err_t err = add_notification_log(BLE_CONNECTED, passed_seconds);
+    esp_err_t err = save_log(BLE_CONNECTED, NULL, 0, passed_seconds);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to persist BLE connected notification: %s", esp_err_to_name(err));
     }

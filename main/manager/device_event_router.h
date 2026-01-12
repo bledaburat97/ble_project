@@ -7,7 +7,7 @@
 
 #include "device_events.h"
 #include "../storage/log_types.h"
-#include "../storage/log_writer.h"
+#include "../storage/log_resume.h"
 #include "../button/main_button_controller.h"
 
 void init_device_event_router(void);

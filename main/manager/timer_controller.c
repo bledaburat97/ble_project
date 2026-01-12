@@ -1,7 +1,6 @@
 #include "timer_controller.h"
 #include "timer_info_getter.h"
 
-#include "../storage/log_writer.h"
 #include "../storage/log_utils.h"
 
 #include "../i2c/temperature/temperature_alert_controller.h"

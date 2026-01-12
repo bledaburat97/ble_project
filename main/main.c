@@ -28,16 +28,11 @@
 #include "transaction/measurement_info_message_creator.h"
 #include "transaction/timer_state_info_message_creator.h"
 #include "transaction/message_queue_manager.h"
-#include "transaction/incoming_message_handler.h"
 #include "transaction/device_info_message_creator.h"
 #include "transaction/wifi_config_handler.h"
 
 #include "state/deep_sleep_manager.h"
-#include "state/general_manager.h"
-#include "state/timer_manager.h"
-#include "state/state_manager.h"
 #include "state/mode_selector.h"
-#include "state/current_therapy_info_manager.h"
 
 #include "i2c/i2c_control.h"
 #include "i2c/laser/laser_driver_controller.h"
@@ -54,7 +49,7 @@
 #include "storage/log_partition_manager.h"
 #include "storage/log_types.h"
 #include "storage/log_utils.h"
-#include "storage/log_writer.h"
+#include "storage/log_orchestrator.h"
 #include "storage/therapy_counter.h"
 
 #include "nvs/storage_manager.h"
@@ -70,6 +65,7 @@
 #include "nvs_flash.h"
 
 #include "manager/device_initiator.h"
+#include "manager/message_saver.h"
 
 static const char *TAG = "Main";
 
@@ -77,7 +73,7 @@ void periodic_message_sender_task(void *pvParameters) {
     const TickType_t delay_ticks = pdMS_TO_TICKS(30 * 1000); 
     while (1) {
         ESP_LOGI(TAG, "Sending records info message for therapy ID 1...");
-        send_records_info_message(1);
+        send_records_info_message(1, false);
 
         vTaskDelay(delay_ticks);
     }
@@ -138,7 +134,7 @@ static bool activate_device_if_needed(const feature_config_t *config) {
         return false;
     }
     ESP_LOGI(TAG, "Deep sleep.");
-    add_notification_log(NOTIF_DEVICE_NOT_AWAKED, 0);
+    save_log(NOTIF_DEVICE_NOT_AWAKED, NULL, 0, 0);
     enter_deep_sleep();
     return false;
 }
@@ -215,9 +211,10 @@ static void initialize_laser_components(const feature_config_t *config) {
     initialize_laser_drivers();
     const uint8_t *brightness_list = get_default_brightness();
 
-    for (int i = 0; i < TOTAL_REGION_COUNT; i++) {
-        set_brightness_of_region(i + 1, brightness_list[i]);
-    }
+    change_brightness(brightness_list); //passed_seconds 0'dır diye farz ediliyor.
+    save_log(NOTIF_BRIGHTNESS_UPDATED, brightness_list, 6, 0);
+
+    send_notification_info(NOTIF_BRIGHTNESS_UPDATED, 0);
 
     //set_brightness_of_region(1, 20);
     //set_brightness_of_region(2, 20);
@@ -241,16 +238,6 @@ static void initialize_button_components(const feature_config_t *config) {
 }
 
 static void finalize_device_startup(const feature_config_t *config) {
-    /*
-    if(config->continue_uncompleted_therapy) {
-        bool restored = restore_uncompleted_therapy_if_exists();
-        if (restored) {
-            ESP_LOGI(TAG, "Device booted with an uncompleted therapy. Current therapy set to PAUSED.");
-        }
-        set_continue_uncompleted_therapy(true);
-    }
-    */
-
     if (config->creating_logs_permitted) {
         add_and_send_notification_info(DEVICE_AWAKED);
     }
@@ -283,4 +270,5 @@ void app_main(void) {
     finalize_device_startup(&feature_config);
     initialize_mode_indicator_gpio();
     init_wifi_config();
+    log_orchestrator_init();
 }

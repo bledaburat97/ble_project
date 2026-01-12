@@ -3,7 +3,6 @@
 #include "message_queue_manager.h"
 
 #include "../storage/log_types.h"
-#include "../storage/log_writer.h"
 
 #include "../helper/binary_message_encoder.h"
 
@@ -14,6 +13,7 @@
 #include "../manager/state_controller.h"
 #include "../manager/current_therapy_state_manager.h"
 #include "../manager/timer_info_getter.h"
+#include "../manager/message_saver.h"
 
 #include "../i2c/proximity/proximity_sensor_controller.h"
 
@@ -32,7 +32,7 @@ static void on_timer_state_info_feedback_callback() {
 static void on_passed_duration_update() {
     if(get_device_state() == STATE_ACTIVE) {
         uint16_t passed_seconds = get_session_passed_seconds();
-        esp_err_t err = add_notification_log(PASSED_DURATION_UPDATED, passed_seconds);
+        esp_err_t err = save_log(PASSED_DURATION_UPDATED, NULL, 0, passed_seconds);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "Failed to persist notification log: %s", esp_err_to_name(err));
         }
@@ -41,7 +41,7 @@ static void on_passed_duration_update() {
 
 static void on_disconnect_ble() {
     uint16_t passed_seconds = get_session_passed_seconds();
-    esp_err_t err = add_notification_log(BLE_DISCONNECTED, passed_seconds);
+    esp_err_t err = save_log(BLE_DISCONNECTED, NULL, 0, passed_seconds);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to persist BLE disconnected notification: %s", esp_err_to_name(err));
     }
@@ -61,7 +61,7 @@ void send_notification_info(NotificationType type, uint16_t passed_seconds) {
 
 void add_and_send_notification_info(NotificationType notification_type) {
     uint16_t passed_seconds = get_session_passed_seconds();
-    esp_err_t err = add_notification_log(notification_type, passed_seconds);
+    esp_err_t err = save_log(notification_type, NULL, 0, passed_seconds);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to persist notification log: %s", esp_err_to_name(err));
     }

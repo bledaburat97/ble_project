@@ -3,7 +3,6 @@
 #include "current_therapy_state_manager.h"
 
 #include "../storage/therapy_counter.h"
-#include "../storage/log_writer.h"
 
 #include "../transaction/default_configuration_handler.h"
 
@@ -41,3 +40,16 @@ uint16_t get_new_therapy_id_for_new_therapy(void)
     }
     return (uint16_t)(therapy_count + 1u);
 }
+
+uint16_t get_last_completed_therapy_id(void) {
+    uint16_t therapy_count = read_therapy_count();
+    if (get_current_therapy_state() == NONE) {
+        return therapy_count;
+    }
+    if (therapy_count == 0) {
+        ESP_LOGW(TAG, "Therapy counter returned zero while a session is active.");
+        return 0;
+    }
+    return (uint16_t)(therapy_count - 1u);
+}
+

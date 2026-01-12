@@ -81,6 +81,8 @@ static void set_record_pending(uint16_t therapy_id) {
         pending_record.retry_count = 1;
     }
     pending_record.send_timestamp = esp_log_timestamp();
+    pending_record.last_sent_therapy_id = therapy_id;
+    pending_record.last_sent_timestamp = pending_record.send_timestamp;
 }
 
 static inline void drain_old_conf(void){
@@ -221,9 +223,18 @@ static void queue_sender_task(void *pvParameters)
 
         if (xQueueReceive(low_priority_queue, &entry, pdMS_TO_TICKS(100)) == pdTRUE) {
             ESP_LOGI(TAG, "Received low priority message in the queue.");
-            send_and_track(&entry);
-            free(entry.data);
-            
+            send_res_t r = send_and_track(&entry);
+            if (r == SEND_OK || r == SEND_FAIL) {
+                free(entry.data);
+            } else if (r == SEND_NOT_READY) {
+                ESP_LOGI(TAG, "Low queue send not ready, requeueing to front");
+                vTaskDelay(pdMS_TO_TICKS(200));
+                if (xQueueSendToFront(low_priority_queue, &entry, pdMS_TO_TICKS(50)) != pdTRUE) {
+                    ESP_LOGE(TAG, "Low queue full while requeueing; dropping records fragment!");
+                    free(entry.data); // zorunlu drop
+                }
+                continue;
+            }
             vTaskDelay(inter_message_delay);
             continue;
         }
@@ -274,11 +285,12 @@ void send_records_info_message_to_queue(uint16_t therapy_id, uint8_t* data, size
         .wait_for_response = wait_for_response
     };
 
-    if (xQueueSend(low_priority_queue, &entry, 0) != pdTRUE) {
-        ESP_LOGE(TAG, "Failed to send records message to queue (queue full?)");
+    const TickType_t wait = pdMS_TO_TICKS(500);
+    if (xQueueSend(low_priority_queue, &entry, wait) != pdTRUE) {
+        ESP_LOGE(TAG, "Failed to enqueue records message (queue full after wait). Dropping fragment.");
         free(data_copy);
     }
-} 
+}
 
 void send_info_message_to_queue(MessageType message_type, uint8_t* data, size_t data_length) {
     //ESP_LOGI(TAG, "Queue handles: high=%p low=%p", high_priority_queue, low_priority_queue);
@@ -329,12 +341,24 @@ void send_info_message_to_queue(MessageType message_type, uint8_t* data, size_t 
 
 bool clear_pending_approval_record(uint16_t therapy_id)
 {
-    if(!pending_record.active || pending_record.therapy_id != therapy_id) {
-        ESP_LOGE(TAG, "Big error.");
-        return false;
+
+    if (pending_record.active && pending_record.therapy_id == therapy_id) {
+        pending_record.active = false;
+        return true;
     }
-    pending_record.active = false;
-    return true;
+
+    // Late ACK toleransı: en son gönderilen therapy ile eşleşiyorsa ve çok eski değilse kabul et
+    const uint32_t now = esp_log_timestamp();
+    const uint32_t grace_ms = 5000;
+    if (therapy_id == pending_record.last_sent_therapy_id &&
+        (now - pending_record.last_sent_timestamp) <= grace_ms) {
+        ESP_LOGW(TAG, "Late records feedback accepted (therapy_id=%u)", therapy_id);
+        pending_record.active = false;
+        return true;
+    }
+
+    ESP_LOGW(TAG, "Unexpected records feedback (therapy_id=%u). Ignoring.", therapy_id);
+    return false;
 }
 
 void register_device_info_feedback_callback(void (*callback)()) {
@@ -359,4 +383,14 @@ void register_send_new_record_callback(void (*callback)(uint16_t)) {
 
 bool is_record_pending(void) {
     return pending_record.active;
+}
+
+bool wait_low_queue_space(uint32_t min_free, uint32_t timeout_ms)
+{
+    uint32_t start = esp_log_timestamp();
+    while (uxQueueSpacesAvailable(low_priority_queue) < min_free) {
+        if (esp_log_timestamp() - start > timeout_ms) return false;
+        vTaskDelay(pdMS_TO_TICKS(20));
+    }
+    return true;
 }

@@ -35,32 +35,27 @@ BaseLogEntry fill_base_log(uint8_t type, const uint8_t* data, size_t data_len, u
             log.can_be_cached = false;
             log.can_be_flashed = true;
             log.can_start_cache = false;
-            log.can_flush_cache = false;
             break;
         case DEVICE_AWAKED:
             log.can_be_cached = true;
             log.can_be_flashed = false;
             log.can_start_cache = true;
-            log.can_flush_cache = false;
             break;
         case NOTIF_THERAPY_COMPLETED:
             log.can_be_cached = false;
             log.can_be_flashed = true;
             log.can_start_cache = true;
-            log.can_flush_cache = false;
             break;
         case TIMER_STATE_NEW_THERAPY_BY_BUTTON:
         case TIMER_STATE_NEW_THERAPY_BY_APP:
             log.can_be_cached = true;
             log.can_be_flashed = true;
             log.can_start_cache = false;
-            log.can_flush_cache = true;
             break;
         default:
             log.can_be_cached = true;
             log.can_be_flashed = true;
             log.can_start_cache = false;
-            log.can_flush_cache = false;
             break;
     }
     

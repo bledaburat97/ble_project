@@ -19,6 +19,8 @@ typedef struct {
     uint16_t therapy_id;    // hangi terapi
     uint8_t  retry_count;   // son batch için kaç kez yeniden denedik (0..2)
     uint32_t send_timestamp;  // son "son fragment" gönderim zaman damgası
+    uint16_t last_sent_therapy_id;
+    uint32_t last_sent_timestamp;
 } RecordsPending;
 
 void send_info_message_to_queue(MessageType message_type, uint8_t* data, size_t data_length);
@@ -30,5 +32,6 @@ bool clear_pending_approval_record(uint16_t therapy_id);
 void register_send_record_again_callback(void (*callback)(uint16_t));
 void register_send_new_record_callback(void (*callback)(uint16_t));
 bool is_record_pending(void);
+bool wait_low_queue_space(uint32_t min_free, uint32_t timeout_ms);
 
 #endif

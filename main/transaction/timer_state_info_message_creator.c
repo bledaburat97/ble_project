@@ -3,7 +3,6 @@
 #include "message_queue_manager.h"
 
 #include "../storage/log_types.h"
-#include "../storage/log_writer.h"
 
 #include "../helper/binary_message_encoder.h"
 
@@ -13,6 +12,7 @@
 #include "../manager/therapy_duration_manager.h"
 #include "../manager/therapy_id_manager.h"
 #include "../manager/timer_info_getter.h"
+#include "../manager/message_saver.h"
 
 #include "../device_configuration.h"
 
@@ -128,7 +128,7 @@ void add_and_send_new_other_state_info(NotificationType notification_type) {
 
     uint16_t therapy_passed_seconds = (uint16_t)(get_paused_therapy_passed_duration_ms() / 1000u);
     uint16_t passed_seconds = get_session_passed_seconds();
-    esp_err_t notif_err = add_notification_log(notification_type, passed_seconds);
+    esp_err_t notif_err = save_log(notification_type, NULL, 0, passed_seconds);
     if (notif_err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to persist notification log for timer state: %s", esp_err_to_name(notif_err));
     }
@@ -156,7 +156,7 @@ static void add_and_send_new_therapy_state_info(NotificationType notification_ty
 
     uint8_t data[] = {message.therapy_id >> 8, message.therapy_id & 0xFF, message.duration >> 8, message.duration & 0xFF, message.therapy_passed_seconds >> 8, message.therapy_passed_seconds & 0xFF};
 
-    esp_err_t err = add_log(notification_type, data, sizeof(data), passed_seconds);
+    esp_err_t err = save_log(notification_type, data, sizeof(data), passed_seconds);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to persist therapy state log (type=%u): %s", notification_type, esp_err_to_name(err));
     }

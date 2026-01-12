@@ -532,7 +532,6 @@ bool read_uncompleted_therapy(UncompletedTherapyInfo *out) {
 
     uint32_t base_offset = ((therapy_count - 1) % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
 
-    // Slot bitmiş mi? (COMPLETED / STOPPED / SHUT_DOWN varsa devam etmeyeceğiz)
     bool slot_is_finished =
         does_slot_contain_entry(base_offset, NOTIF_THERAPY_COMPLETED)   ||
         does_slot_contain_entry(base_offset, NOTIF_THERAPY_STOPPED_BY_APP) ||
@@ -544,7 +543,7 @@ bool read_uncompleted_therapy(UncompletedTherapyInfo *out) {
     }
 
     ReadTherapyInfo info = {0};
-    if (!read_therapy_info(therapy_count, &info)) {
+    if (!read_therapy_info(therapy_count, &info, false)) {
         ESP_LOGE(TAG, "Failed to read therapy info for last therapy_id=%u", therapy_count);
         return false;
     }
@@ -800,7 +799,7 @@ void erase_therapy_partition(uint32_t offset) {
     }
 }
 
-bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs, bool is_active_therapy) {
+bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs, LogReadMode log_read_mode) {
     ESP_LOGI(TAG, "Read records for therapy id: %u", therapy_id);
     uint32_t base_offset = ((therapy_id - 1)  % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
     const esp_partition_t* partition = get_log_partition();
@@ -886,7 +885,7 @@ bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs, bool is_ac
                 therapy_logs->notifications[count_notifications * 3 + 2] = entry_ptr[first_passed_duration_byte_index + 1]; // passed_seconds
                 count_notifications++;
 
-                if (is_active_therapy) {
+                if (log_read_mode == READ_UNTIL_FIRST_BLE_CONNECTED) {
                     therapy_logs->count_notifications = count_notifications;
                     therapy_logs->count_brightness = count_brightness;
                     therapy_logs->count_measurements = count_measurements;
@@ -906,7 +905,7 @@ bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs, bool is_ac
         local_offset += size_info.total_length;
     }
 
-    if (!is_active_therapy) {
+    if (log_read_mode == READ_FULL_SLOT) {
         therapy_logs->count_notifications = count_notifications;
         therapy_logs->count_brightness = count_brightness;
         therapy_logs->count_measurements = count_measurements;
@@ -920,7 +919,7 @@ bool read_records(uint16_t therapy_id, ReadTherapyLogs* therapy_logs, bool is_ac
 
 }
 
-bool read_therapy_info(uint16_t therapy_id, ReadTherapyInfo* therapy_info) {
+bool read_therapy_info(uint16_t therapy_id, ReadTherapyInfo* therapy_info, bool slot_already_loaded) {
     uint32_t base_offset = ((therapy_id - 1)  % MAX_SAVED_THERAPY) * THERAPY_SLOT_SIZE;
     const esp_partition_t* partition = get_log_partition();
     if (!partition) {
@@ -928,10 +927,12 @@ bool read_therapy_info(uint16_t therapy_id, ReadTherapyInfo* therapy_info) {
         return false;
     }
 
-    esp_err_t err = esp_partition_read(partition, base_offset, therapy_slot_buffer, THERAPY_SLOT_SIZE);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to read slot at index %u: %s", therapy_id, esp_err_to_name(err));
-        return false;
+    if (!slot_already_loaded) {
+        esp_err_t err = esp_partition_read(partition, base_offset, therapy_slot_buffer, THERAPY_SLOT_SIZE);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to read slot at index %u: %s", therapy_id, esp_err_to_name(err));
+            return false;
+        }
     }
 
     therapy_info->therapy_duration = 0;
@@ -949,7 +950,6 @@ bool read_therapy_info(uint16_t therapy_id, ReadTherapyInfo* therapy_info) {
             ESP_LOGE(TAG, "Wrong log entry.");
             return false;
         }
-
 
         const uint8_t* entry_ptr = &therapy_slot_buffer[local_offset];
         if (!verify_crc(entry_ptr, size_info)) {

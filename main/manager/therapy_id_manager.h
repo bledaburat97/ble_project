@@ -5,5 +5,6 @@
 
 uint16_t get_current_therapy_id(void);
 uint16_t get_new_therapy_id_for_new_therapy(void);
+uint16_t get_last_completed_therapy_id(void);
 
 #endif

@@ -6,5 +6,5 @@
 #include <stddef.h>
 
 void init_records_info_message_creator();
-void send_records_info_message(uint16_t therapy_id);
+void send_records_info_message(uint16_t therapy_id, bool is_active_therapy);
 #endif

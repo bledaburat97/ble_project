@@ -8,6 +8,7 @@
 #include "current_therapy_state_manager.h"
 #include "session_timer_manager.h"
 #include "helmet_off_debounce_timer_manager.h"
+#include "message_saver.h"
 
 #include "../i2c/temperature/temperature_sensor_controller.h"
 #include "../i2c/laser/laser_driver_controller.h"
@@ -17,7 +18,7 @@
 #include "../transaction/timer_state_info_message_creator.h"
 #include "../transaction/default_configuration_handler.h"
 
-#include "../storage/log_writer.h"
+#include "../storage/log_resume.h"
 
 #include "esp_log.h"
 #include <string.h>
@@ -280,14 +281,13 @@ void handle_device_event(const DeviceEvent *event)
             const ActivationPayload *payload = &event->data.activation;
             ESP_LOGI(TAG, "EVT_ACTIVATION_REQUEST duration=%u", (unsigned)payload->duration_s);
             if(payload->brightness_present){
-                for (int i = 0; i < TOTAL_REGION_COUNT; i++) {
-                    set_brightness_of_region((uint8_t)(i + 1), payload->brightness[i]);
-                }
+                uint16_t passed_seconds = get_session_passed_seconds();
+                change_brightness(payload->brightness);
+                save_log(NOTIF_BRIGHTNESS_UPDATED, payload->brightness, 6, passed_seconds);
+                send_notification_info(NOTIF_BRIGHTNESS_UPDATED, passed_seconds);
             }
             if (payload->duration_s > 0) {
                 set_active_state(payload->duration_s, TIMER_STATE_NEW_THERAPY_BY_APP, true, false);
-            } else {
-                set_inactive_state(NONE);
             }
         } break;
 
@@ -335,7 +335,7 @@ void handle_device_event(const DeviceEvent *event)
         case EVT_LONG_BUTTON_PRESS: {
             ESP_LOGI(TAG, "EVT_LONG_BUTTON_PRESS");
             uint16_t passed_seconds = get_session_passed_seconds();
-            add_notification_log(NOTIF_SHUT_DOWN_BY_BUTTON, passed_seconds);
+            save_log(NOTIF_SHUT_DOWN_BY_BUTTON, NULL, 0, passed_seconds);
             enter_deep_sleep();
         } break;
 
@@ -343,9 +343,10 @@ void handle_device_event(const DeviceEvent *event)
             const UncompletedTherapyInfo *payload = &event->data.uncompleted;
 
             if (try_set_planned_therapy_duration(payload->therapy_duration) && payload->therapy_passed_seconds > 0) {
-                for (int i = 0; i < TOTAL_REGION_COUNT; i++) {
-                    set_brightness_of_region((uint8_t)(i + 1), payload->last_brightness[i]);
-                }
+                uint16_t passed_seconds = get_session_passed_seconds();
+                change_brightness(payload->last_brightness);
+                save_log(NOTIF_BRIGHTNESS_UPDATED, payload->last_brightness, 6, passed_seconds);
+                send_notification_info(NOTIF_BRIGHTNESS_UPDATED, passed_seconds);
                 set_paused_therapy_passed_duration_ms(payload->therapy_passed_seconds);
                 reset_session_clock(payload->last_passed_seconds * 1000000u);
                 set_continue_uncompleted_therapy(true);

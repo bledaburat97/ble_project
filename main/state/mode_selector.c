@@ -1,9 +1,12 @@
 #include "mode_selector.h"
 
-#include "general_manager.h"
-
 #include "../transaction/default_configuration_handler.h"
 #include "../i2c/laser/laser_driver_controller.h"
+
+#include "../manager/session_timer_manager.h"
+#include "../manager/message_saver.h"
+
+#include "../storage/log_types.h"
 
 #include "esp_log.h"
 #include "string.h"
@@ -32,10 +35,9 @@ void change_mode_indicator_gpio_pin_status() {
     if(!indicator_led_status) {
         ESP_LOGI(TAG, "Indicator led is turning off.");
         const uint8_t *brightness_list = get_default_brightness();
-
-        for (int i = 0; i < TOTAL_REGION_COUNT; i++) {
-            set_brightness_of_region(i + 1, brightness_list[i]);
-        }
+        uint16_t passed_seconds = get_session_passed_seconds();
+        change_brightness(brightness_list);
+        save_log(NOTIF_BRIGHTNESS_UPDATED, brightness_list, 6, passed_seconds);
     }
     else{
         ESP_LOGI(TAG, "Indicator led is turning on.");

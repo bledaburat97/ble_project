@@ -160,13 +160,15 @@ uint16_t get_fragment_count() {
     return current_fragment_id + 1;
 }
 
-void add_fragment_count(void) {
+bool add_fragment_count(void) {
     uint16_t total = get_fragment_count();
     if (total > 0xFF) {
-        ESP_LOGW(TAG, "Fragment count (%u) > 255, truncating to 255", (unsigned)total);
-        total = 0xFF;
+        ESP_LOGE(TAG, "Fragment count (%u) > 255. Protocol cannot represent. Abort.", (unsigned)total);
+        fragments[0][fragment_count_index] = 0;
+        return false;
     }
     fragments[0][fragment_count_index] = (uint8_t)total;
+    return true;
 }
 
 void init_fragments()

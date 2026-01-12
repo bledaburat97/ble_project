@@ -1,18 +1,11 @@
 #include "main_button_controller.h"
 
-//#include "../state/deep_sleep_manager.h"
-//#include "../state/state_manager.h"
-//#include "../state/timer_manager.h"
-//#include "../state/current_therapy_info_manager.h"
 #include "../state/mode_selector.h"
 
-#include "../transaction/incoming_message_handler.h"
 #include "../transaction/notification_info_message_creator.h"
 #include "../transaction/default_configuration_handler.h"
 
 #include "../device_configuration.h"
-
-#include "../storage/log_writer.h"
 
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -27,29 +20,6 @@ static void (*button_press_callback)(ButtonPressType) = NULL;
 
 static const char *TAG = "MainButtonController";
 
-/**
- * @brief Start or pause therapy based on current device state.
- *
- * - If device is INACTIVE: starts or continues therapy via button.
- * - If device is ACTIVE  : pauses therapy and sends NOTIF_THERAPY_PAUSED_BY_BUTTON.
- * - Otherwise            : logs a warning about unexpected state.
- */
-// yeni yapı
-/*
-static void start_or_pause_therapy(void)
-{
-    DeviceState device_state = get_device_state();
-
-    if (device_state == STATE_INACTIVE) {
-        start_or_continue_therapy_by_button();
-    } else if (device_state == STATE_ACTIVE) {
-        pause_therapy();
-        add_and_send_notification_info(NOTIF_THERAPY_PAUSED_BY_BUTTON);
-    } else {
-        ESP_LOGW(TAG, "Short press ignored: unexpected device state (%d).", device_state);
-    }
-}
-*/
 
 /**
  * @brief Handle a completed short-press sequence.

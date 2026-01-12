@@ -4,6 +4,8 @@
 
 #include "../../device_configuration.h"
 
+#include "../../storage/log_types.h"
+
 #include "esp_log.h"
 #include "string.h"
 #include "driver/gpio.h"
@@ -210,7 +212,7 @@ static uint8_t convert_brightness_percentage_to_brightness(const uint8_t brightn
  * Verilen region_id içindeki tüm LED’lerin parlaklığını ayarlar.
  * Region mapping, DRIVER_INFO_LIST tablosundan okunur.
  */
-void set_brightness_of_region(uint8_t region_id, const uint8_t brightness_percentage)
+static void set_brightness_of_region(uint8_t region_id, const uint8_t brightness_percentage)
 {
     if (region_id < 1U || region_id > TOTAL_REGION_COUNT) {
         ESP_LOGE(TAG, "Invalid region ID: %u", region_id);
@@ -257,6 +259,12 @@ void set_brightness_of_region(uint8_t region_id, const uint8_t brightness_percen
                 }
             }
         }
+    }
+}
+
+void change_brightness(const uint8_t brightness[6]) {
+    for (int i = 0; i < TOTAL_REGION_COUNT; i++) {
+        set_brightness_of_region(i + 1, brightness[i]);
     }
 }
 

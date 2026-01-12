@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "device_configuration.h"
-#include "../storage/log_writer.h"
+#include "../storage/log_resume.h"
 
 typedef enum {
     EVT_NONE = 0,

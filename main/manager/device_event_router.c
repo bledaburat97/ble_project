@@ -5,8 +5,6 @@
 #include "../helper/binary_message_parser.h"
 #include "../button/main_button_controller.h"
 
-#include "../storage/log_writer.h"
-
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
@@ -19,6 +17,8 @@ static QueueHandle_t s_event_queue;
 
 void post_device_event(const DeviceEvent *event)
 {
+    ESP_LOGW(TAG, "Post device event=%d", (int)event->type);
+
     if (!s_event_queue) return;
 
     if (xQueueSend(s_event_queue, event, 0) != pdTRUE) {

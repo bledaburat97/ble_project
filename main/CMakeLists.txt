@@ -43,7 +43,12 @@ idf_component_register(SRCS "i2c/temperature/temperature_sensor_controller.c"
                             "button/main_button_controller.c"
 
                             "storage/log_utils.c"
-                            "storage/log_writer.c"
+                            "storage/log_cache.c"
+                            "storage/log_orchestrator.c"
+                            "storage/log_reader.c"
+                            "storage/log_resume.c"
+                            "storage/log_storage.c"
+
                             "storage/log_partition_manager.c"
                             "storage/therapy_counter.c"
 
@@ -68,6 +73,7 @@ idf_component_register(SRCS "i2c/temperature/temperature_sensor_controller.c"
                             "manager/therapy_id_manager.c"
                             "manager/timer_controller.c"
                             "manager/session_timer_manager.c"
+                            "manager/message_saver.c"
 
                             "common/device_states.c"
 
