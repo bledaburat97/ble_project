@@ -1,11 +1,13 @@
 #include "device_manager.h"
 
 #include "state_controller.h"
+#include "state_getter.h"
 #include "therapy_duration_manager.h"
 #include "../state/deep_sleep_manager.h"
 #include "timer_controller.h"
 #include "timer_info_getter.h"
 #include "current_therapy_state_manager.h"
+#include "session_timer_getter.h"
 #include "session_timer_manager.h"
 #include "helmet_off_debounce_timer_manager.h"
 #include "message_saver.h"

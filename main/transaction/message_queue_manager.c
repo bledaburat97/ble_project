@@ -328,7 +328,7 @@ void send_info_message_to_queue(MessageType message_type, uint8_t* data, size_t 
     int dropped = 0;
     for (int i = 0; i < 10; i++) {
         if (xQueueReceive(high_priority_queue, &old_entry, 0) != pdTRUE) break;
-        free(old_entry.data); // <-- sadece %100 heap olduğunu garanti ediyorsan
+        free(old_entry.data);
         dropped++;
     }
     ESP_LOGW(TAG, "Queue full. Dropped %d messages", dropped);

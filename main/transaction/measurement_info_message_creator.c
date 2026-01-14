@@ -11,7 +11,7 @@
 
 #include "../manager/timer_info_getter.h"
 #include "../manager/message_saver.h"
-#include "../manager/session_timer_manager.h"
+#include "../manager/session_timer_getter.h"
 
 #include "esp_log.h"
 #include <stdlib.h>
@@ -50,12 +50,10 @@ static void on_device_info_feedback_callback() {
 }
 
 static void on_temperature_update(uint8_t temperature) {
-    //ESP_LOGI(TAG, "On temperature update of temperature: %u.", temperature);
     add_and_send_measurement_info(temperature, get_humidity());
 }
 
 static void on_humidity_update(uint8_t humidity) {
-    //ESP_LOGI(TAG, "On temperature update of temperature: %u.", temperature);
     add_and_send_measurement_info(get_temperature(), humidity);
 }
 

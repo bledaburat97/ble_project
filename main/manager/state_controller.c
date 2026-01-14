@@ -1,4 +1,5 @@
 #include "state_controller.h"
+#include "state_getter.h"
 
 #include "../common/device_states.h"
 

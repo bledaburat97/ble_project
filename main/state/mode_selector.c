@@ -3,7 +3,7 @@
 #include "../transaction/default_configuration_handler.h"
 #include "../i2c/laser/laser_driver_controller.h"
 
-#include "../manager/session_timer_manager.h"
+#include "../manager/session_timer_getter.h"
 #include "../manager/message_saver.h"
 
 #include "../storage/log_types.h"

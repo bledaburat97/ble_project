@@ -9,8 +9,8 @@
 #include "../ble/include/ble_controller.h"
 #include "../ble/include/ble_connection_state_manager.h"
 
-#include "../manager/session_timer_manager.h"
-#include "../manager/state_controller.h"
+#include "../manager/session_timer_getter.h"
+#include "../manager/state_getter.h"
 #include "../manager/current_therapy_state_manager.h"
 #include "../manager/timer_info_getter.h"
 #include "../manager/message_saver.h"

@@ -12,7 +12,7 @@
 #include "../manager/timer_info_getter.h"
 #include "../manager/current_therapy_state_manager.h"
 #include "../manager/therapy_id_manager.h"
-#include "../manager/session_timer_manager.h"
+#include "../manager/session_timer_getter.h"
 #include "../manager/message_saver.h"
 
 #include <string.h>
@@ -31,16 +31,12 @@ static void send_device_info(uint16_t passed_seconds) {
         ESP_LOGE(TAG, "Failed to read device MAC: %s", esp_err_to_name(err));
         return;
     }
-
+    message.passed_seconds = passed_seconds;
     message.last_saved_therapy_id = get_last_completed_therapy_id();
     ESP_LOGI(TAG, "Sending device info with last saved therapy id: %u", message.last_saved_therapy_id);
-
-    message.passed_seconds = passed_seconds;
-
     uint8_t buf[DEVICE_INFO_SIZE];
     size_t len = encode_device_info_message_binary(&message, buf);
     send_info_message_to_queue(DEVICE_INFO_MESSAGE, buf, len);
-    ESP_LOGI(TAG, "Device info message is sent to the queue.");
 }
 
 static void perform_post_connect_operations(void) {
@@ -55,10 +51,8 @@ static void perform_post_connect_operations(void) {
 }
 
 static void post_connect_sender_task(void *arg) {
-    vTaskDelay(pdMS_TO_TICKS(500)); // 300–800 ms arası idealdir
-
+    vTaskDelay(pdMS_TO_TICKS(500));
     perform_post_connect_operations();
-
     vTaskDelete(NULL);
 }
 

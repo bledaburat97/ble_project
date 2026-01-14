@@ -1,4 +1,5 @@
 #include "session_timer_manager.h"
+#include "session_timer_getter.h"
 
 #include <stdbool.h>
 

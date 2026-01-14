@@ -150,9 +150,6 @@ void wait_for_button_to_sleep(void *pvParameters)
             if (press_duration_ticks >= very_long_press_ticks) {
                 ESP_LOGI(TAG, "Very long press detected: entering deep sleep.");
                 if (button_press_callback) button_press_callback(LONG);
-                //uint16_t passed_seconds = get_session_passed_seconds();
-                //add_notification_log(NOTIF_SHUT_DOWN_BY_BUTTON, passed_seconds);
-                //enter_deep_sleep();
             } else if (press_duration_ticks >= long_press_ticks) {
                 ESP_LOGI(TAG, "Long press detected: toggling mode indicator.");
                 change_mode_indicator_gpio_pin_status();

@@ -6,8 +6,8 @@
 
 #include "../helper/binary_message_encoder.h"
 
-#include "../manager/session_timer_manager.h"
-#include "../manager/state_controller.h"
+#include "../manager/session_timer_getter.h"
+#include "../manager/state_getter.h"
 #include "../manager/current_therapy_state_manager.h"
 #include "../manager/therapy_duration_manager.h"
 #include "../manager/therapy_id_manager.h"

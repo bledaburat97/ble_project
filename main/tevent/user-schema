@@ -1,0 +1,117 @@
+scalar Instant
+scalar UUID
+scalar LocalDate
+
+type SearchOut @key(fields: "keyword"){
+  keyword: String!
+  artist: [UserSummaryOut!]!
+  organizer: [UserSummaryOut!]!
+  venues: [UserSummaryOut!]!
+}
+
+type UserSummaryOut @key(fields: "userId") @key(fields: "username") {
+  userId: ID!
+  username: String!
+  displayName: String
+  imageUrl: String
+  type: String
+}
+
+type EventOut @key(fields: "eventId") @extends{
+  eventId: ID! @external
+  ownerUserIds: [String!]! @external
+  venueUserId: String @external
+  artistIds: [String] @external
+  addressId: String @external
+  organizers: [UserSummaryOut] @requires(fields: "ownerUserIds")
+  venue: VenueUserSummaryOut @requires(fields: "venueUserId")
+  artists: [UserSummaryOut] @requires(fields: "artistIds")
+  address: AddressOut @requires(fields: "addressId venueUserId")
+}
+
+type EventOutDashboard @key(fields: "eventId") @extends {
+  eventId: ID! @external
+  ownerUserIds: [String!]! @external
+  venueUserId: String @external
+  artistIds: [String] @external
+  addressId: String @external
+  organizers: [UserSummaryOut] @requires(fields: "ownerUserIds")
+  venue: VenueUserSummaryOut @requires(fields: "venueUserId")
+  artists: [UserSummaryOut] @requires(fields: "artistIds")
+  address: AddressOut @requires(fields: "addressId venueUserId")
+}
+
+type EventWithTicketOut @key(fields: "eventId") @extends {
+  eventId: ID! @external
+  ownerUserIds: [String!]! @external
+  venueUserId: String @external
+  addressId: String @external
+  organizers: [UserSummaryOut] @requires(fields: "ownerUserIds")
+  address: AddressOut @requires(fields: "addressId venueUserId")
+}
+
+type UserEventOut @key(fields: "username") @extends {
+  username: String! @external
+  displayName: String
+  userImageUrl: String
+  maxImagePixel: Int
+}
+
+type VenueUserSummaryOut @key(fields: "userId") @key(fields: "username") {
+  userId: ID!
+  username: String!
+  displayName: String
+  imageUrl: String
+  type: String
+  address: AddressOut
+}
+
+input AddressIn {
+  googlePlaceId: String
+  description: String
+  fullAddress: String
+  country: String
+  administrativeArea: String
+  locality: String
+  postalCode: String
+  district: String
+  detailedAddress: String
+  lat: String
+  lng: String
+}
+
+type AddressOut {
+  googlePlaceId: String
+  description: String
+  fullAddress: String
+  country: String
+  administrativeArea: String
+  locality: String
+  postalCode: String
+  district: String
+  detailedAddress: String
+  lat: String
+  lng: String
+}
+
+enum LanguageEnum {
+  en
+  fr
+  de
+}
+
+type BusinessUserAnalyticsOut {
+  totalEventCount: Int
+  totalEarned: [KeyValueDecimal]
+  totalTicketSold: [KeyValueInt]
+}
+
+type KeyValueDecimal {
+  key: String
+  value: Float
+}
+
+type KeyValueInt {
+  key: String
+  value: Int
+}
