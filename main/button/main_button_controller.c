@@ -1,10 +1,6 @@
 #include "main_button_controller.h"
 
 #include "../state/mode_selector.h"
-
-#include "../transaction/notification_info_message_creator.h"
-#include "../transaction/default_configuration_handler.h"
-
 #include "../device_configuration.h"
 
 #include "esp_log.h"

@@ -1,8 +1,8 @@
 #include "humidity_sensor_controller.h"
 
 #include "humidity_sensor.h"
-#include "../i2c_control.h"
-#include "../../device_configuration.h"
+#include "../i2c/i2c_control.h"
+#include "../device_configuration.h"
 
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"

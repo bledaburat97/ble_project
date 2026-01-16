@@ -1,6 +1,6 @@
 #include "humidity_sensor.h"
 
-#include "../i2c_control.h"
+#include "../i2c/i2c_control.h"
 #include "esp_log.h"
 #include "driver/i2c.h"
 #include <math.h>

@@ -12,7 +12,7 @@
 #include "helmet_off_debounce_timer_manager.h"
 #include "message_saver.h"
 
-#include "../i2c/temperature/temperature_sensor_controller.h"
+#include "../temperature/temp_sensor_reader.h"
 #include "../i2c/laser/laser_driver_controller.h"
 #include "../i2c/proximity/proximity_sensor_controller.h"
 
@@ -92,10 +92,12 @@ static void start_inactivity(NotificationType notification_type)
 static void set_inactive_state(CurrentTherapyState therapy_state)
 {
     if (therapy_state == PAUSED) {
+        /*
         if (get_current_therapy_state() == PAUSED) {
             return;
         }
-
+        */ //uncompleted therapy set etme işi bunu kaldırınca bozulmuş mudur, kontrol et.
+        
         if (get_current_therapy_state() == ACTIVE) {
             pause_active_therapy_if_running("Manual");
         }
@@ -243,7 +245,7 @@ void handle_device_event(const DeviceEvent *event)
             ESP_LOGI(TAG, "EVT_ALERT_TIMER_COMPLETED");
             add_and_send_notification_info(NOTIF_ALERT_TIMER_EXPIRED);
 
-            if (is_any_alerted_sensor()) {
+            if (temp_sensor_reader_is_any_alerted_sensor()) {
                 enter_deep_sleep();
             } else {
                 set_inactive_state(get_current_therapy_state());

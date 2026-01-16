@@ -1,7 +1,22 @@
-#ifndef TEMPERATURE_SENSOR_CONFIG_H
-#define TEMPERATURE_SENSOR_CONFIG_H
+#ifndef TEMP_SENSOR_CONFIG_H
+#define TEMP_SENSOR_CONFIG_H
 
 #include <stdint.h>
+
+#define TEMPERATURE_SENSOR_COUNT 3
+
+#define LOW_THRESHOLD_IN_NORMAL   10.0f
+#define LOW_THRESHOLD_IN_ALERT    28.5f
+#define HIGH_THRESHOLD_IN_NORMAL  29.0f
+#define HIGH_THRESHOLD_IN_ALERT   60.0f
+
+#define TEMP_READ_PERIOD_MS       5000
+
+#define FIRST_PJ85775_ADDRESS 0x48
+#define SECOND_PJ85775_ADDRESS 0x4C
+#define THIRD_PJ85775_ADDRESS 0x4A
+
+extern const uint8_t TEMP_SENSOR_ADDRESS_LIST[TEMPERATURE_SENSOR_COUNT];
 
 // OS - One Shot Conversion Bit
 typedef enum {
@@ -53,4 +68,4 @@ typedef struct {
     OS_Mode os : 1;             // Bit 7
 } TempSensorConfigReg;
 
-#endif // TEMPERATURE_SENSOR_CONFIG_H
+#endif

@@ -3,7 +3,6 @@
 
 #include "../storage/log_utils.h"
 
-#include "../i2c/temperature/temperature_alert_controller.h"
 #include "../device_configuration.h"
 
 #include "../helper/timer_utils.h"
@@ -19,7 +18,7 @@
 #include "esp_timer.h"
 #include "freertos/queue.h"
 
-static const char *TAG = "NewTimerManager";
+static const char *TAG = "TimerController";
 
 static const uint32_t WATCHDOG_TIMEOUT_MS = 10 * 1000; 
 

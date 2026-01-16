@@ -6,8 +6,6 @@
 
 #include "../transaction/default_configuration_handler.h"
 
-#include "../i2c/laser/laser_driver_controller.h"
-
 #include "../device_configuration.h"
 
 #include <stdint.h>

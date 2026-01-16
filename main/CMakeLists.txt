@@ -4,15 +4,19 @@ set(app_sources "lp_core_main.c")
 #set(CMAKE_C_COMPILER "C:/Users/bleda.burat/.espressif/tools/riscv32-esp-elf/esp-13.2.0_20240530/riscv32-esp-elf/bin/riscv32-esp-elf-gcc.exe" CACHE STRING "C Compiler" FORCE)
 #set(CMAKE_ASM_COMPILER "C:/Users/bleda.burat/.espressif/tools/riscv32-esp-elf/esp-13.2.0_20240530/riscv32-esp-elf/bin/riscv32-esp-elf-as.exe" CACHE STRING "ASM Compiler" FORCE)
 
-idf_component_register(SRCS "i2c/temperature/temperature_sensor_controller.c" 
-                            "i2c/temperature/temperature_sensor.c"
-                            "i2c/temperature/temperature_alert_controller.c"
-                            "i2c/humidity/humidity_sensor_controller.c"
-                            "i2c/humidity/humidity_sensor.c"
-                            "i2c/proximity/proximity_int_controller.c"
+idf_component_register(SRCS "i2c/proximity/proximity_int_controller.c"
                             "i2c/proximity/proximity_sensor_controller.c"
                             "i2c/laser/laser_driver_controller.c"
                             "i2c/i2c_control.c"
+
+                            "temperature/temp_alert_setter.c"
+                            "temperature/temp_measurement_setter.c"
+                            "temperature/temp_sensor_manager.c"
+                            "temperature/temp_sensor_reader.c"
+                            "temperature/temp_sensor.c"
+
+                            "humidity/humidity_sensor_controller.c"
+                            "humidity/humidity_sensor.c"
 
                             "main.c"
 

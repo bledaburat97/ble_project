@@ -273,7 +273,6 @@ void change_brightness(const uint8_t brightness[6]) {
  */
 static bool set_laser_driver_status(uint8_t laser_driver_index, bool status)
 {
-    ESP_LOGE(TAG, "Set laser driver status");
     if (laser_driver_index >= NUM_OF_LASER_DRIVERS) {
         return false;
     }

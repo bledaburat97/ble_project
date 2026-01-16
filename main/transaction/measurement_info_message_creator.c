@@ -6,8 +6,9 @@
 
 #include "../storage/log_types.h"
 
-#include "../i2c/temperature/temperature_sensor_controller.h"
-#include "../i2c/humidity/humidity_sensor_controller.h"
+#include "../temperature/temp_sensor_reader.h"
+#include "../temperature/temp_sensor_manager.h"
+#include "../humidity/humidity_sensor_controller.h"
 
 #include "../manager/timer_info_getter.h"
 #include "../manager/message_saver.h"
@@ -43,7 +44,7 @@ static void add_and_send_measurement_info(uint8_t temperature, uint8_t humidity)
 }
 
 static void on_device_info_feedback_callback() {
-    uint8_t current_temperature = measure_and_get_temperature();
+    uint8_t current_temperature = temp_sensor_reader_measure_and_get_temperature();
     uint8_t current_humidity = measure_and_get_humidity();
     ESP_LOGI(TAG, "On device info feedback, Sending temperature: %u", current_temperature);
     add_and_send_measurement_info(current_temperature, current_humidity);
@@ -54,11 +55,11 @@ static void on_temperature_update(uint8_t temperature) {
 }
 
 static void on_humidity_update(uint8_t humidity) {
-    add_and_send_measurement_info(get_temperature(), humidity);
+    add_and_send_measurement_info(temp_sensor_reader_get_temperature(), humidity);
 }
 
 void init_measurement_info_message_creator() {
     register_device_info_feedback_callback(on_device_info_feedback_callback);
-    register_temperature_update(on_temperature_update);
+    temp_sensor_manager_register_temperature_update(on_temperature_update);
     register_humidity_update(on_humidity_update);
 }

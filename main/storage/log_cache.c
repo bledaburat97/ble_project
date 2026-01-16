@@ -1,4 +1,3 @@
-// log_cache.c
 #include "log_cache.h"
 #include "esp_log.h"
 

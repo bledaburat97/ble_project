@@ -40,10 +40,6 @@
 #include "i2c/proximity/proximity_sensor_config.h"
 #include "i2c/proximity/proximity_sensor_controller.h"
 
-#include "i2c/temperature/temperature_alert_controller.h"
-#include "i2c/temperature/temperature_sensor_controller.h"
-#include "i2c/humidity/humidity_sensor_controller.h"
-
 #include "button/main_button_controller.h"
 
 #include "storage/log_partition_manager.h"
@@ -180,7 +176,7 @@ static void initialize_lp_core_components(const feature_config_t *config) {
     initialize_lp_core_queue();
     xTaskCreate(process_lp_queue_task, "ProcessLpQueueTask", 4096, NULL, 5, NULL);
 }
-
+/*
 static void initialize_temperature_components(const feature_config_t *config) {
     if (!config->temperature_sensor_active) {
         return;
@@ -193,6 +189,7 @@ static void initialize_temperature_components(const feature_config_t *config) {
 
     xTaskCreate(monitor_alert_task, "Monitor Alert Task", 2048, NULL, 1, NULL);
 }
+*/
 /*
 static void initialize_proximity_components(const feature_config_t *config) {
     if (!config->lp_prox_sensor_active && !config->hp_prox_sensor_active) {
@@ -226,7 +223,7 @@ static void initialize_sensor_and_driver_components(const feature_config_t *conf
     init_i2c_master();
     initialize_lp_core_components(config);
     initialize_laser_components(config);
-    initialize_temperature_components(config);
+    //initialize_temperature_components(config);
     //initialize_proximity_components(config); TODO: device_manager'a taşındı.
 }
 

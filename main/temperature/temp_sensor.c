@@ -1,7 +1,7 @@
-#include "temperature_sensor.h"
+#include "temp_sensor.h"
 
-#include "../i2c_control.h"
-#include "../../lp_core/lp_core_queue_manager.h"
+#include "../i2c/i2c_control.h"
+#include "../lp_core/lp_core_queue_manager.h"
 
 #include "math.h"
 #include "esp_log.h"
@@ -50,7 +50,7 @@ static float convert_bytes_to_float(uint8_t high_byte, uint8_t low_byte)
     return integer_part + fractional_part;
 }
 
-void set_configuration(uint8_t device_address, TempSensorConfigReg config)
+void temp_sensor_set_configuration(uint8_t device_address, TempSensorConfigReg config)
 {
     uint8_t config_byte = *(uint8_t *)&config;
 
@@ -64,7 +64,7 @@ void set_configuration(uint8_t device_address, TempSensorConfigReg config)
 /**
  * LOW / HIGH threshold register’larını verilen sıcaklık değerine göre ayarlar.
  */
-void set_threshold_temperature(uint8_t device_address,
+void temp_sensor_set_threshold(uint8_t device_address,
                                float threshold_in_degree,
                                TemperatureThresholdType type)
 {
@@ -87,7 +87,7 @@ void set_threshold_temperature(uint8_t device_address,
 /**
  * Verilen sensörden sıcaklık ölçer ve float °C cinsinden döndürür.
  */
-float read_temperature_of_sensor(uint8_t device_address)
+float temp_sensor_read(uint8_t device_address)
 {
     uint8_t temperature_bytes[2] = {0};
 

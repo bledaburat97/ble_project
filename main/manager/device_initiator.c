@@ -6,10 +6,11 @@
 
 #include "../button/main_button_controller.h"
 
-#include "../i2c/temperature/temperature_sensor_controller.h"
 #include "../i2c/proximity/proximity_int_controller.h"
 #include "../i2c/proximity/proximity_sensor_controller.h"
 #include "../i2c/laser/laser_driver_controller.h"
+#include "../humidity/humidity_sensor_controller.h"
+#include "../temperature/temp_sensor_manager.h"
 
 #include "../ble/include/ble_internal.h"
 #include "../storage/log_resume.h"
@@ -43,7 +44,7 @@ void init_device_manager(void)
     }
 
     register_timer_end_callback(post_timer_completed_event);
-    register_temp_alert_callback(post_temperature_alert_event);
+    temp_sensor_manager_register_temp_alert(post_temperature_alert_event);
 
     register_on_write_activation_callback(post_activation_request_event);
     register_on_write_updating_therapy_state_callback(post_therapy_state_change_request_event);
@@ -54,6 +55,14 @@ void init_device_manager(void)
     xTaskCreate(monitor_proximity_int_task, "monitor_proximity_int", 4096, NULL, 1, NULL);
 
     initialize_proximity_sensors(is_hp_prox_sensor_active, is_lp_prox_sensor_active, post_helmet_state_change_event);
+
+    initialize_humidity_sensor();
+    xTaskCreate(humidity_read_task, "humidity_read_task", 2048, NULL, 1, NULL);
+
+    temp_sensor_manager_initialize();
+    xTaskCreate(temp_sensor_manager_temperature_read_task, "Temperature Read Task", 2048, NULL, 1, NULL);
+    xTaskCreate(temp_sensor_manager_alert_monitor_task, "Temperature Alert Task", 2048, NULL, 1, NULL);
+    
 
     ESP_LOGI(TAG, "Device initialized");
 }
