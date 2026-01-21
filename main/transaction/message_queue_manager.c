@@ -87,8 +87,7 @@ static void set_record_pending(uint16_t therapy_id) {
 
 static inline void drain_old_conf(void){
     esp_gatt_status_t dummy;
-    // ble_wait_for_indication_conf zaten sem’e bağlı ise:
-    (void)ble_wait_for_indication_conf(&dummy, 0 /*ms*/);
+    (void)ble_wait_for_indication_conf(&dummy, 0);
 }
 
 typedef enum { SEND_OK, SEND_NOT_READY, SEND_FAIL } send_res_t;

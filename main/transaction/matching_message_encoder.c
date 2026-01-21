@@ -68,10 +68,11 @@ static bool start_new_fragment(uint16_t therapy_id) {
 }
 
 void start_encoding_for_new_therapy(uint16_t therapy_id, uint16_t therapy_duration, uint16_t passed_therapy_duration) {
+
     if(!start_new_fragment(therapy_id)) {
         return;
     };
-    //ESP_LOGI(TAG, "start_encoding_for_new_therapy: therapy id: %u", therapy_id);
+    ESP_LOGW(TAG, "Encoding record for new therapy, therapy id: %u, passed therapy duration: %u", therapy_id, passed_therapy_duration);
 
     // Record Type: Fragment Count (0x06)
     fragments[current_fragment_id][fragment_lengths[current_fragment_id]++] = 0x06;

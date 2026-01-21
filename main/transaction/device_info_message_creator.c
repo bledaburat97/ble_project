@@ -42,6 +42,7 @@ static void send_device_info(uint16_t passed_seconds) {
 static void perform_post_connect_operations(void) {
     uint16_t passed_seconds = get_session_passed_seconds();
     esp_err_t err = save_log(BLE_CONNECTED, NULL, 0, passed_seconds);
+    ESP_LOGI(TAG, "BLE_CONNECTED");
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to persist BLE connected notification: %s", esp_err_to_name(err));
     }

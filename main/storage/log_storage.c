@@ -64,11 +64,22 @@ static inline esp_err_t ensure_partition(void)
     return ESP_OK;
 }
 
+static inline esp_err_t ensure_bounds(uint32_t offset, size_t len)
+{
+    if (!s_part) return ESP_ERR_INVALID_STATE;
+    if (len == 0) return ESP_ERR_INVALID_ARG;
+    if (offset >= s_part->size) return ESP_ERR_INVALID_SIZE;
+    if (len > (size_t)(s_part->size - offset)) return ESP_ERR_INVALID_SIZE;
+    return ESP_OK;
+}
+
 esp_err_t log_storage_read(uint32_t offset, void *out, size_t len)
 {
     if (!out || len == 0) return ESP_ERR_INVALID_ARG;
 
     esp_err_t e = ensure_partition();
+    if (e != ESP_OK) return e;
+    e = ensure_bounds(offset, len);
     if (e != ESP_OK) return e;
 
     return esp_partition_read(s_part, offset, out, len);
@@ -80,6 +91,8 @@ esp_err_t log_storage_write(uint32_t offset, const void *data, size_t len)
 
     esp_err_t e = ensure_partition();
     if (e != ESP_OK) return e;
+    e = ensure_bounds(offset, len);
+    if (e != ESP_OK) return e;
 
     return esp_partition_write(s_part, offset, data, len);
 }
@@ -89,6 +102,8 @@ esp_err_t log_storage_erase(uint32_t offset, size_t len)
     if (len == 0) return ESP_ERR_INVALID_ARG;
 
     esp_err_t e = ensure_partition();
+    if (e != ESP_OK) return e;
+    e = ensure_bounds(offset, len);
     if (e != ESP_OK) return e;
 
     return esp_partition_erase_range(s_part, offset, len);

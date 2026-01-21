@@ -24,6 +24,10 @@ static EventGroupHandle_t s_wifi_event_group;
 
 static bool event_loop_created = false;
 static bool netif_inited = false;
+static bool handlers_registered = false;
+static esp_netif_t *s_sta_netif = NULL;
+static esp_event_handler_instance_t s_wifi_any_id = NULL;
+static esp_event_handler_instance_t s_got_ip = NULL;
 
 const char* OTA_URL = "https://github.com/bledaburat97/ble_project/releases/latest/download/app.bin";
 
@@ -65,7 +69,9 @@ static esp_err_t wifi_init_sta_blocking(const char* ssid, const char* pass, uint
         event_loop_created = true;
     }
 
-    esp_netif_create_default_wifi_sta();
+    if (!s_sta_netif) {
+        s_sta_netif = esp_netif_create_default_wifi_sta();
+    }
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
@@ -79,9 +85,14 @@ static esp_err_t wifi_init_sta_blocking(const char* ssid, const char* pass, uint
     wifi_config.sta.pmf_cfg.capable = true;
     wifi_config.sta.pmf_cfg.required = false;
 
-    s_wifi_event_group = xEventGroupCreate();
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL, NULL));
+    if (!s_wifi_event_group) {
+        s_wifi_event_group = xEventGroupCreate();
+    }
+    if (!handlers_registered) {
+        ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, &s_wifi_any_id));
+        ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL, &s_got_ip));
+        handlers_registered = true;
+    }
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
@@ -184,9 +195,25 @@ static void on_wifi_config(const uint8_t *buf, size_t len) {
         ESP_LOGI(TAG, "Wi-Fi JSON OK (u='%s', p=****)", ssid);
 
         char **holder = malloc(sizeof(char*) * 2);
+        if (!holder) {
+            ESP_LOGE(TAG, "Failed to allocate OTA task args");
+            return;
+        }
         holder[0] = strdup(ssid);
         holder[1] = strdup(pass);
-        xTaskCreate(ota_task, "ota_task", 8192, holder, 5, NULL);
+        if (!holder[0] || !holder[1]) {
+            ESP_LOGE(TAG, "Failed to allocate OTA credentials");
+            free(holder[0]);
+            free(holder[1]);
+            free(holder);
+            return;
+        }
+        if (xTaskCreate(ota_task, "ota_task", 8192, holder, 5, NULL) != pdPASS) {
+            ESP_LOGE(TAG, "Failed to create ota_task");
+            free(holder[0]);
+            free(holder[1]);
+            free(holder);
+        }
     }
 }
 

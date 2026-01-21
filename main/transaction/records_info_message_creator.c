@@ -18,6 +18,7 @@
 #include "../manager/current_therapy_state_manager.h"
 #include "../manager/therapy_id_manager.h"
 #include "../manager/therapy_duration_manager.h"
+#include "../manager/timer_info_getter.h"
 
 #include "../device_configuration.h"
 
@@ -54,7 +55,8 @@ static bool set_records(uint16_t therapy_id, LogReadMode log_read_mode) {
         if(log_reader_read_therapy_info(therapy_id, &therapy_info, true, s_records_slot_buf)) {
             if(therapy_id == get_current_therapy_id()) {
                 ESP_LOGI(TAG, "current start_encoding_for_new_therapy of therapy id: %u",therapy_id);
-                start_encoding_for_new_therapy(therapy_id, get_planned_therapy_duration_s(), get_session_passed_seconds());
+                uint16_t therapy_passed_seconds = (uint16_t)((get_paused_therapy_passed_duration_ms() + get_therapy_timer_passed_ms()) /1000u);
+                start_encoding_for_new_therapy(therapy_id, get_planned_therapy_duration_s(), therapy_passed_seconds);
             }
 
             else {
@@ -76,6 +78,7 @@ static bool set_records(uint16_t therapy_id, LogReadMode log_read_mode) {
             }
 
             if(!add_fragment_count()){
+                log_reader_free_therapy_logs(&read_therapy_logs);
                 return false;
             }
         }

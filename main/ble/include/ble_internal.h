@@ -111,8 +111,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
 
 // Bildirim/indication yardımcıları
 void     drain_conf_sem(void);
-esp_err_t send_notification_char_as_indication(const uint8_t *data, size_t len, uint32_t timeout_ms);
-esp_err_t ble_send_message(uint16_t char_handle, uint8_t* data, size_t data_length);
+esp_err_t ble_send_message(uint16_t char_handle, uint8_t* data, size_t data_length, bool need_confirm);
 void     set_ble_tx_power(void);
 
 void apply_profile(link_prof_t p);

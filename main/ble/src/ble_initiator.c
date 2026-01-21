@@ -70,9 +70,21 @@ static void clear_all_bonds_for_debug() {
 static esp_err_t start_registering_and_advertising(void) {
     setup_ble_security();
 
-    ESP_ERROR_CHECK(esp_ble_gatts_register_callback(gatts_event_handler));
-    ESP_ERROR_CHECK(esp_ble_gap_register_callback(gap_event_handler));
-    ESP_ERROR_CHECK(esp_ble_gatts_app_register(PROFILE_A_APP_ID));
+    esp_err_t err = esp_ble_gatts_register_callback(gatts_event_handler);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "gatts_register_callback failed: %s", esp_err_to_name(err));
+        return err;
+    }
+    err = esp_ble_gap_register_callback(gap_event_handler);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "gap_register_callback failed: %s", esp_err_to_name(err));
+        return err;
+    }
+    err = esp_ble_gatts_app_register(PROFILE_A_APP_ID);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "gatts_app_register failed: %s", esp_err_to_name(err));
+        return err;
+    }
 
     esp_err_t local_mtu_ret = esp_ble_gatt_set_local_mtu(500);
     if (local_mtu_ret) {

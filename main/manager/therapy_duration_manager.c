@@ -96,6 +96,10 @@ uint32_t get_paused_therapy_passed_duration_ms() {
 
 uint16_t get_remaining_therapy_duration() {
     uint32_t plan_ms  = get_planned_therapy_duration_ms();
+    if(paused_therapy_passed_duration_ms > plan_ms) {
+        ESP_LOGE(TAG, "Paused therapy passed duration exceeded the planned duration");
+        return 0;
+    }
     uint32_t remain_ms = plan_ms - paused_therapy_passed_duration_ms;
     return (uint16_t)((remain_ms + 999u) / 1000u);
 }

@@ -3,6 +3,8 @@
 
 #include "../device_configuration.h"
 
+#include "log_config.h"
+
 #include "esp_partition.h"
 #include "esp_log.h"
 #include <string.h>
@@ -40,16 +42,26 @@ void erase_therapy_counter_partition() {
 uint16_t read_therapy_count() {
     if (!counter_partition) {
         ESP_LOGE(TAG, "Counter partition is NULL. Call init_therapy_counter_partition() first.");
+        if(init_therapy_counter_partition() != ESP_OK) {
+            return 0;
+        }
     }
 
     uint16_t therapy_count = 0;
 
-    for (int i = 0; i < 4096; i += 2) {
+    for (int i = 0; i < THERAPY_SLOT_SIZE; i += 2) {
         uint8_t val1, val2;
-        esp_partition_read(counter_partition, i, &val1, 1);
-        esp_partition_read(counter_partition, i + 1, &val2, 1);
 
-        //ESP_LOGI(TAG, "val1: %u, val2: %u", val1, val2);
+        esp_err_t err = esp_partition_read(counter_partition, i, &val1, 1);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Counter read failed at %d: %s", i, esp_err_to_name(err));
+            return 0;
+        }
+        err = esp_partition_read(counter_partition, i + 1, &val2, 1);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Counter read failed at %d: %s", i + 1, esp_err_to_name(err));
+            return 0;
+        }
 
         // Hiç yazılmamış bölgeye geldik, sayaç burada biter
         if (val1 == 0xFF && val2 == 0xFF) {

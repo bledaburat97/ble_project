@@ -156,8 +156,8 @@ void humidity_read_task(void *param)
         uint8_t humidity_byte = convert_rh_to_byte(humidity);
 
         if (fabsf((float)s_last_notified_humidity - (float)humidity_byte) >= 5.0f) {
+            s_last_notified_humidity = to_bucket_5(humidity_byte);
             if (s_humidity_update_callback) {
-                s_last_notified_humidity = to_bucket_5(humidity_byte);
                 s_humidity_update_callback(s_last_notified_humidity);
             } else {
                 ESP_LOGW(TAG,

@@ -52,10 +52,8 @@ esp_err_t log_cache_push(LogCache *c, const BaseLogEntry *e)
     if (c->disabled) return ESP_OK;
 
     if (c->count >= MAX_PENDING_LOGS) {
-        // Drop newest + disable (isteğe göre sadece drop da yapabilirsin)
-        ESP_LOGE(TAG, "Cache full (%u). Disabling logging cache and dropping.", (unsigned)c->count);
-        log_cache_disable(c);
-        return ESP_ERR_NO_MEM;
+        ESP_LOGW(TAG, "Cache full (%u). Clearing cache and continuing.", (unsigned)c->count);
+        log_cache_clear(c);
     }
 
     c->entries[c->count++] = *e;

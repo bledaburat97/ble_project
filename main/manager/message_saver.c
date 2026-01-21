@@ -34,7 +34,7 @@ esp_err_t save_log(uint8_t type, const uint8_t *data, size_t data_len, uint16_t 
                 ESP_LOGE(TAG, "Therapy count could not be increased.");
             }
 
-            return log_orchestrator_flush_logs(type, data, data_len, passed_seconds, therapy_count, true);
+            return log_orchestrator_flush_logs(type, data, data_len, passed_seconds, new_therapy_count, true);
         }
         ESP_LOGE(TAG, "Passed seconds is not zero.");
         return ESP_FAIL;
