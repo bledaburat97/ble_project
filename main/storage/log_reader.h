@@ -37,7 +37,7 @@ typedef struct {
 
 typedef enum {
     LOG_READ_FULL_SLOT = 0,
-    LOG_READ_UNTIL_FIRST_BLE_CONNECTED = 1,
+    LOG_READ_UNTIL_LAST_BLE_CONNECTED = 1,
 } LogReadMode;
 
 typedef struct {

@@ -5,7 +5,7 @@
 #define BINARY_MESSAGE_ENCODER_H
 
 #define DEVICE_INFO_SIZE 17
-#define TIMER_STATE_INFO_SIZE 9
+#define TIMER_STATE_INFO_SIZE 11
 #define MEASUREMENT_INFO_SIZE 6
 #define NOTIFICATION_INFO_SIZE 5
 
@@ -22,6 +22,7 @@ typedef struct {
     uint16_t duration;
     uint16_t remaining_seconds;
     uint16_t therapy_passed_seconds;
+    uint16_t passed_seconds; //session passed seconds
 } TimerStateInfoMessage;
 
 typedef struct {

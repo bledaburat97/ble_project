@@ -7,8 +7,8 @@
 #include "esp_log.h"
 
 #include "log_storage.h"
-#include "log_utils.h"      // calculate_crc8, get_log_entry_size_info vb.
-#include "therapy_counter.h" // sadece therapy_id->offset hesapta gerekebilir (istersen çıkar)
+#include "log_utils.h"
+#include "therapy_counter.h"
 
 #define TAG "LogReader"
 
@@ -87,6 +87,9 @@ bool log_reader_read_records(uint16_t therapy_id, ReadTherapyLogs *therapy_logs,
     uint16_t count_notifications = 0;
     uint16_t count_brightness = 0;
 
+    bool saw_ble_connected = false;
+    uint16_t last_m = 0, last_n = 0, last_b = 0;
+
     uint32_t local_offset = 0;
 
     while (local_offset < THERAPY_SLOT_SIZE) {
@@ -107,11 +110,6 @@ bool log_reader_read_records(uint16_t therapy_id, ReadTherapyLogs *therapy_logs,
 
         const uint8_t *data_ptr = &entry_ptr[1];
         const uint8_t first_passed_duration_byte_index = 1 + size_info.data_length;
-
-        // Mode cutoff
-        if (mode == LOG_READ_UNTIL_FIRST_BLE_CONNECTED && type == BLE_CONNECTED) {
-            break;
-        }
 
         switch (type) {
             case MEASUREMENT_CHANGED:
@@ -146,8 +144,22 @@ bool log_reader_read_records(uint16_t therapy_id, ReadTherapyLogs *therapy_logs,
                 break;
         }
 
+        if (mode == LOG_READ_UNTIL_LAST_BLE_CONNECTED && type == BLE_CONNECTED) {
+            saw_ble_connected = true;
+            last_m = count_measurements;
+            last_n = count_notifications;
+            last_b = count_brightness;
+        }
+
         local_offset += size_info.total_length;
     }
+
+    if (mode == LOG_READ_UNTIL_LAST_BLE_CONNECTED && saw_ble_connected) {
+        count_measurements  = last_m;
+        count_notifications = last_n;
+        count_brightness    = last_b;
+    }
+
 
     therapy_logs->count_measurements = count_measurements;
     therapy_logs->count_notifications = count_notifications;

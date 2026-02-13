@@ -43,7 +43,7 @@ static void add_and_send_measurement_info(uint8_t temperature, uint8_t humidity)
     send_info_message_to_queue(MEASUREMENT_INFO_MESSAGE, buf, len);
 }
 
-static void on_device_info_feedback_callback() {
+static void on_timer_state_info_feedback_callback() {
     uint8_t current_temperature = temp_sensor_reader_measure_and_get_temperature();
     uint8_t current_humidity = measure_and_get_humidity();
     ESP_LOGI(TAG, "On device info feedback, Sending temperature: %u", current_temperature);
@@ -59,7 +59,7 @@ static void on_humidity_update(uint8_t humidity) {
 }
 
 void init_measurement_info_message_creator() {
-    register_device_info_feedback_callback(on_device_info_feedback_callback);
+    register_timer_state_info_feedback_callback(on_timer_state_info_feedback_callback);
     temp_sensor_manager_register_temperature_update(on_temperature_update);
     register_humidity_update(on_humidity_update);
 }

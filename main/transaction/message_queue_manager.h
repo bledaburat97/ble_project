@@ -12,6 +12,7 @@ typedef struct {
     size_t data_length;         // Data uzunluğu
     uint16_t id;                // Records için therapy_id, diğerlerinde 0
     bool wait_for_response;
+    uint32_t enq_ts;
 } MessageQueueEntry;
 
 typedef struct {

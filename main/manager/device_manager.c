@@ -285,13 +285,15 @@ void handle_device_event(const DeviceEvent *event)
             const ActivationPayload *payload = &event->data.activation;
             ESP_LOGI(TAG, "EVT_ACTIVATION_REQUEST duration=%u", (unsigned)payload->duration_s);
             if(payload->brightness_present){
-                uint16_t passed_seconds = get_session_passed_seconds();
                 change_brightness(payload->brightness);
-                save_log(NOTIF_BRIGHTNESS_UPDATED, payload->brightness, 6, passed_seconds);
-                send_notification_info(NOTIF_BRIGHTNESS_UPDATED, passed_seconds);
             }
             if (payload->duration_s > 0) {
                 set_active_state(payload->duration_s, TIMER_STATE_NEW_THERAPY_BY_APP, true, false);
+            }
+            if(payload->brightness_present){
+                uint16_t passed_seconds = get_session_passed_seconds();
+                save_log(NOTIF_BRIGHTNESS_UPDATED, payload->brightness, 6, passed_seconds);
+                send_notification_info(NOTIF_BRIGHTNESS_UPDATED, passed_seconds);
             }
         } break;
 
@@ -326,6 +328,11 @@ void handle_device_event(const DeviceEvent *event)
                     set_active_state(remaining_therapy_duration, TIMER_STATE_CONTINUE_THERAPY_BY_BUTTON, false, false);
                 } else if (get_current_therapy_state() == NONE) {
                     uint16_t default_therapy_duration = get_default_therapy_duration();
+                    const uint8_t *brightness_list = get_default_brightness();
+                    change_brightness(brightness_list);
+                    uint16_t passed_seconds = get_session_passed_seconds();
+                    save_log(NOTIF_BRIGHTNESS_UPDATED, brightness_list, 6, passed_seconds);
+                    send_notification_info(NOTIF_BRIGHTNESS_UPDATED, passed_seconds);
                     set_active_state(default_therapy_duration, TIMER_STATE_NEW_THERAPY_BY_BUTTON, true, false);
                 }
             } else if (device_state == STATE_ACTIVE) {

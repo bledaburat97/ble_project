@@ -141,7 +141,7 @@ void send_records_info_message(uint16_t therapy_id, bool is_active_therapy) {
         }
     }
 
-    LogReadMode log_read_mode = is_active_therapy ? LOG_READ_UNTIL_FIRST_BLE_CONNECTED : LOG_READ_FULL_SLOT;
+    LogReadMode log_read_mode = is_active_therapy ? LOG_READ_UNTIL_LAST_BLE_CONNECTED : LOG_READ_FULL_SLOT;
     bool is_records_set = set_records(therapy_id, log_read_mode);
     if (is_records_set) {
         send_fragments(therapy_id);

@@ -26,10 +26,9 @@ static void (*active_or_paused_therapy_callback)() = NULL;
 
 static void log_timer_state_message(const TimerStateInfoMessage *message, const char *context) {
     ESP_LOGI(TAG,
-             "(%s) timer state info with type: %u, duration: %u, therapy_id: %u, therapy_passed_seconds: %u, remaining_seconds: %u",
+             "(%s) timer state info with type: %u, duration: %u, therapy_id: %u, therapy_passed_seconds: %u, remaining_seconds: %u, session passed seconds: %u",
              context, message->type, message->duration, message->therapy_id,
-             message->therapy_passed_seconds, message->remaining_seconds);
-             
+             message->therapy_passed_seconds, message->remaining_seconds, message->passed_seconds);
 }
 
 static void enqueue_timer_state_message(const TimerStateInfoMessage *message) {
@@ -113,6 +112,8 @@ static void on_device_info_feedback_callback() {
         return;
     }
 
+    message.passed_seconds = get_session_passed_seconds();
+    ESP_LOGW(TAG, "Timer state message is created.");
     log_timer_state_message(&message, "Current state");
     enqueue_timer_state_message(&message);
 
@@ -139,6 +140,7 @@ void add_and_send_new_other_state_info(NotificationType notification_type) {
     message.duration = get_planned_therapy_duration_s();
     message.therapy_id = get_current_therapy_id();
     message.therapy_passed_seconds = therapy_passed_seconds;
+    message.passed_seconds = passed_seconds;
 
     if(notification_type == TIMER_STATE_PAUSED_THERAPY || notification_type == TIMER_STATE_INACTIVE) {
         message.remaining_seconds = get_inactivity_timer_remaining_s();
@@ -152,16 +154,14 @@ void add_and_send_new_other_state_info(NotificationType notification_type) {
 }
 
 static void add_and_send_new_therapy_state_info(NotificationType notification_type, TimerStateInfoMessage message) {
-    uint16_t passed_seconds = get_session_passed_seconds();
-
     uint8_t data[] = {message.therapy_id >> 8, message.therapy_id & 0xFF, message.duration >> 8, message.duration & 0xFF, message.therapy_passed_seconds >> 8, message.therapy_passed_seconds & 0xFF};
 
-    esp_err_t err = save_log(notification_type, data, sizeof(data), passed_seconds);
+    esp_err_t err = save_log(notification_type, data, sizeof(data), message.passed_seconds);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to persist therapy state log (type=%u): %s", notification_type, esp_err_to_name(err));
     }
     else {
-        ESP_LOGI(TAG, "Log of therapy state with type: %u with passed_seconds: %u", notification_type, passed_seconds);
+        ESP_LOGI(TAG, "Log of therapy state with type: %u with passed_seconds: %u", notification_type, message.passed_seconds);
     }
 
     restart_duration_update_watchdog_timer();
@@ -181,7 +181,8 @@ void send_new_therapy_started(NotificationType notification_type) {
         .duration = duration,
         .therapy_id = therapy_id,
         .therapy_passed_seconds = therapy_passed_seconds,
-        .remaining_seconds = remaining_seconds
+        .remaining_seconds = remaining_seconds,
+        .passed_seconds = get_session_passed_seconds()
     };
 
     add_and_send_new_therapy_state_info(notification_type, message);
@@ -198,7 +199,8 @@ void send_therapy_continued(NotificationType notification_type) {
         .duration = duration,
         .therapy_id = therapy_id,
         .therapy_passed_seconds = therapy_passed_seconds,
-        .remaining_seconds = remaining_seconds
+        .remaining_seconds = remaining_seconds,
+        .passed_seconds = get_session_passed_seconds()
     };
 
     add_and_send_new_therapy_state_info(notification_type, message);

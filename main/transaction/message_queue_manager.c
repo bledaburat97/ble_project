@@ -20,7 +20,7 @@
 
 
 static const char *TAG = "MessageQueueManager";
-static void (*timer_state_info_feedback_callback)() = NULL;
+static void (*device_info_feedback_callback)() = NULL;
 static void (*send_record_again_callback)(uint16_t) = NULL;
 static void (*send_new_record_callback)(uint16_t) = NULL;
 
@@ -30,8 +30,8 @@ QueueHandle_t high_priority_queue;
 QueueHandle_t low_priority_queue;
 static RecordsPending pending_record = {0};
 
-static void (*device_info_listeners[MAX_STATE_LISTENERS])();
-static int device_info_listener_count = 0;
+static void (*timer_state_info_listeners[MAX_STATE_LISTENERS])();
+static int timer_state_info_listener_count = 0;
 
 static inline bool requires_conf(MessageType t) {
     switch (t) {
@@ -104,6 +104,10 @@ static send_res_t send_and_track(const MessageQueueEntry *entry)
     const uint32_t conf_timeout_ms = 3000;
     const bool need_conf = requires_conf(entry->type);
 
+    uint32_t now = esp_log_timestamp();
+    ESP_LOGI(TAG, "Dequeue type=%d after %ums", entry->type, (unsigned)(now - entry->enq_ts));
+    ESP_LOGI(TAG, "dynamic_period=%d need_conf=%d", dynamic_period, need_conf);
+
     if (need_conf) {
         if(entry->type == NOTIFICATION_INFO_MESSAGE && !notif_ind_enabled) {
             ESP_LOGW(TAG, "Indication needed (type=%d) but CCCD not enabled.", entry->type);
@@ -128,6 +132,7 @@ static send_res_t send_and_track(const MessageQueueEntry *entry)
             continue;
         }
 
+        ESP_LOGW(TAG, "Message is sent: %d", entry->type);
         esp_err_t ret = ble_send_info_message_with_type(entry->type, entry->data, entry->data_length);
         xSemaphoreGive(ble_mutex);
 
@@ -148,22 +153,24 @@ static send_res_t send_and_track(const MessageQueueEntry *entry)
 
         // Indicate: CONF bekle (mevcut mantık)
         esp_gatt_status_t st = ESP_GATT_ERROR;
+        uint32_t t0 = esp_log_timestamp();
         bool got_conf = ble_wait_for_indication_conf(&st, conf_timeout_ms);
+        ESP_LOGI(TAG, "CONF wait took %ums (got=%d st=%d)", (unsigned)(esp_log_timestamp()-t0), got_conf, st);
         if (got_conf && st == ESP_GATT_OK) {
 
             ESP_LOGI(TAG, "CONF OK for type=%d", entry->type);
 
-            if(entry->type == DEVICE_INFO_MESSAGE) {
-                for (int i = 0; i < device_info_listener_count; i++) {
-                    if (device_info_listeners[i]) {
-                        device_info_listeners[i]();
+            if(entry->type == TIMER_STATE_INFO_MESSAGE) {
+                for (int i = 0; i < timer_state_info_listener_count; i++) {
+                    if (timer_state_info_listeners[i]) {
+                        timer_state_info_listeners[i]();
                     }
                 }
             }
 
-            else if(entry->type == TIMER_STATE_INFO_MESSAGE) {
-                if (timer_state_info_feedback_callback) {
-                    timer_state_info_feedback_callback();
+            else if(entry->type == DEVICE_INFO_MESSAGE) {
+                if (device_info_feedback_callback) {
+                    device_info_feedback_callback();
                 }
             }
 
@@ -202,7 +209,7 @@ static void queue_sender_task(void *pvParameters)
             continue;
         }
 
-        TickType_t inter_message_delay = pdMS_TO_TICKS(dynamic_period);
+        TickType_t inter_message_delay = (entry.type == TIMER_STATE_INFO_MESSAGE) ? 0 : pdMS_TO_TICKS(dynamic_period);
 
         if (xQueueReceive(high_priority_queue, &entry, pdMS_TO_TICKS(100)) == pdTRUE) {
             ESP_LOGD(TAG, "High priority queue received a message");
@@ -215,7 +222,7 @@ static void queue_sender_task(void *pvParameters)
                 xQueueSendToFront(high_priority_queue, &entry, 0);
                 continue;
             }
-            vTaskDelay(inter_message_delay);
+            vTaskDelay(0);
             continue;
         }
 
@@ -234,7 +241,7 @@ static void queue_sender_task(void *pvParameters)
                 }
                 continue;
             }
-            vTaskDelay(inter_message_delay);
+            vTaskDelay(pdMS_TO_TICKS(dynamic_period));
             continue;
         }
 
@@ -294,6 +301,14 @@ void send_records_info_message_to_queue(uint16_t therapy_id, uint8_t* data, size
 void send_info_message_to_queue(MessageType message_type, uint8_t* data, size_t data_length) {
     //ESP_LOGI(TAG, "Queue handles: high=%p low=%p", high_priority_queue, low_priority_queue);
     
+    if (!get_ble_connection_status() || !bond_ok) {
+        return;
+    }
+
+    if (message_type == TIMER_STATE_INFO_MESSAGE && !timer_ind_enabled) return;
+    if (message_type == NOTIFICATION_INFO_MESSAGE && !notif_ind_enabled) return;
+    if (message_type == DEVICE_INFO_MESSAGE && !device_ind_enabled) return;
+
     if (!high_priority_queue) {
         ESP_LOGE(TAG, "High priority queue is NULL");
         return;
@@ -318,6 +333,9 @@ void send_info_message_to_queue(MessageType message_type, uint8_t* data, size_t 
         .id = 0,
         .wait_for_response = false
     };
+
+    entry.enq_ts = esp_log_timestamp();
+    ESP_LOGI(TAG, "Enqueued type=%d qfree=%u", message_type, uxQueueSpacesAvailable(high_priority_queue));
 
     if (xQueueSend(high_priority_queue, &entry, 0) == pdTRUE) {
         return;
@@ -361,15 +379,15 @@ bool clear_pending_approval_record(uint16_t therapy_id)
 }
 
 void register_device_info_feedback_callback(void (*callback)()) {
-    if (device_info_listener_count < MAX_STATE_LISTENERS) {
-        device_info_listeners[device_info_listener_count++] = callback;
-    } else {
-        ESP_LOGW(TAG, "Max device info listeners reached.");
-    }
+    device_info_feedback_callback = callback;
 }
 
 void register_timer_state_info_feedback_callback(void (*callback)()) {
-    timer_state_info_feedback_callback = callback;
+    if (timer_state_info_listener_count < MAX_STATE_LISTENERS) {
+        timer_state_info_listeners[timer_state_info_listener_count++] = callback;
+    } else {
+        ESP_LOGW(TAG, "Max timer state info listeners reached.");
+    }
 }
 
 void register_send_record_again_callback(void (*callback)(uint16_t)) {

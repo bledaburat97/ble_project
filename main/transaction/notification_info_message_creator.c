@@ -25,7 +25,7 @@
 static const char *TAG = "NotificationInfoMessageCreator";
 
 static void on_timer_state_info_feedback_callback() {
-    NotificationType helmet_status = get_helmet_state() ? NOTIF_HELMET_ON : NOTIF_HELMET_OFF;     //TODO: tam doğru değil.
+    NotificationType helmet_status = get_helmet_state() ? NOTIF_HELMET_ON : NOTIF_HELMET_OFF;
     add_and_send_notification_info(helmet_status);
 }
 

@@ -36,6 +36,9 @@ size_t encode_timer_state_info_message_binary(const TimerStateInfoMessage *m, ui
     out[7] = (uint8_t)(m->therapy_passed_seconds >> 8);
     out[8] = (uint8_t)(m->therapy_passed_seconds & 0xFF);
 
+    out[9] = (uint8_t)(m->passed_seconds >> 8);
+    out[10] = (uint8_t)(m->passed_seconds & 0xFF);
+
     return TIMER_STATE_INFO_SIZE;
 }
 
