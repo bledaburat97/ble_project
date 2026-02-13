@@ -1,10 +1,6 @@
 #include "timer_utils.h"
 
 #include "esp_log.h"
-#include "freertos/task.h"
-#include "freertos/FreeRTOS.h"
-#include "time.h"
-#include "esp_mac.h"
 #include "stdint.h"
 
 static const char* TAG = "TimerUtils";

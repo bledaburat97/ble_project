@@ -15,6 +15,8 @@
 #include "../manager/session_timer_getter.h"
 #include "../manager/message_saver.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include <string.h>
 #include <stdlib.h>
 #include "esp_err.h"
@@ -51,18 +53,10 @@ static void perform_post_connect_operations(void) {
     restart_duration_update_watchdog_timer();
 }
 
-static void post_connect_sender_task(void *arg) {
-    vTaskDelay(pdMS_TO_TICKS(500));
-    perform_post_connect_operations();
-    vTaskDelete(NULL);
-}
-
 static void on_connect_ble() {
     ESP_LOGI(TAG, "On connect BLE");
-    if (xTaskCreate(post_connect_sender_task, "post_conn_send", 2048, NULL, 5, NULL) != pdPASS) {
-        ESP_LOGE(TAG, "Failed to create post-connect sender task");
-        perform_post_connect_operations();
-    }
+    vTaskDelay(pdMS_TO_TICKS(500));
+    perform_post_connect_operations();
 }
 
 void init_device_info_message_creator() {

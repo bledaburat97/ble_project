@@ -141,8 +141,6 @@ float hdc1080_read_humidity(uint8_t device_address)
     float rh         = 0.0f;
 
     hdc1080_trigger_measurement_trh(device_address);
-    vTaskDelay(pdMS_TO_TICKS(20));
-
     hdc1080_read_temperature_humidity(device_address, &temp_dummy, &rh);
     return rh;
 }

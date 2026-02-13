@@ -10,7 +10,6 @@
 
 #include <stdint.h>
 #include "esp_log.h"
-#include <inttypes.h>
 
 static const char *TAG = "TherapyIdManager";
 

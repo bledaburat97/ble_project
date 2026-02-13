@@ -4,7 +4,6 @@
 #include "../device_configuration.h"
 
 #include "esp_log.h"
-#include "esp_task_wdt.h"
 #include "lp_core_i2c.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

@@ -1,4 +1,3 @@
-// log_storage.c
 #include "log_storage.h"
 
 #include "esp_log.h"
@@ -6,7 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
-#include "log_partition_manager.h"   // sadece burada!
+#include "log_partition_manager.h"
 #include "log_config.h"
 
 #define TAG "LogStorage"

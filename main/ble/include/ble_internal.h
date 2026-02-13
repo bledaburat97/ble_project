@@ -6,7 +6,6 @@
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
-#include "freertos/task.h"
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_bt_defs.h"

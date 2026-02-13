@@ -1,23 +1,11 @@
-#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "driver/gpio.h"
-#include "driver/ledc.h"
-#include "driver/rtc_io.h"
-#include "esp_bt.h"
-#include "esp_bt_device.h"
-#include "esp_bt_main.h"
-#include "esp_gap_ble_api.h"
-#include "esp_gatt_common_api.h"
-#include "esp_gatts_api.h"
 #include "esp_log.h"
 #include "esp_sleep.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/event_groups.h"
-#include "freertos/queue.h"
-#include "freertos/semphr.h"
 #include "freertos/task.h"
 
 #include "transaction/default_configuration_handler.h"
@@ -65,16 +53,6 @@
 
 static const char *TAG = "Main";
 
-void periodic_message_sender_task(void *pvParameters) {
-    const TickType_t delay_ticks = pdMS_TO_TICKS(30 * 1000); 
-    while (1) {
-        ESP_LOGI(TAG, "Sending records info message for therapy ID 1...");
-        send_records_info_message(1, false);
-
-        vTaskDelay(delay_ticks);
-    }
-}
-
 typedef struct {
     bool ble_active;
     bool state_and_timer_active;
@@ -82,8 +60,6 @@ typedef struct {
     bool therapy_counter_partition_active;
     bool log_partition_active;
     bool laser_and_led_drivers_active;
-    bool temperature_sensor_active;
-    bool hp_prox_sensor_active;
     bool default_sleep_active;
     bool deep_sleep_button_control_active;
     bool creating_logs_permitted;
@@ -97,8 +73,6 @@ static const feature_config_t feature_config = {
     .therapy_counter_partition_active = true,
     .log_partition_active = true,
     .laser_and_led_drivers_active = true,
-    .temperature_sensor_active = true,
-    .hp_prox_sensor_active = true,
     .default_sleep_active = false,
     .deep_sleep_button_control_active = true,
     .creating_logs_permitted = true,
@@ -176,31 +150,7 @@ static void initialize_lp_core_components(const feature_config_t *config) {
     initialize_lp_core_queue();
     xTaskCreate(process_lp_queue_task, "ProcessLpQueueTask", 4096, NULL, 5, NULL);
 }
-/*
-static void initialize_temperature_components(const feature_config_t *config) {
-    if (!config->temperature_sensor_active) {
-        return;
-    }
-    initialize_temperature_sensor();
-    initialize_humidity_sensor();
-    initialize_alert_gpios();
-    xTaskCreate(temperature_read_task, "Temperature Update Task", 2048, NULL, 1, NULL);
-    xTaskCreate(humidity_read_task, "humidity_read_task", 2048, NULL, 1, NULL);
 
-    xTaskCreate(monitor_alert_task, "Monitor Alert Task", 2048, NULL, 1, NULL);
-}
-*/
-/*
-static void initialize_proximity_components(const feature_config_t *config) {
-    if (!config->lp_prox_sensor_active && !config->hp_prox_sensor_active) {
-        return;
-    }
-    initialize_proximity_int_gpio();
-    initialize_proximity_sensors(config->hp_prox_sensor_active, config->lp_prox_sensor_active);
-    xTaskCreate(monitor_proximity_int_task, "Monitor Proximity Int Task", 4096, NULL, 1, NULL);
-    //xTaskCreate(proximity_read_task, "ProximityReadTask", 2048, NULL, 5, NULL);
-}
-*/
 static void initialize_laser_components(const feature_config_t *config) {
     if (!config->laser_and_led_drivers_active) {
         return;
@@ -212,19 +162,12 @@ static void initialize_laser_components(const feature_config_t *config) {
     save_log(NOTIF_BRIGHTNESS_UPDATED, brightness_list, 6, 0);
 
     send_notification_info(NOTIF_BRIGHTNESS_UPDATED, 0);
-
-    //set_brightness_of_region(1, 20);
-    //set_brightness_of_region(2, 20);
-    //set_brightness_of_region(3, 20);
-    //set_brightness_of_region(4, 20);
 }
 
 static void initialize_sensor_and_driver_components(const feature_config_t *config) {
     init_i2c_master();
     initialize_lp_core_components(config);
     initialize_laser_components(config);
-    //initialize_temperature_components(config);
-    //initialize_proximity_components(config); TODO: device_manager'a taşındı.
 }
 
 static void initialize_button_components(const feature_config_t *config) {
@@ -257,9 +200,6 @@ void app_main(void) {
 
     initialize_storage_components(&feature_config);
     initialize_ble_components(&feature_config);
-    //initialize_state_management_components(&feature_config);
-
-    //xTaskCreate(periodic_message_sender_task, "PeriodicMsgSender", 2048, NULL, 5, NULL);
 
     initialize_sensor_and_driver_components(&feature_config);
     initialize_button_components(&feature_config);

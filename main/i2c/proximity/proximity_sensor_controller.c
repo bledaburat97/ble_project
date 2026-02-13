@@ -379,12 +379,8 @@ void initialize_proximity_sensors(bool hp_prox_sensor_exist, bool lp_prox_sensor
     s_is_hp_prox_sensor = hp_prox_sensor_exist;
     s_is_lp_prox_sensor = lp_prox_sensor_exist;
 
-    vTaskDelay(pdMS_TO_TICKS(100));
-
     disable_periodicness();
-    vTaskDelay(pdMS_TO_TICKS(10));
     disable_selftimed();
-    vTaskDelay(pdMS_TO_TICKS(10));
     set_proximity_measurement_rate(PROX_RATE_31_25);
     set_led_current(DEFAULT_LED_CURRENT);
     set_interrupt_control(DEFAULT_INTERRUPT_CONTROL_BIT_COUNT);
@@ -508,59 +504,3 @@ void check_interrupt_status(uint8_t status, bool is_lp)
     }
 }
 
-
-
-/**
- * (Bu fonksiyon şu an test amaçlı "yakınlık okuma" mantığı içeriyor.)
- */
-/*
-static void read_proximity_of_sensors(void)
-{
-    if (s_is_hp_prox_sensor) {
-        uint8_t high_proximity_byte = 0;
-
-        read_register(VCNL_3020_ADDRESS,
-                      PROXIMITY_RESULT_REG_HIGH,
-                      &high_proximity_byte,
-                      1);
-
-        if (high_proximity_byte > 10U) {
-            set_helmet_state(true);
-            ESP_LOGI(TAG, "HP proximity above threshold (value=%u)", high_proximity_byte);
-            // add_and_send_notification_info(NOTIF_HELMET_ON); // test için
-        } else {
-            ESP_LOGI(TAG, "HP proximity below threshold (value=%u)", high_proximity_byte);
-            set_helmet_state(false);
-        }
-
-        uint8_t low_proximity_byte = 0;
-        read_register(VCNL_3020_ADDRESS,
-                      PROXIMITY_RESULT_REG_LOW,
-                      &low_proximity_byte,
-                      1);
-        (void)low_proximity_byte;
-    }
-
-    if (s_is_lp_prox_sensor) {
-        if (is_all_config_written()) {
-            add_lp_read_command_to_queue(VCNL_3020_ADDRESS,
-                                         PROXIMITY_RESULT_REG_HIGH);
-            add_lp_read_command_to_queue(VCNL_3020_ADDRESS,
-                                         PROXIMITY_RESULT_REG_LOW);
-        }
-    }
-}
-
-
-void proximity_read_task(void *pvParameters)
-{
-    (void)pvParameters;
-
-    while (1) {
-        ESP_LOGI(TAG, "Reading proximity values from sensors...");
-        read_proximity_of_sensors();
-        vTaskDelay(pdMS_TO_TICKS(2000));
-    }
-}
-
-*/

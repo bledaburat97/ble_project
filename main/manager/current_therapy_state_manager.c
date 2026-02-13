@@ -2,7 +2,6 @@
 
 #include <stdint.h>
 #include "esp_log.h"
-#include <inttypes.h>
 #include <stdbool.h>
 
 static CurrentTherapyState s_current_therapy_state = NONE;

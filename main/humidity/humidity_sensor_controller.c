@@ -66,7 +66,6 @@ static float read_humidity_percentage(void)
     float humidity_rh = 0.0f;
 
     hdc1080_trigger_measurement_trh(HDC1080_I2C_ADDRESS);
-    vTaskDelay(pdMS_TO_TICKS(20));
     hdc1080_read_temperature_humidity(HDC1080_I2C_ADDRESS, &temperature_c, &humidity_rh);
 
     (void)temperature_c; // temperature is not used here

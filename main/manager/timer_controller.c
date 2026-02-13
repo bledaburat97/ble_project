@@ -15,7 +15,6 @@
 #include "freertos/timers.h"
 #include "freertos/task.h"
 #include "esp_log.h"
-#include "esp_timer.h"
 #include "freertos/queue.h"
 
 static const char *TAG = "TimerController";

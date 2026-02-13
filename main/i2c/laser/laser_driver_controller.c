@@ -165,7 +165,6 @@ static void set_banked_leds(void)
                 ESP_LOGE(TAG, "Failed to write LED_CONFIG0_REG for address 0x%02X", driver_info->address);
             }
 
-            vTaskDelay(pdMS_TO_TICKS(100));
 
             if (write_register(driver_info->address,
                                LED_CONFIG1_REG,
@@ -174,7 +173,6 @@ static void set_banked_leds(void)
                 ESP_LOGE(TAG, "Failed to write LED_CONFIG1_REG for address 0x%02X", driver_info->address);
             }
 
-            vTaskDelay(pdMS_TO_TICKS(100));
             ESP_LOGI(TAG, "Banked LED configuration completed for address 0x%02X", driver_info->address);
 
             break; // Bu drivern için bank region zaten bulundu
@@ -243,7 +241,6 @@ static void set_brightness_of_region(uint8_t region_id, const uint8_t brightness
                 ESP_LOGI(TAG, "Bank brightness updated for driver 0x%02X", driver_info->address);
             }
 
-            vTaskDelay(pdMS_TO_TICKS(100));
         } else {
             for (uint8_t led_index = 0; led_index < MAX_NUM_OF_LED_OF_LP5036; led_index++) {
                 if ((region_piece->led_list >> led_index) & 0x01U) {
@@ -301,7 +298,6 @@ static bool set_laser_driver_status(uint8_t laser_driver_index, bool status)
                  max_attempts,
                  ret);
 
-        vTaskDelay(pdMS_TO_TICKS(5));  // küçük bir bekleme
     }
 
     if (ret != ESP_OK) {
@@ -332,7 +328,6 @@ static bool set_laser_driver_status(uint8_t laser_driver_index, bool status)
         }
     }
 
-    vTaskDelay(pdMS_TO_TICKS(100));
     return true;
 }
 
@@ -420,8 +415,5 @@ void initialize_laser_drivers(void)
     initialize_laser_driver_gpio();
     set_laser_drivers_gpio_pin_status(true);
     set_laser_drivers_status(false);
-
-    vTaskDelay(pdMS_TO_TICKS(100));
-
     set_banked_leds();
 }

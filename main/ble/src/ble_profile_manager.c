@@ -167,15 +167,11 @@ static void rssi_poll_task(void *arg) {
     g_rssi_task_running = true;
     while (g_rssi_task_running) {
         if (has_peer()) esp_ble_gap_read_rssi(g_peer_bda);
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(5000));
     }
     vTaskDelete(NULL);
 }
 
-static void apply_prof_task(void *arg){
-  apply_profile(g_prof);
-  vTaskDelete(NULL);
-}
 
 void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param) {
     switch (event) {
@@ -415,7 +411,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         timer_ind_enabled = false;
         device_ind_enabled = false;
         bond_ok = false;
-        xTaskCreate(apply_prof_task, "apply_prof", 2048, NULL, 5, NULL);
+        apply_profile(g_prof);
         break;
     case ESP_GATTS_CONF_EVT:
         const bool is_notif = (param->conf.handle == gl_profile_tab[PROFILE_A_APP_ID].notification_handle);

@@ -11,10 +11,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include <inttypes.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/semphr.h"
 #include "freertos/queue.h"
 #include "esp_log.h"
 
@@ -222,7 +220,6 @@ static void queue_sender_task(void *pvParameters)
                 xQueueSendToFront(high_priority_queue, &entry, 0);
                 continue;
             }
-            vTaskDelay(0);
             continue;
         }
 
@@ -261,7 +258,7 @@ void init_message_queue_manager()
     }
     register_dynamic_period_change_callback(on_dynamic_period_change);
 
-    BaseType_t ok = xTaskCreatePinnedToCore(queue_sender_task, "queue_sender", 4096, NULL, 5, NULL, tskNO_AFFINITY);
+    BaseType_t ok = xTaskCreate(queue_sender_task, "queue_sender", 4096, NULL, 5, NULL);
     if (ok != pdPASS) {
         ESP_LOGE(TAG, "Failed to create queue_sender_task");
     }

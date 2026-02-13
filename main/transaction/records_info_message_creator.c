@@ -128,7 +128,7 @@ static void send_fragments(uint16_t therapy_id) {
     }
 }
 
-void send_records_info_message(uint16_t therapy_id, bool is_active_therapy) {
+static void send_records_info_message(uint16_t therapy_id, bool is_active_therapy) {
     if (therapy_id == 0) {
         ESP_LOGW(TAG, "send_records_info_message called with therapy_id=0, ignoring.");
         return;
