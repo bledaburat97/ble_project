@@ -10,6 +10,7 @@ static SemaphoreHandle_t ble_mutex = NULL;
 static bool ble_connection_status = false;
 static const char *TAG = "BLEConnectionStateManager";
 
+// BLE bağlantı durumunu thread-safe şekilde günceller.
 void set_ble_connection_status(bool status) {
     if (ble_mutex == NULL) {
         ESP_LOGE(TAG, "ble mutex is null, cannot update connection status");
@@ -24,6 +25,7 @@ void set_ble_connection_status(bool status) {
     }
 }
 
+// BLE bağlantı durumunu thread-safe şekilde okur.
 bool get_ble_connection_status() {
     if (ble_mutex == NULL) {
         ESP_LOGE(TAG, "ble mutex is null, cannot read connection status");
@@ -39,12 +41,14 @@ bool get_ble_connection_status() {
     return status;
 }
 
+// BLE gönderimleri için ortak mutex handle'ını döndürür.
 SemaphoreHandle_t get_ble_mutex_handle() {
     return ble_mutex;
 }
 
+// BLE bağlantı durumu için mutex'i bir kez oluşturur.
 void init_ble_state_manager() {
-    if (ble_mutex == NULL) { // Sadece NULL ise başlat
+    if (ble_mutex == NULL) {
         ble_mutex = xSemaphoreCreateMutex();
         if (!ble_mutex) {
             ESP_LOGE(TAG, "Failed to create BLE mutex");

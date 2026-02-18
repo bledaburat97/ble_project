@@ -4,9 +4,11 @@
 #include "../../transaction/matching_message_encoder.h"
 
 static const char *TAG = "BLEProfileManager";
+// Servis/characteristic ekleme adımlarının mevcut aşaması.
 static build_step_t s_build = STEP_INIT;
 static bool s_service_started = false;
 
+// CCCD default değeri (notify/indicate kapalı).
 static uint8_t s_ccc_val[2] = {0x00, 0x00};
 static esp_attr_value_t s_ccc_attr = {
     .attr_max_len = 2,
@@ -14,11 +16,12 @@ static esp_attr_value_t s_ccc_attr = {
     .attr_value   = s_ccc_val,
 };
 
-// --- Her char için ayrı CCCD handle ve enable flag
+// Her char için ayrı CCCD handle ve enable flag
 static uint16_t notif_ind_cccd_handle = 0;
 static uint16_t timer_ind_cccd_handle = 0;
 static uint16_t device_ind_cccd_handle = 0;
 
+// CCCD üzerinden indication açılıp açılmadığını tutar.
 bool notif_ind_enabled  = false;
 bool timer_ind_enabled  = false;
 bool device_ind_enabled = false;
@@ -28,6 +31,7 @@ static esp_err_t add_char_16(uint16_t uuid16, uint16_t perms, uint8_t props) {
   return esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle, &u, perms, props, NULL, NULL);
 }
 
+// Son eklenen characteristic'e CCCD (notify/indicate enable) descriptor'ı ekler.
 static esp_err_t add_cccd_for_last_char(void) {
   esp_bt_uuid_t cccd_uuid = {.len = ESP_UUID_LEN_16, .uuid = {.uuid16 = ESP_GATT_UUID_CHAR_CLIENT_CONFIG}};
   return esp_ble_gatts_add_char_descr(
@@ -39,15 +43,11 @@ static esp_err_t add_cccd_for_last_char(void) {
   );
 }
 
+// GATT servis/characteristic oluşturma adımlarını sırayla yürütür.
 static void run_build_step(void) {
   esp_err_t e = ESP_OK;
 
   switch (s_build) {
-    case STEP_ADD_AUTH:
-        e = add_char_16(GATTS_CHAR_UUID_AUTH,
-                      ESP_GATT_PERM_READ_ENC_MITM,
-                      ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY);
-        break;
     case STEP_ADD_RECORDS:
         e = add_char_16(GATTS_CHAR_UUID_RECORDS,
                       ESP_GATT_PERM_READ_ENC_MITM,
@@ -130,12 +130,12 @@ static void run_build_step(void) {
 
   if (e != ESP_OK) {
     ESP_LOGE(TAG, "run_build_step error: %s (step=%d)", esp_err_to_name(e), (int)s_build);
-    // Hata olsa bile ilerlemeyi durdurmak istemiyorsan burada da ilerletebilirsin.
   }
 }
 
 
 
+// CCCD yazımını çözüp indikasyon izinlerini günceller.
 static inline void parse_cccd_write(uint16_t descr_handle, const uint8_t *val, size_t len) {
     if (len < 2) return;
     uint16_t cfg = val[0] | (val[1] << 8); // 0x0001=NOTIFY, 0x0002=INDICATE
@@ -158,11 +158,13 @@ static inline void parse_cccd_write(uint16_t descr_handle, const uint8_t *val, s
     }
 }
 
+// Bağlı bir peer var mı kontrol eder.
 bool has_peer(void) {
     static const uint8_t zero[6] = {0};
     return memcmp(g_peer_bda, zero, 6) != 0;
 }
 
+// Bağlantı varken periyodik RSSI okur. Sadece gözlem amaçlı.
 static void rssi_poll_task(void *arg) {
     g_rssi_task_running = true;
     while (g_rssi_task_running) {
@@ -173,10 +175,11 @@ static void rssi_poll_task(void *arg) {
 }
 
 
+// Profile özel GATTS event handler (servis/char ekleme, write, connect vb.).
 void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param) {
     switch (event) {
     case ESP_GATTS_REG_EVT:
-        //ESP_LOGI(TAG, "GATT profile registered, app_id: %d", param->reg.app_id);
+        // Uygulama GATT'e kaydoldu; servis oluşturma başlar.
         esp_err_t err = esp_ble_gatts_create_service(gatts_if, &(esp_gatt_srvc_id_t){
             .is_primary = true,
             .id.inst_id = 0x00,
@@ -190,6 +193,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         break;
 
     case ESP_GATTS_ADD_CHAR_EVT:
+        // Characteristic eklendi; handle'ları kaydet ve bir sonraki adımı tetikle.
 
         if (param->add_char.status != ESP_GATT_OK) {
             ESP_LOGE(TAG, "add_char failed: uuid=0x%04X status=%d",
@@ -198,11 +202,8 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         else {
             uint16_t uuid = param->add_char.char_uuid.uuid.uuid16;
             uint16_t h    = param->add_char.attr_handle;
-            //ESP_LOGI(TAG, "ADD_CHAR OK: uuid=0x%04X handle=%u", uuid, h);
 
-            if (uuid == GATTS_CHAR_UUID_AUTH) {
-            gl_profile_tab[PROFILE_A_APP_ID].auth_handle = h;
-            } else if (uuid == GATTS_CHAR_UUID_RECORDS) {
+            if (uuid == GATTS_CHAR_UUID_RECORDS) {
             gl_profile_tab[PROFILE_A_APP_ID].records_handle = h;
             } else if (uuid == GATTS_CHAR_UUID_TIMER_STATE) {
             gl_profile_tab[PROFILE_A_APP_ID].timer_state_handle = h;
@@ -230,7 +231,6 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         }
 
         switch (s_build) {
-            case STEP_ADD_AUTH:              s_build = STEP_ADD_RECORDS;          break;
             case STEP_ADD_RECORDS:           s_build = STEP_ADD_TIMER;            break;
             case STEP_ADD_TIMER:             s_build = STEP_ADD_TIMER_CCCD;       break;
             case STEP_ADD_TIMER_CCCD:        /* buraya char event düşmez */       break;
@@ -253,23 +253,22 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         break;
 
     case ESP_GATTS_CREATE_EVT:
-      
+        // Servis oluşturuldu; characteristic ekleme zincirini başlat.
         ESP_LOGI(TAG, "CREATE_SERVICE_EVT, status %d, service_handle %d", param->create.status, param->create.service_handle);
         gl_profile_tab[PROFILE_A_APP_ID].service_handle = param->create.service_handle;
     
-        s_build = STEP_ADD_AUTH;
+        s_build = STEP_ADD_RECORDS;
         run_build_step();
         break;
 
     case ESP_GATTS_WRITE_EVT:
+        // Client yazma isteği geldi; CCCD veya ilgili write karakteristiğini işle.
         ESP_LOGI(TAG, "WRITE handle=0x%04X len=%u v[0..1]=%02X %02X",
                 param->write.handle, param->write.len,
                 param->write.len>0?param->write.value[0]:0,
                 param->write.len>1?param->write.value[1]:0);
 
-        if (param->write.handle == notif_ind_cccd_handle ||
-                param->write.handle == timer_ind_cccd_handle ||
-                param->write.handle == device_ind_cccd_handle) {
+        if (param->write.handle == notif_ind_cccd_handle || param->write.handle == timer_ind_cccd_handle || param->write.handle == device_ind_cccd_handle) {
             parse_cccd_write(param->write.handle, param->write.value, param->write.len);
             ESP_LOGW(TAG, "CCCD is parsed");
             if (param->write.need_rsp) {
@@ -365,6 +364,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         break;
 
     case ESP_GATTS_DISCONNECT_EVT:
+        // Bağlantı koptu; reklamı yeniden başlat ve geçici durumları sıfırla.
         ESP_LOGI(TAG, "Device disconnected, restarting advertising...");
         g_rssi_task_running = false;
         g_connected = false;
@@ -374,9 +374,13 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
 
         esp_ble_gap_ext_adv_t start = { .instance = s_adv_handle, .duration = 0, .max_events = 0 };
         esp_err_t err2 = esp_ble_gap_ext_adv_start(1, &start);
-        if (err2 != ESP_OK) ESP_LOGE(TAG, "ext_adv_start (re) failed: %s", esp_err_to_name(err2));
-
-        if (s_conf_sem) { vSemaphoreDelete(s_conf_sem); s_conf_sem = NULL; }
+        if (err2 != ESP_OK) {
+            ESP_LOGE(TAG, "ext_adv_start (re) failed: %s", esp_err_to_name(err2));
+        }
+        if (s_conf_sem) { 
+            vSemaphoreDelete(s_conf_sem);
+            s_conf_sem = NULL; 
+        }
         notif_ind_enabled = false;
         timer_ind_enabled = false;
         device_ind_enabled = false;
@@ -386,6 +390,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         break;
     
     case ESP_GATTS_CONNECT_EVT:
+        // Bağlantı kuruldu; şifreleme başlat, RSSI task'ını çalıştır ve state'i güncelle.
         ESP_LOGI(TAG, "Device connected");
         gl_profile_tab[PROFILE_A_APP_ID].conn_id = param->connect.conn_id;
         memcpy(g_peer_bda, param->connect.remote_bda, sizeof(esp_bd_addr_t));
@@ -394,16 +399,12 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         esp_ble_set_encryption(param->connect.remote_bda, ESP_BLE_SEC_ENCRYPT_MITM);
 
         g_prof = PROF_GOOD;
-        // RSSI poll’u başlat
         xTaskCreate(rssi_poll_task, "rssi_poll", 2048, NULL, 5, NULL);
 
         esp_ble_gap_set_pkt_data_len(param->connect.remote_bda, 251);
 
-        read_current_phy();
-        //ble_send_auth_message();
         set_ble_connection_status(true);
 
-        //if (on_connect_callback) on_connect_callback();
         if (!s_conf_sem) {
             s_conf_sem = xSemaphoreCreateBinary();
         }
@@ -414,6 +415,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         apply_profile(g_prof);
         break;
     case ESP_GATTS_CONF_EVT:
+        // Indication CONF geldi; sonucu kaydet ve bekleyenleri serbest bırak.
         const bool is_notif = (param->conf.handle == gl_profile_tab[PROFILE_A_APP_ID].notification_handle);
         const bool is_timer = (param->conf.handle == gl_profile_tab[PROFILE_A_APP_ID].timer_state_handle);
         const bool is_device = (param->conf.handle == gl_profile_tab[PROFILE_A_APP_ID].device_handle);
@@ -434,6 +436,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         if (s_conf_sem) xSemaphoreGive(s_conf_sem);
         break;
     case ESP_GATTS_ADD_CHAR_DESCR_EVT:
+        // CCCD descriptor eklendi; handle'ı sakla ve sonraki adımı başlat.
         esp_gatt_status_t st = param->add_char_descr.status;
         uint16_t dh = param->add_char_descr.attr_handle;
 
@@ -463,15 +466,23 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
         
 
         switch (s_build) {
-            case STEP_ADD_TIMER_CCCD:  s_build = STEP_ADD_MEAS;              break;
-            case STEP_ADD_NOTIF_CCCD:  s_build = STEP_ADD_DEVICE;            break;
-            case STEP_ADD_DEVICE_CCCD: s_build = STEP_ADD_ACTIVATION;        break;
-            default: break;
+            case STEP_ADD_TIMER_CCCD:
+                s_build = STEP_ADD_MEAS;
+                break;
+            case STEP_ADD_NOTIF_CCCD:  
+                s_build = STEP_ADD_DEVICE;
+                break;
+            case STEP_ADD_DEVICE_CCCD:
+                s_build = STEP_ADD_ACTIVATION;
+                break;
+            default: 
+                break;
         }
 
-        run_build_step(); // sonraki adımı çalıştır
+        run_build_step();
         break;
     case ESP_GATTS_MTU_EVT: {
+        // MTU güncellendi; fragment kapasitesini MTU'ya göre ayarla.
         g_cur_mtu = param->mtu.mtu;
         ESP_LOGW(TAG, "MTU updated: %u", g_cur_mtu);
         fragments_set_capacity_from_mtu(g_cur_mtu);
@@ -482,6 +493,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
     }
 }
 
+// Indication CONF bekler (timeout ile).
 bool ble_wait_for_indication_conf(esp_gatt_status_t *out_status, uint32_t timeout_ms){
     if (!s_conf_sem) return false;
     if (xSemaphoreTake(s_conf_sem, pdMS_TO_TICKS(timeout_ms)) == pdTRUE) {

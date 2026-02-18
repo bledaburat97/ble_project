@@ -2,6 +2,7 @@
 
 #include "../../nvs/storage_manager.h"
 
+// BLE güvenlik parametrelerini (bonding, MITM, IO cap) ayarlar.
 void setup_ble_security(void) {
     uint8_t auth_req = ESP_LE_AUTH_REQ_SC_BOND | ESP_LE_AUTH_REQ_MITM; // SC+MITM+Bond
     esp_ble_gap_set_security_param(ESP_BLE_SM_AUTHEN_REQ_MODE, &auth_req, sizeof(auth_req));

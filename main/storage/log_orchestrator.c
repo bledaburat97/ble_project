@@ -71,6 +71,11 @@ static esp_err_t write_slot_full_marker(uint32_t abs_offset, uint16_t passed_sec
     return write_log_entry_at(abs_offset, (const uint8_t *)&slot_full, sizeof(Notification_t));
 }
 
+static inline bool is_end_log_type(uint8_t t)
+{
+    return (t == NOTIF_THERAPY_COMPLETED || t == NOTIF_THERAPY_STOPPED_BY_APP || t == NOTIF_ENTER_DEEP_SLEEP);
+}
+
 /**
  * Slot içinde bir sonraki yazma offset’i bulur (senin eski find_next_log_offset mantığı).
  * s_slot_buf, base_offset slot’u yüklenmiş olmalı.
@@ -86,13 +91,13 @@ static bool find_next_log_offset(size_t entry_size, uint8_t entry_type, bool *ou
         uint8_t existing_type = s_slot_buf[local];
 
         if (existing_type == FLASH_SLOT_IS_FULL) {
-            if (entry_type != NOTIF_THERAPY_COMPLETED && entry_type != NOTIF_THERAPY_STOPPED_BY_APP) {
+            if (!is_end_log_type(entry_type)) {
                 return false;
             }
-        } else if (existing_type == NOTIF_THERAPY_COMPLETED || existing_type == NOTIF_THERAPY_STOPPED_BY_APP) {
+        } else if (is_end_log_type(existing_type)) {
             return false;
         } else if (existing_type == 0xFF) {
-            if (entry_type != NOTIF_THERAPY_COMPLETED &&
+            if (!is_end_log_type(entry_type) &&
                 local + entry_size > THERAPY_SLOT_SIZE - 2 * sizeof(Notification_t)) {
                 *out_getting_full = true;
             }

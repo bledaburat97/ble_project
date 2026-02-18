@@ -207,7 +207,7 @@ static void queue_sender_task(void *pvParameters)
             continue;
         }
 
-        TickType_t inter_message_delay = (entry.type == TIMER_STATE_INFO_MESSAGE) ? 0 : pdMS_TO_TICKS(dynamic_period);
+        //TickType_t inter_message_delay = (entry.type == TIMER_STATE_INFO_MESSAGE) ? 0 : pdMS_TO_TICKS(dynamic_period);
 
         if (xQueueReceive(high_priority_queue, &entry, pdMS_TO_TICKS(100)) == pdTRUE) {
             ESP_LOGD(TAG, "High priority queue received a message");
@@ -360,17 +360,18 @@ bool clear_pending_approval_record(uint16_t therapy_id)
         pending_record.active = false;
         return true;
     }
-
-    // Late ACK toleransı: en son gönderilen therapy ile eşleşiyorsa ve çok eski değilse kabul et
+/*
+    // Late ACK toleransı: en son gönderilen therapy ile eşleşiyorsa ve çok eski değilse kabul et, 
+    //Kullanılmıyor
     const uint32_t now = esp_log_timestamp();
-    const uint32_t grace_ms = 5000;
+    const uint32_t grace_ms = 30000;
     if (therapy_id == pending_record.last_sent_therapy_id &&
         (now - pending_record.last_sent_timestamp) <= grace_ms) {
         ESP_LOGW(TAG, "Late records feedback accepted (therapy_id=%u)", therapy_id);
         pending_record.active = false;
         return true;
     }
-
+*/
     ESP_LOGW(TAG, "Unexpected records feedback (therapy_id=%u). Ignoring.", therapy_id);
     return false;
 }

@@ -42,6 +42,7 @@ BaseLogEntry fill_base_log(uint8_t type, const uint8_t* data, size_t data_len, u
             log.can_start_cache = true;
             break;
         case NOTIF_THERAPY_COMPLETED:
+        case NOTIF_THERAPY_STOPPED_BY_APP:
             log.can_be_cached = false;
             log.can_be_flashed = true;
             log.can_start_cache = true;

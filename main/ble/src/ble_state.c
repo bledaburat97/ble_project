@@ -1,5 +1,6 @@
 #include "../include/ble_internal.h"
 
+// Uygulama katmanına yönlendiren BLE callback işaretçileri.
 void (*on_connect_callback)(void) = NULL;
 void (*on_disconnect_callback)(void) = NULL;
 void (*on_write_activation_callback)(const uint8_t *buf, size_t len) = NULL;
@@ -11,20 +12,25 @@ void (*on_write_updating_configuration_callback)(const uint8_t *buf, size_t len)
 void (*on_write_wifi_config_callback)(const uint8_t *buf, size_t len) = NULL;
 void (*on_dynamic_period_change_callback)(uint16_t) = NULL;
 
+// Bağlı peer adresi ve bağlantı durumu.
 esp_bd_addr_t g_peer_bda = {0};
 bool          g_connected = false;
 
+// RSSI ortalaması, RSSI task durumu, profil seviyesi, güncel MTU.
 int8_t        g_rssi_ema = -60;
 bool          g_rssi_task_running = false;
 link_prof_t   g_prof = PROF_GOOD;
 uint16_t      g_cur_mtu = 23;
 
+// Indication CONF bekleme semaforu ve son CONF sonucu.
 SemaphoreHandle_t          s_conf_sem = NULL;
 volatile esp_gatt_status_t s_last_conf_status = ESP_GATT_OK;
 volatile uint16_t          s_last_conf_handle  = 0;
 
+// Indication gönderimi sırasında "uçuşta" flag'i (şu an sınırlı kullanılıyor).
 volatile bool g_ind_inflight = false;
 
+// Extended advertising handle ve raw ADV buffer yönetimi.
 uint8_t  s_adv_handle = 0;
 bool     s_ext_adv_started = false;
 uint8_t  s_adv_raw[31];
@@ -38,4 +44,7 @@ struct gatts_profile_inst gl_profile_tab[PROFILE_NUM] = {
     },
 };
 
-uint16_t ms_to_conn_int(uint16_t ms) { return (uint16_t)((ms * 4 + 2) / 5); }
+// ms -> BLE connection interval (1.25ms birimi) çevirimi.
+uint16_t ms_to_conn_int(uint16_t ms) { 
+    return (uint16_t)((ms * 4 + 2) / 5);
+}

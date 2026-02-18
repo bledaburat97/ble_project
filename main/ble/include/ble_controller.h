@@ -30,19 +30,18 @@ void register_on_write_updating_configuration_callback(void (*callback)(const ui
 void register_on_write_wifi_config_callback(void (*callback)(const uint8_t *buf, size_t len));
 void register_dynamic_period_change_callback(void (*callback)(uint16_t));
 
-void request_conn_interval_ms(uint16_t target_ms);
+void set_send_period_ms(uint16_t ms);
+
+bool ble_wait_for_indication_conf(esp_gatt_status_t *out_status, uint32_t timeout_ms);
+
+//TRY_IN_FUTURE
+/*
+void request_conn_interval_ms(uint16_t target_ms);     
 esp_err_t set_phy_2m(void);
 esp_err_t set_phy_1m(void);
 esp_err_t set_phy_coded_s2(void);
 esp_err_t set_phy_coded_s8(void);
 esp_err_t set_phy_coded_any(void);
-
-// Başka yerde tanımlı yardımcılar (mevcut kodunda zaten "extern" kullanıyorsun)
-void set_send_period_ms(uint16_t ms);
-void set_bundle_size(uint8_t n);
-void use_indication(bool on);
-void use_indication_for_critical(bool on);
-
-bool ble_wait_for_indication_conf(esp_gatt_status_t *out_status, uint32_t timeout_ms);
+*/
 
 #endif
