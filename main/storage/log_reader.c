@@ -12,8 +12,10 @@
 
 #define TAG "LogReader"
 
+// Slot okuma sırasında geçici buffer (tek seferlik kullanım).
 static LogReaderSlot s_work_slot;
 
+// Entry CRC doğrulaması (bozuk kayıtları tespit eder).
 static inline bool verify_crc(const uint8_t *entry_ptr, LogEntrySizeInfo si)
 {
     if (!entry_ptr) return false;
@@ -23,6 +25,7 @@ static inline bool verify_crc(const uint8_t *entry_ptr, LogEntrySizeInfo si)
     return expected == actual;
 }
 
+// Kısmi tahsisleri güvenli şekilde temizler.
 static void free_partial(ReadTherapyLogs *t)
 {
     if (!t) return;
@@ -34,11 +37,13 @@ static void free_partial(ReadTherapyLogs *t)
     t->count_brightness = 0;
 }
 
+// ReadTherapyLogs içindeki dinamik alanları serbest bırakır.
 void log_reader_free_therapy_logs(ReadTherapyLogs *t)
 {
     free_partial(t);
 }
 
+// Slot yapısını temizler ve boş (0xFF) olarak işaretler.
 void log_reader_slot_reset(LogReaderSlot *s)
 {
     if (!s) return;
@@ -47,6 +52,7 @@ void log_reader_slot_reset(LogReaderSlot *s)
     memset(s->slot_buf, 0xFF, sizeof(s->slot_buf));
 }
 
+// Belirli terapi slotunu RAM'e yükler.
 esp_err_t log_reader_slot_load(LogReaderSlot *s, uint32_t base_offset)
 {
     if (!s) return ESP_ERR_INVALID_ARG;
@@ -58,6 +64,7 @@ esp_err_t log_reader_slot_load(LogReaderSlot *s, uint32_t base_offset)
     return e;
 }
 
+// Terapi ID'sinden slot base offset hesaplar.
 uint32_t log_reader_therapy_id_to_base_offset(uint16_t therapy_id)
 {
     return ((uint32_t)((therapy_id - 1) % MAX_SAVED_THERAPY)) * THERAPY_SLOT_SIZE;
@@ -65,6 +72,7 @@ uint32_t log_reader_therapy_id_to_base_offset(uint16_t therapy_id)
 
 
 
+// Slot içeriğini measurement/notification/brightness olarak ayrıştırır.
 bool log_reader_read_records(uint16_t therapy_id, ReadTherapyLogs *therapy_logs, LogReadMode mode, const uint8_t *slot_buf)
 {
     if (!therapy_logs) return false;
@@ -92,6 +100,7 @@ bool log_reader_read_records(uint16_t therapy_id, ReadTherapyLogs *therapy_logs,
 
     uint32_t local_offset = 0;
 
+    // Slotu sırayla tarayıp geçerli logları çıkar.
     while (local_offset < THERAPY_SLOT_SIZE) {
         uint8_t type = slot_buf[local_offset];
         if (type == 0xFF) break;
@@ -144,6 +153,7 @@ bool log_reader_read_records(uint16_t therapy_id, ReadTherapyLogs *therapy_logs,
                 break;
         }
 
+        // İstenen modda son BLE_CONNECTED noktasını işaretle.
         if (mode == LOG_READ_UNTIL_LAST_BLE_CONNECTED && type == BLE_CONNECTED) {
             saw_ble_connected = true;
             last_m = count_measurements;
@@ -154,6 +164,7 @@ bool log_reader_read_records(uint16_t therapy_id, ReadTherapyLogs *therapy_logs,
         local_offset += size_info.total_length;
     }
 
+    // Son BLE_CONNECTED sonrası kayıtlar istenmiyorsa burada kırpılır.
     if (mode == LOG_READ_UNTIL_LAST_BLE_CONNECTED && saw_ble_connected) {
         count_measurements  = last_m;
         count_notifications = last_n;
@@ -173,6 +184,7 @@ bool log_reader_read_records(uint16_t therapy_id, ReadTherapyLogs *therapy_logs,
     return true;
 }
 
+// Slot içinden özet terapi bilgilerini (süre/bitmiş mi/brightness) çıkarır.
 bool log_reader_read_therapy_info(uint16_t therapy_id, ReadTherapyInfo *therapy_info, bool slot_already_loaded, const uint8_t *slot_buf)
 {
     if (!therapy_info) return false;
@@ -202,6 +214,7 @@ bool log_reader_read_therapy_info(uint16_t therapy_id, ReadTherapyInfo *therapy_
 
     uint32_t local_offset = 0;
 
+    // Slot içindeki logları tarayıp özet bilgileri toplar.
     while (local_offset < THERAPY_SLOT_SIZE) {
         uint8_t type = buf[local_offset];
         if (type == 0xFF) break;
@@ -252,6 +265,7 @@ bool log_reader_read_therapy_info(uint16_t therapy_id, ReadTherapyInfo *therapy_
     return true;
 }
 
+// Slot buffer içinde belirli log tipi var mı kontrol eder.
 bool log_reader_slot_buf_contains_type(const uint8_t *slot_buf, uint8_t type_of_entry)
 {
     if (!slot_buf) return false;
@@ -273,6 +287,7 @@ bool log_reader_slot_buf_contains_type(const uint8_t *slot_buf, uint8_t type_of_
     return false;
 }
 
+// Slotu okuyup belirli log tipi var mı kontrol eder.
 bool log_reader_slot_contains_type(uint32_t base_offset, uint8_t type_of_entry)
 {
     uint8_t buf[THERAPY_SLOT_SIZE];
@@ -286,6 +301,7 @@ bool log_reader_slot_contains_type(uint32_t base_offset, uint8_t type_of_entry)
     return log_reader_slot_buf_contains_type(buf, type_of_entry);
 }
 
+// Slot içindeki en büyük passed_seconds değerini bulur.
 bool log_reader_slot_buf_read_max_passed(const uint8_t *buf, uint16_t *out_max_passed)
 {
     if (!buf || !out_max_passed) return false;
@@ -314,6 +330,7 @@ bool log_reader_slot_buf_read_max_passed(const uint8_t *buf, uint16_t *out_max_p
     return any;
 }
 
+// Slotu okuyup en büyük passed_seconds değerini döner.
 bool log_reader_read_max_passed(uint32_t base_offset, uint16_t *out_max_passed)
 {
     if (!out_max_passed) return false;

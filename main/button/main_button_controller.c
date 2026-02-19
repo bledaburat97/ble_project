@@ -8,40 +8,27 @@
 #include "freertos/task.h"
 #include "driver/gpio.h"
 
-static const TickType_t k_short_press_window = pdMS_TO_TICKS(1000);
+static const TickType_t short_press_window = pdMS_TO_TICKS(MAIN_BUTTON_SHORT_PRESS_WINDOW);
 
+// Not: Çoklu kısa basışla mod/değer değiştirme test amaçlıdır; son üründe kaldırılacak.
 static uint16_t s_short_press_count = 0;
 static TickType_t s_last_short_press_tick = 0;
 static void (*button_press_callback)(ButtonPressType) = NULL;
 
 static const char *TAG = "MainButtonController";
 
-
-/**
- * @brief Handle a completed short-press sequence.
- *
- * @param press_count Number of short presses detected within k_short_press_window.
- *
- * - 1 press  : start or pause therapy.
- * - >1 press : change default parameters according to press count.
- */
+// Kısa basış dizisini yorumlar (tek basış/çoklu basış).
 static void on_short_press_sequence(uint16_t press_count)
 {
     if (press_count == 1) {
         if (button_press_callback) button_press_callback(SHORT);
-        //start_or_pause_therapy();
         return;
     }
 
     change_default_parameters(press_count);
 }
 
-/**
- * @brief Track a single short press and group presses into sequences.
- *
- * Eğer ardışık kısa basışlar k_short_press_window içinde gelirse sayılır,
- * aksi durumda önceki sekans finalize edilir ve yeni sekans başlatılır.
- */
+// Art arda kısa basışları zaman penceresi içinde sayar.
 static inline void track_short_press(void)
 {
     TickType_t now = xTaskGetTickCount();
@@ -49,7 +36,7 @@ static inline void track_short_press(void)
     if (s_short_press_count == 0) {
         s_short_press_count = 1;
     } else {
-        if ((now - s_last_short_press_tick) <= k_short_press_window) {
+        if ((now - s_last_short_press_tick) <= short_press_window) {
             s_short_press_count++;
         } else {
             on_short_press_sequence(s_short_press_count);
@@ -63,17 +50,13 @@ static inline void track_short_press(void)
     s_last_short_press_tick = now;
 }
 
-/**
- * @brief Finalize short-press sequence if no new press arrived within window.
- *
- * Bu fonksiyon periyodik olarak çağrılır ve yeterince süre yeni basış gelmediyse
- * mevcut sekansı tamamlar.
- */
+
+// Kısa basış dizisi tamamlandıysa işlemi tetikler.
 static inline void maybe_finalize_short_press_sequence(void)
 {
     if (s_short_press_count > 0) {
         TickType_t now = xTaskGetTickCount();
-        if ((now - s_last_short_press_tick) > k_short_press_window) {
+        if ((now - s_last_short_press_tick) > short_press_window) {
             on_short_press_sequence(s_short_press_count);
             ESP_LOGI(TAG,
                      "Short press sequence finished (idle). count=%lu",
@@ -83,12 +66,8 @@ static inline void maybe_finalize_short_press_sequence(void)
     }
 }
 
-/**
- * @brief Handle a short press based on indicator LED status.
- *
- * - Eğer indicator LED aktifse: kısa basışlar sekans olarak takip edilir.
- * - Değilse                 : tek basış olarak start_or_pause_therapy çağrılır.
- */
+
+// Kısa basış için normal akış (mod açıkken çoklu sayım yapılır).
 static void do_short_press(void)
 {
     if (get_indicator_led_status()) {
@@ -101,20 +80,11 @@ static void do_short_press(void)
     }
 }
 
-/**
- * @brief Main button task: detect short / long / very long presses and act accordingly.
- *
- * Davranış:
- * - Kısa basış      : do_short_press() ile terapi kontrolü ve/veya default param değişimi
- * - Uzun basış      : mode indicator GPIO pin durumunu değiştirir
- * - Çok uzun basış  : NOTIF_SHUT_DOWN_BY_BUTTON log kaydı ile birlikte deep sleep'e geçer
- *
- * @param pvParameters FreeRTOS task parametresi (kullanılmıyor).
- */
+// Ana butonu izleyen task: kısa/uzun basışı ayırır ve callback'e iletir.
 void wait_for_button_to_sleep(void *pvParameters)
 {
-    const TickType_t poll_delay_ticks      = pdMS_TO_TICKS(100);
-    const TickType_t long_press_ticks      = pdMS_TO_TICKS(PRESS_DURATION_TO_CONFIGURATION_MS);
+    const TickType_t delay_ticks = pdMS_TO_TICKS(100);
+    const TickType_t long_press_ticks = pdMS_TO_TICKS(PRESS_DURATION_TO_CONFIGURATION_MS);
     const TickType_t very_long_press_ticks = pdMS_TO_TICKS(PRESS_DURATION_TO_SLEEP_MS);
 
     TickType_t press_start_ticks = 0;
@@ -157,7 +127,7 @@ void wait_for_button_to_sleep(void *pvParameters)
 
         maybe_finalize_short_press_sequence();
 
-        vTaskDelay(poll_delay_ticks);
+        vTaskDelay(delay_ticks);
     }
 }
 

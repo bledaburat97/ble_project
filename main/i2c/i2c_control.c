@@ -24,7 +24,6 @@ static void ensure_i2c_mutex(void)
     }
 }
 
-
 static bool is_i2c_timeout(esp_err_t err)
 {
     return err == ESP_ERR_TIMEOUT;

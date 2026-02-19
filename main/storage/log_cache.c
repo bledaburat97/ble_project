@@ -3,17 +3,20 @@
 
 #define TAG "LogCache"
 
+// Cache: terapi başlamadan önce gelen logları RAM'de tutar.
+// Terapi kesinleşince bu kayıtlar ilgili slota taşınır.
+// Amaç: erken olayları kaybetmemek ve flash yazımını gereksiz büyütmemek. 
+// Ana mantık terapi başlamadığı zaman tutulacak logların önemsiz olması.
 void log_cache_init(LogCache *c)
 {
     if (!c) return;
     c->count = 0;
     c->active = false;
-    c->disabled = false;
 }
 
 void log_cache_start(LogCache *c)
 {
-    if (!c || c->disabled) return;
+    if (!c) return;
     c->active = true;
 }
 
@@ -25,7 +28,7 @@ void log_cache_stop(LogCache *c)
 
 bool log_cache_is_active(const LogCache *c)
 {
-    return c && c->active && !c->disabled;
+    return c && c->active;
 }
 
 size_t log_cache_count(const LogCache *c)
@@ -33,23 +36,9 @@ size_t log_cache_count(const LogCache *c)
     return c ? c->count : 0;
 }
 
-bool log_cache_is_disabled(const LogCache *c)
-{
-    return c ? c->disabled : true;
-}
-
-void log_cache_disable(LogCache *c)
-{
-    if (!c) return;
-    c->disabled = true;
-    c->active = false;
-    c->count = 0;
-}
-
 esp_err_t log_cache_push(LogCache *c, const BaseLogEntry *e)
 {
     if (!c || !e) return ESP_ERR_INVALID_ARG;
-    if (c->disabled) return ESP_OK;
 
     if (c->count >= MAX_PENDING_LOGS) {
         ESP_LOGW(TAG, "Cache full (%u). Clearing cache and continuing.", (unsigned)c->count);

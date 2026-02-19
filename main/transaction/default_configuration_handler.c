@@ -13,18 +13,22 @@
 #include "esp_log.h"
 
 static const char *TAG = "DefaultConfigHandler";
+// NVS'de kalıcı varsayılanlar için anahtarlar.
 static const char *NVS_THERAPY_DUR_KEY = "therapy_dur";
 static const char *NVS_BRIGHTNESS_KEY = "bright";
 
+// Varsayılan terapi süre/parlaklık değerleri (RAM'de cache).
 static uint16_t default_therapy_duration = DEFAULT_THERAPY_DURATION;
 static uint8_t default_brightness[6] = {100,100,100,100,100,100};
 
+// Terapi süresini güvenli aralığa sınırlar.
 static uint16_t clamp_duration(uint16_t s) {
     if (s < 10) return 10;
     if (s > MAX_THERAPY_DURATION) return MAX_THERAPY_DURATION;
     return s;
 }
 
+// Varsayılan terapi süresini NVS'ye yazar.
 esp_err_t set_and_store_default_therapy_duration(uint16_t seconds) {
     seconds = clamp_duration(seconds);
     esp_err_t err = save_parameter_u16(NVS_THERAPY_DUR_KEY, seconds);
@@ -35,8 +39,8 @@ esp_err_t set_and_store_default_therapy_duration(uint16_t seconds) {
     return err;
 }
 
+// Varsayılan parlaklığı NVS'ye yazar.
 esp_err_t set_and_store_default_brightness(const uint8_t br[6]) {
-    // İstersen burada 0–255 aralığı, toplam güç limiti vs. kontrol edebilirsin.
     esp_err_t err = save_parameter_blob(NVS_BRIGHTNESS_KEY, br, 6);
     if (err == ESP_OK) {
         memcpy(default_brightness, br, 6);
@@ -47,6 +51,7 @@ esp_err_t set_and_store_default_brightness(const uint8_t br[6]) {
 }
 
 
+// Uygulamadan gelen "varsayılan config" mesajını işler.
 static void on_write_of_updating_configuration_message(const uint8_t *buf, size_t len) {
     ActivationMessage activation_message;
     if(!decode_activation_message_bin(buf, &activation_message)) {
@@ -64,6 +69,7 @@ static void on_write_of_updating_configuration_message(const uint8_t *buf, size_
 
 }
 
+// NVS'den varsayılanları yükler ve write callback'ini bağlar.
 void init_default_configuration_handler(void) {
     uint16_t dur = 0;
     if (read_parameter_u16(NVS_THERAPY_DUR_KEY, &dur) != ESP_OK) {
@@ -81,10 +87,12 @@ void init_default_configuration_handler(void) {
     register_on_write_updating_configuration_callback(on_write_of_updating_configuration_message);
 }
 
+// Varsayılan terapi süresini döner.
 uint16_t get_default_therapy_duration(void) {
     return default_therapy_duration;
 }
 
+// Varsayılan parlaklık listesini döner.
 const uint8_t* get_default_brightness(void) {
     return default_brightness;
 }

@@ -54,7 +54,6 @@ typedef enum {
     NOTIF_ENTER_DEEP_SLEEP,
 } NotificationType;
 
-// General notification event (all others)
 typedef struct {
     uint8_t type;
     uint16_t passed_seconds;

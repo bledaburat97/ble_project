@@ -6,6 +6,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/timers.h"
 
+//kask çıkarıldığı zaman başlar, süresi dolmadan kask takılırsa terapi otomatik devam eder.
 static TimerHandle_t helmet_off_debounce_timer = NULL;
 static const char *TAG = "HelmetOffDebounceTimerManager";
 
@@ -29,7 +30,7 @@ bool is_helmet_off_debounce_timer_running(void) {
 
 static void helmet_off_debounce_timer_cb(TimerHandle_t t)
 {
-    (void)t; // bilerek boş bırakıldı
+    (void)t; // bilerek boş bırakıldı, yapılacak bir iş yok
 }
 
 bool start_helmet_off_debounce_timer(void) {

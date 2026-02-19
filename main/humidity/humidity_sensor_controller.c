@@ -15,20 +15,13 @@ static uint8_t s_last_notified_humidity = 0xFF;
 
 static void (*s_humidity_update_callback)(uint8_t) = NULL;
 
-/**
- * @brief Register a callback for humidity updates.
- *
- * @param callback 0–100 aralığında, 5'lik bucket'a yuvarlanmış nem
- *                 değeri alan callback. NULL gönderilirse callback temizlenir.
- */
+// Nem güncelleme callback'ini kaydeder.
 void register_humidity_update(void (*callback)(uint8_t))
 {
     s_humidity_update_callback = callback;
 }
 
-/**
- * @brief Convert relative humidity (%) to 0–100 uint8 representation.
- */
+// %RH -> 0..100 byte.
 static uint8_t convert_rh_to_byte(float rh)
 {
     if (rh < 0.0f) {
@@ -41,25 +34,18 @@ static uint8_t convert_rh_to_byte(float rh)
     return (uint8_t)lroundf(rh); // 0..100
 }
 
-/**
- * @brief Map humidity byte to 5% bucket (0,5,10,...,100).
- */
+// 5'lik bucket'a yuvarlar.
 static uint8_t to_bucket_5(uint8_t humidity_byte)
 {
     return (uint8_t)(humidity_byte - (humidity_byte % 5));
 }
 
-/**
- * @brief Round humidity to nearest 1% resolution.
- */
 static float round_to_one_percent(float rh)
 {
     return roundf(rh);
 }
 
-/**
- * @brief Trigger a T+RH measurement and return humidity in % (rounded to 1%).
- */
+// Ölçüm tetikler, nem yüzdesi döner.
 static float read_humidity_percentage(void)
 {
     float temperature_c = 0.0f;
@@ -74,11 +60,7 @@ static float read_humidity_percentage(void)
     return round_to_one_percent(humidity_rh);
 }
 
-/**
- * @brief Measure humidity once and update internal bucket state.
- *
- * @return Last notified humidity in 5% bucket units (0..100).
- */
+// Tek ölçüm yapar ve 5'lik bucket değerini günceller.
 uint8_t measure_and_get_humidity(void)
 {
     float humidity = read_humidity_percentage();
@@ -88,11 +70,7 @@ uint8_t measure_and_get_humidity(void)
     return s_last_notified_humidity;
 }
 
-/**
- * @brief Get last notified humidity bucket, measuring if necessary.
- *
- * @return 0–100 aralığında, 5'lik bucket'a yuvarlanmış nem değeri.
- */
+// Son ölçüm değerini döner; yoksa ölçüm yapar.
 uint8_t get_humidity(void)
 {
     if (s_last_notified_humidity == 0xFF) {
@@ -102,19 +80,11 @@ uint8_t get_humidity(void)
     return s_last_notified_humidity;
 }
 
-/**
- * @brief Initialize HDC1080 humidity sensor and set initial humidity state.
- *
- * - Konfigürasyon register'ını uygun çözünürlük ve moda ayarlar.
- * - İlk nem ölçümünü yapar ve last_notified_humidity değerini 5'lik bucket'a
- *   yuvarlanmış şekilde günceller.
- */
+// Sensörü başlatır ve ilk nem değerini ayarlar.
 void initialize_humidity_sensor(void)
 {
     ESP_LOGI(TAG, "Initializing HDC1080 humidity sensor.");
 
-    // Default config (datasheet reset value 0x1000):
-    // MODE=0, HRES=14bit, TRES=14bit
     HDC1080_ConfigReg cfg = {0};
     cfg.rst           = 0;                     // normal
     cfg.heat          = 0;                     // heater off
@@ -137,16 +107,7 @@ void initialize_humidity_sensor(void)
              (unsigned)s_last_notified_humidity);
 }
 
-/**
- * @brief Periodic humidity read task.
- *
- * Davranış:
- * - 5 saniyede bir nem ölçümü yapar.
- * - Yeni %RH değeri önce 0–100 byte'a, sonra 5'lik bucket'a dönüşür.
- * - last_notified_humidity ile fark >= 5 ise callback tetiklenir.
- *
- * @param param FreeRTOS task parametresi (kullanılmıyor).
- */
+// Periyodik nem okuma task'ı (5 sn'de bir).
 void humidity_read_task(void *param)
 {
     (void)param;

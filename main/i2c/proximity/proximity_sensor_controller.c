@@ -79,15 +79,6 @@ static void add_lp_write_command_to_queue(uint8_t device_address,
     uint32_t lp_core_command        = 1U;
     uint32_t lp_core_value          = (uint32_t)(data[0] & 0xFFU);
 
-    /*
-    ESP_LOGI(TAG,
-             "LP write queued: cmd=%lu, reg=0x%02lX, value=0x%02lX, addr=0x%02lX, bytes=%lu",
-             lp_core_command,
-             lp_core_register,
-             lp_core_value,
-             lp_core_device_address,
-             lp_core_byte_count);
-    */
     queue_add_task(lp_core_command, lp_core_register, lp_core_value, lp_core_device_address, lp_core_byte_count);
 }
 

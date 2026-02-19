@@ -5,6 +5,9 @@
 #include "temp_alert_setter.h"
 
 static uint8_t s_last_temp_byte = 0xFF;
+
+//Her bit bir sensörü temsil eder: ilgili sensör alertteyse 1, değilse 0.
+//Bu sayede “herhangi bir sensör alertte mi?” kontrolü hızlı yapılır
 static uint8_t s_alerted_mask   = 0x00;
 
 void temp_sensor_reader_internal_reset(void)

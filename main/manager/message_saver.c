@@ -6,15 +6,22 @@
 #include "../storage/log_orchestrator.h"
 #include "../storage/therapy_counter.h"
 
+// Restore edilen uncompleted terapiyi devam ettirme izni.
 static bool s_can_continue_uncompleted = false;
 
 #define TAG "MessageSaver"
 
+// Uncompleted terapi devam modunu set eder.
 void set_continue_uncompleted_therapy(bool status)
 {
     s_can_continue_uncompleted = status;
 }
 
+// Eğer yeni terapiyse:
+//      önceki slotun tamamlanıp tamamlanmadığına bakılır tamamlanmamışsa sonlandırılır.
+//      Therapy Id arttırılır ve yeni terapi Id'nin gösterdiği slota yazılır.
+// Eğer sonlanmamış bir terapi restore edilecekse devam logu beklenir ve devam logu o restore edilen son terapi slotuna yazılır.
+// Normal bir log ise log orchestratora gönderilir ve log akışı devam eder. Log tipine göre ilgili slota veya cache'e kaydeder.
 esp_err_t save_log(uint8_t type, const uint8_t *data, size_t data_len, uint16_t passed_seconds) {
     uint16_t therapy_count = read_therapy_count();
 

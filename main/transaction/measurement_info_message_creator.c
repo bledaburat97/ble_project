@@ -21,6 +21,7 @@
 
 static const char *TAG = "MeasurementInfoMessageCreator";
 
+// Ölçümü loglar ve BLE ile uygulamaya gönderir.
 static void add_and_send_measurement_info(uint8_t temperature, uint8_t humidity) {
     uint8_t data[] = {temperature, humidity};
     uint16_t passed_seconds = get_session_passed_seconds();
@@ -43,6 +44,7 @@ static void add_and_send_measurement_info(uint8_t temperature, uint8_t humidity)
     send_info_message_to_queue(MEASUREMENT_INFO_MESSAGE, buf, len);
 }
 
+// İlk senkron sonrası snapshot ölçümü gönderir.
 static void on_timer_state_info_feedback_callback() {
     uint8_t current_temperature = temp_sensor_reader_measure_and_get_temperature();
     uint8_t current_humidity = measure_and_get_humidity();
@@ -50,14 +52,17 @@ static void on_timer_state_info_feedback_callback() {
     add_and_send_measurement_info(current_temperature, current_humidity);
 }
 
+// Sıcaklık güncellenince nem ile birlikte gönderir.
 static void on_temperature_update(uint8_t temperature) {
     add_and_send_measurement_info(temperature, get_humidity());
 }
 
+// Nem güncellenince sıcaklık ile birlikte gönderir.
 static void on_humidity_update(uint8_t humidity) {
     add_and_send_measurement_info(temp_sensor_reader_get_temperature(), humidity);
 }
 
+// Ölçüm update callback'lerini bağlar.
 void init_measurement_info_message_creator() {
     register_timer_state_info_feedback_callback(on_timer_state_info_feedback_callback);
     temp_sensor_manager_register_temperature_update(on_temperature_update);

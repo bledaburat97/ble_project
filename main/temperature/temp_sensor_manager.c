@@ -20,6 +20,7 @@ static void (*s_temp_alert_cb)(uint8_t)  = NULL;
 
 static float round_down_to_half(float t) { return floorf(t * 2.0f) / 2.0f; }
 
+// ALERT pin değişimi: alert moduna giriş (eşikleri gunceller).
 static void on_alert(uint8_t idx)
 {
     // ilk kez mi alerted oluyoruz?
@@ -35,22 +36,26 @@ static void on_alert(uint8_t idx)
     if (s_temp_alert_cb && !was_any) s_temp_alert_cb(idx);
 }
 
+// ALERT pin değişimi: normal moda dönüş (eşikleri gunceller).
 static void on_normal(uint8_t idx)
 {
     temp_sensor_reader_internal_remove_alerted(idx);
     temp_measurement_setter_set_normal_thresholds(idx);
 }
 
+// Ortalama sıcaklık değişimi için callback kaydı.
 void temp_sensor_manager_register_temperature_update(void (*cb)(uint8_t))
 {
     s_temp_update_cb = cb;
 }
 
+// ALERT/normal mod geçişinde bildirim icin callback kaydı.
 void temp_sensor_manager_register_temp_alert(void (*cb)(uint8_t))
 {
     s_temp_alert_cb = cb;
 }
 
+// Sıcaklık altyapısını başlatır (threshold, alert polling, cache reset).
 void temp_sensor_manager_initialize(void)
 {
     ESP_LOGI(TAG, "Temp module init (manager)");
@@ -66,6 +71,7 @@ void temp_sensor_manager_initialize(void)
     temp_alert_setter_initialize(normal_pin_status);
 }
 
+// Periyodik sıcaklık ölçümü; 0.5°C ve üzeri değişimde bildirim üretir.
 void temp_sensor_manager_temperature_read_task(void *param)
 {
     (void)param;
@@ -96,6 +102,7 @@ void temp_sensor_manager_temperature_read_task(void *param)
     }
 }
 
+// ALERT pinlerini izleyen task (polling).
 void temp_sensor_manager_alert_monitor_task(void *param)
 {
     temp_alert_setter_monitor_alert_task(param);

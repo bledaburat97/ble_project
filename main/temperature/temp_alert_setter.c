@@ -19,16 +19,19 @@ static void (*s_temp_normal_callback)(uint8_t) = NULL;
 static int s_prev_level[TEMPERATURE_SENSOR_COUNT];
 static int s_current_level[TEMPERATURE_SENSOR_COUNT];
 
+// ALERT pini "normal" seviyeden sapinca tetiklenen callback'ler.
 void temp_alert_setter_register_temperature_alert(void (*callback)(uint8_t))
 {
     s_temp_alert_callback = callback;
 }
 
+// ALERT pini normale donunce tetiklenen callback.
 void temp_alert_setter_register_temperature_normal(void (*callback)(uint8_t))
 {
     s_temp_normal_callback = callback;
 }
 
+// Sensorlerin ALERT pinlerini input olarak konfigüre eder.
 static void initialize_alert_gpios(void)
 {
     gpio_config_t io_conf = {};
@@ -44,16 +47,19 @@ static void initialize_alert_gpios(void)
     }
 }
 
+// ALERT pinlerinin normal seviyesini kaydeder ve GPIO'laro hazırlar.
 void temp_alert_setter_initialize(bool normal_pin_status)
 {
     s_normal_pin_status = normal_pin_status;
     initialize_alert_gpios();
 }
 
+// ALERT pinlerini periyodik izleyip değişimi callback'lere bildirir.
 void temp_alert_setter_monitor_alert_task(void *param)
 {
     (void)param;
 
+    // Açılışta anormal seviyeleri yakalayip aninda bildir.
     for (int i = 0; i < TEMPERATURE_SENSOR_COUNT; i++) {
         s_prev_level[i] = gpio_get_level(s_alert_gpio_list[i]);
         if (s_prev_level[i] != (int)s_normal_pin_status) {
@@ -76,10 +82,12 @@ void temp_alert_setter_monitor_alert_task(void *param)
                 s_prev_level[i] = s_current_level[i];
             }
         }
+        // Donanım ALERT pinleri icin polling aralığı.
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
+// Herhangi bir sensor ALERT seviyesinde mi kontrol eder.
 bool temp_alert_setter_check_alert_status(void)
 {
     for (int i = 0; i < TEMPERATURE_SENSOR_COUNT; i++) {

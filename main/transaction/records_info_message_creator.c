@@ -35,6 +35,7 @@ static SemaphoreHandle_t s_records_mutex;
 
 static uint8_t s_records_slot_buf[THERAPY_SLOT_SIZE];
 
+// Slotu okuyup logları fragment formatına hazırlar.
 static bool set_records(uint16_t therapy_id, LogReadMode log_read_mode) {
     ESP_LOGI(TAG, "Set records for therapy_id: %u", therapy_id);
 
@@ -97,6 +98,7 @@ static bool set_records(uint16_t therapy_id, LogReadMode log_read_mode) {
     return false;
 }
 
+// Üretilen fragment'ları düşük öncelikli kuyruğa gönderir.
 static void send_fragments(uint16_t therapy_id) {
     uint16_t fragment_count = get_fragment_count();
     ESP_LOGI(TAG, "therapy_id: %d, fragment_count: %d", therapy_id, fragment_count);
@@ -128,6 +130,7 @@ static void send_fragments(uint16_t therapy_id) {
     }
 }
 
+// Belirli terapi için records hazırlayıp gönderir.
 static void send_records_info_message(uint16_t therapy_id, bool is_active_therapy) {
     if (therapy_id == 0) {
         ESP_LOGW(TAG, "send_records_info_message called with therapy_id=0, ignoring.");
@@ -154,6 +157,7 @@ static void send_records_info_message(uint16_t therapy_id, bool is_active_therap
     }
 }
 
+// Aktif/paused terapi varsa records akışını tetikler.
 static void on_active_or_paused_therapy_existed()
 {
     if(is_record_pending()) {
@@ -168,6 +172,7 @@ static void on_active_or_paused_therapy_existed()
     send_records_info_message(current_id, true);
 }
 
+// Uygulamadan gelen "record isteği"ni işler.
 static void on_write_of_record_request_message(const uint8_t *buf, size_t len) {
     if(is_record_pending()) {
         ESP_LOGI(TAG, "is_record_pending true");
@@ -217,6 +222,7 @@ static void on_write_of_record_request_message(const uint8_t *buf, size_t len) {
     send_records_info_message(start_id, false);
 }
 
+// Uygulamanın ACK/NACK geri bildirimi.
 static void on_records_feedback(const uint8_t *buf, size_t len){
     RecordsFeedbackMessage records_feedback_message;
 
@@ -241,6 +247,7 @@ static void on_records_feedback(const uint8_t *buf, size_t len){
     }
 }
 
+// Timeout veya NACK durumunda aynı terapiyi tekrar gönderir.
 static void send_record_again(const uint16_t therapy_id) {
     if (therapy_id == 0) {
         ESP_LOGW(TAG, "Cannot resend records for therapy id 0");
@@ -250,6 +257,7 @@ static void send_record_again(const uint16_t therapy_id) {
     send_records_info_message(therapy_id, is_active_therapy);
 }
 
+// ACK sonrası bir sonraki terapiyi gönderir.
 static void send_new_record(const uint16_t therapy_id) {
     if(therapy_id == get_current_therapy_id()){
         return;
@@ -265,6 +273,7 @@ static void send_new_record(const uint16_t therapy_id) {
     }
 }
 
+// Records aktarım akışını başlatır ve callback'leri bağlar.
 void init_records_info_message_creator() {
     s_records_mutex = xSemaphoreCreateMutex();
     register_active_or_paused_therapy_info(on_active_or_paused_therapy_existed);

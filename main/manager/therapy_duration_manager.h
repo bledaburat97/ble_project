@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdbool.h>
 
+
 void clear_planned_therapy_duration();
 bool try_set_planned_therapy_duration(uint16_t duration);
 uint16_t get_planned_therapy_duration_s();

@@ -10,6 +10,12 @@
 
 #define TAG "LogStorage"
 
+/**
+ * - Flash partition erişimi tek noktadan
+ * - Read/Write/Erase
+ * - Opsiyonel global mutex (reader + writer çakışmasını kesmek için)
+ */
+
 static const esp_partition_t *s_part = NULL;
 static SemaphoreHandle_t s_mutex = NULL;
 
@@ -36,10 +42,11 @@ bool log_storage_is_ready(void)
     return (s_part != NULL);
 }
 
+// Global lock (multi-step işlemlerde orchestrator kullanabilir)
 void log_storage_lock(void)
 {
     if (!s_mutex) {
-        // init edilmemiş olabilir; init dene
+        // init edilmemiş olabilir; init denenir.
         (void)log_storage_init();
     }
     if (s_mutex) {

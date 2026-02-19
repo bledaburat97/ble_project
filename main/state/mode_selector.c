@@ -14,8 +14,10 @@
 
 static const char *TAG = "ModeSelector";
 
+// Not: Mode selector ve çoklu tıklama ayarları test amaçlıdır; son üründe olmayacak.
 static bool indicator_led_status = false;
 
+// Mod göstergesi LED GPIO'sunu hazırlar.
 void initialize_mode_indicator_gpio(){
     gpio_config_t io_conf_led_driver = {
         .pin_bit_mask = (1ULL << MODE_INDICATOR_LED_GPIO),
@@ -28,6 +30,7 @@ void initialize_mode_indicator_gpio(){
     gpio_config(&io_conf_led_driver);
 }
 
+// Mod göstergesi LED'ini toggle eder.
 void change_mode_indicator_gpio_pin_status() {
     indicator_led_status = !indicator_led_status;
     gpio_set_level(MODE_INDICATOR_LED_GPIO, indicator_led_status);
@@ -44,6 +47,7 @@ void change_mode_indicator_gpio_pin_status() {
     }
 }
 
+// Çoklu kısa basış sayısına göre varsayılan parametreleri değiştirir.
 void change_default_parameters(uint16_t press_count) {
     switch(press_count) {
         case 2:
@@ -68,6 +72,7 @@ void change_default_parameters(uint16_t press_count) {
     }
 }
 
+// Mod göstergesi LED durumu.
 bool get_indicator_led_status() {
     return indicator_led_status;
 }

@@ -11,6 +11,7 @@ bool stop_inactivity_timer();
 bool start_inactivity_timer();
 bool start_alert_timer();
 void register_timer_end_callback(void (*callback)(NotificationType));
+// Timer event task ve queue'yu başlatır.
 void init_timer_controller();
 
 #endif

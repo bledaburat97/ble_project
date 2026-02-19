@@ -8,7 +8,7 @@
 
 typedef struct {
     MessageType type;           // Mesaj tipi
-    uint8_t *data;              // Data (JSON string)
+    uint8_t *data;              // Data
     size_t data_length;         // Data uzunluğu
     uint16_t id;                // Records için therapy_id, diğerlerinde 0
     bool wait_for_response;
@@ -18,7 +18,7 @@ typedef struct {
 typedef struct {
     bool     active;        // şu anda bir terapi record’u beklemede mi?
     uint16_t therapy_id;    // hangi terapi
-    uint8_t  retry_count;   // son batch için kaç kez yeniden denedik (0..2)
+    uint8_t  retry_count;   // kaç kez yeniden denedik (0..2)
     uint32_t send_timestamp;  // son "son fragment" gönderim zaman damgası
     uint16_t last_sent_therapy_id;
     uint32_t last_sent_timestamp;

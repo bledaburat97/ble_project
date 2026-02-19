@@ -9,8 +9,6 @@
 
 #include "../ble/include/ble_controller.h"
 
-#include "../buzzer/buzzer.h"
-
 #include "freertos/FreeRTOS.h"
 #include "freertos/timers.h"
 #include "freertos/task.h"
@@ -21,14 +19,20 @@ static const char *TAG = "TimerController";
 
 static const uint32_t WATCHDOG_TIMEOUT_MS = 10 * 1000; 
 
+// Terapinin ana timer'ı.
 static TimerHandle_t therapy_timer = NULL;
+// İnaktivite timer'ı.
 static TimerHandle_t inactivity_timer = NULL;
+// Alert durumunda kullanılan timer.
 static TimerHandle_t alert_timer = NULL;
+// Periodik güncelleme watchdog timer'ı.
 static TimerHandle_t update_watchdog_timer = NULL;
 
 static uint16_t therapy_timer_duration = DEFAULT_THERAPY_DURATION;
 
+// Timer bitişlerinde çağrılan callback.
 static void (*timer_end_callback)(NotificationType) = NULL;
+// Watchdog tick'lerinde çağrılan callback.
 static void (*passed_duration_update_callback)() = NULL;
 
 typedef enum {
@@ -38,6 +42,7 @@ typedef enum {
     EVT_INACTIVITY_EXPIRED
 } TimerCompletedEvent;
 
+// Timer event'lerini taşıyan queue.
 QueueHandle_t timer_completed_event_queue = NULL;
 
 static inline void post_timer_completed_event(TimerCompletedEvent ev) {
@@ -85,6 +90,7 @@ static void inactivity_timer_expiry_callback(TimerHandle_t xTimer) {
     post_timer_completed_event(EVT_INACTIVITY_EXPIRED);
 }
 
+// Terapi timer'ını durdurur ve watchdog'u kapatır.
 bool stop_therapy_timer() {
     if(stop_and_delete_timer(&therapy_timer)){
         ESP_LOGI(TAG, "Therapy timer is stopped.");
@@ -97,6 +103,7 @@ bool stop_therapy_timer() {
     }
 }
 
+// Terapi timer'ını başlatır ve watchdog'u aktive eder.
 bool start_therapy_timer(uint16_t duration) {
     ESP_LOGI(TAG, "Start therapy timer with: %u", duration);
     therapy_timer_duration = duration;
@@ -112,6 +119,7 @@ bool start_therapy_timer(uint16_t duration) {
     return therapy_timer != NULL;
 }
 
+// İnaktivite timer'ını durdurur.
 bool stop_inactivity_timer() {
     if(stop_and_delete_timer(&inactivity_timer)){
         ESP_LOGI(TAG, "Inactivity timer is stopped.");
@@ -123,6 +131,7 @@ bool stop_inactivity_timer() {
     }
 }
 
+// İnaktivite timer'ını başlatır.
 bool start_inactivity_timer() {
     if(inactivity_timer != NULL) {
         stop_inactivity_timer();
@@ -146,6 +155,7 @@ static bool stop_alert_timer()
     }
 }
 
+// Alert timer'ını başlatır.
 bool start_alert_timer() {
     if(alert_timer != NULL) {
         stop_alert_timer();
@@ -156,6 +166,7 @@ bool start_alert_timer() {
     return alert_timer != NULL;
 }
 
+// Terapinin kalan süresini ms cinsinden döner.
 static uint32_t get_therapy_timer_remaining_ms(void) {
     if (!therapy_timer) return 0;
 
@@ -185,6 +196,7 @@ static uint32_t get_therapy_timer_remaining_ms(void) {
     return ms;
 }
 
+//Terapinin geçen süresini ms cinsinden döner.
 uint32_t get_therapy_timer_passed_ms(void) {
     uint32_t total_ms = (uint32_t)therapy_timer_duration * 1000u;
     uint32_t remain_ms = get_therapy_timer_remaining_ms();
@@ -192,6 +204,7 @@ uint32_t get_therapy_timer_passed_ms(void) {
     return total_ms - remain_ms;
 }
 
+// Terapinin kalan süresini s cinsinden döner.
 uint16_t get_therapy_timer_remaining_s(void) {
     uint32_t ms = get_therapy_timer_remaining_ms();
     return (uint16_t)((ms + 999u) / 1000u);
@@ -253,6 +266,7 @@ uint16_t get_alert_timer_remaining_s(void) {
     return (uint16_t)((ms + 999u) / 1000u);
 }
 
+// Watchdog timer'ını yeniden başlatır.
 void restart_duration_update_watchdog_timer(void) {
     if (update_watchdog_timer) {
         xTimerStop(update_watchdog_timer, 0);
@@ -260,14 +274,18 @@ void restart_duration_update_watchdog_timer(void) {
     }
 }
 
+// Watchdog tick callback'ini kaydeder.
 void register_passed_duration_update(void (*callback)()) {
     passed_duration_update_callback = callback;
 }
 
+// Timer bitiş callback'ini kaydeder.
 void register_timer_end_callback(void (*callback)(NotificationType)) {
     timer_end_callback = callback;
 }
 
+// Timer event queue'sunu tüketen task.
+// DeviceManager'a event gönderir veya watchdog timer senaryosunda ise flash'a log kaydeder.
 static void timer_controller_task(void *arg) {
     TimerCompletedEvent ev;
     for (;;) {
@@ -296,6 +314,7 @@ static void timer_controller_task(void *arg) {
     }
 }
 
+// Timer controller altyapısını başlatır.
 void init_timer_controller() {
     timer_completed_event_queue = xQueueCreate(16, sizeof(TimerCompletedEvent));
     xTaskCreate(timer_controller_task, "timer_controller_task", 4096, NULL, 5, NULL);

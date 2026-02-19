@@ -18,6 +18,7 @@
 #define PROFILE_A_APP_ID 0
 #define GATTS_CHAR_UUID_WIFI_CONFIG             0x2A53
 #define GATTS_CHAR_UUID_UPDATING_CONFIG         0x2A54
+#define GATTS_CHAR_UUID_AUTH                    0x2A55
 #define GATTS_CHAR_UUID_RECORDS                 0x2A56
 #define GATTS_CHAR_UUID_TIMER_STATE             0x2A57
 #define GATTS_CHAR_UUID_MEASUREMENT             0x2A58
@@ -43,6 +44,7 @@ typedef enum {
 
 typedef enum {
   STEP_INIT = 0,
+  STEP_ADD_AUTH,
   STEP_ADD_RECORDS,
   STEP_ADD_TIMER,
   STEP_ADD_TIMER_CCCD,
@@ -68,6 +70,7 @@ struct gatts_profile_inst {
     uint16_t app_id;
     uint16_t conn_id;
     uint16_t service_handle;
+    uint16_t auth_handle;
     uint16_t records_handle;
     uint16_t timer_state_handle;
     uint16_t measurement_handle;

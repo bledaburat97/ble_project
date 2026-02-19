@@ -24,7 +24,9 @@ static void (*send_new_record_callback)(uint16_t) = NULL;
 
 static int dynamic_period = DYNAMIC_PERIOD;
 
+// Anlık mesajlar için yüksek öncelikli kuyruk.
 QueueHandle_t high_priority_queue;
+// Record fragment'ları için düşük öncelikli kuyruk.
 QueueHandle_t low_priority_queue;
 static RecordsPending pending_record = {0};
 
@@ -36,7 +38,7 @@ static inline bool requires_conf(MessageType t) {
         case TIMER_STATE_INFO_MESSAGE:
         case NOTIFICATION_INFO_MESSAGE:
         case DEVICE_INFO_MESSAGE:
-            return true;   // bunları indicate yapıyorsun
+            return true;   // bunları indicate yapıyoruz.
         case MEASUREMENT_INFO_MESSAGE:
         case RECORDS_INFO_MESSAGE:
         default:
@@ -44,6 +46,7 @@ static inline bool requires_conf(MessageType t) {
     }
 }
 
+// Records feedback timeout kontrolü (ACK gelmezse retry).
 static void check_pending_timeouts()
 {
     uint32_t now = esp_log_timestamp();
@@ -90,6 +93,7 @@ static inline void drain_old_conf(void){
 
 typedef enum { SEND_OK, SEND_NOT_READY, SEND_FAIL } send_res_t;
 
+// Mesajı BLE üzerinden gönderir ve gerekirse CONF/ACK takibini yapar.
 static send_res_t send_and_track(const MessageQueueEntry *entry)
 {
     if (!get_ble_connection_status()) {
@@ -143,7 +147,6 @@ static send_res_t send_and_track(const MessageQueueEntry *entry)
 
         if (!need_conf) {
             if (entry->wait_for_response && entry->type == RECORDS_INFO_MESSAGE) {
-                //add_pending_records(entry->id);  // son fragment ise app feedback bekle
                 set_record_pending(entry->id);
             }
             return SEND_OK;
@@ -190,6 +193,7 @@ static void on_dynamic_period_change(uint16_t period) {
     dynamic_period = (int)period;
 }
 
+// İki kuyruğu tüketen ana gönderim task'ı.
 static void queue_sender_task(void *pvParameters)
 {
     MessageQueueEntry entry;
@@ -206,8 +210,6 @@ static void queue_sender_task(void *pvParameters)
             vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
         }
-
-        //TickType_t inter_message_delay = (entry.type == TIMER_STATE_INFO_MESSAGE) ? 0 : pdMS_TO_TICKS(dynamic_period);
 
         if (xQueueReceive(high_priority_queue, &entry, pdMS_TO_TICKS(100)) == pdTRUE) {
             ESP_LOGD(TAG, "High priority queue received a message");
@@ -247,6 +249,7 @@ static void queue_sender_task(void *pvParameters)
     }
 }
 
+// Kuyrukları ve gönderim task'ını başlatır.
 void init_message_queue_manager()
 {
     high_priority_queue = xQueueCreate(MAX_PENDING_MESSAGES, sizeof(MessageQueueEntry));
@@ -264,6 +267,7 @@ void init_message_queue_manager()
     }
 }
 
+// Record fragment'ını düşük öncelikli kuyruğa ekler.
 void send_records_info_message_to_queue(uint16_t therapy_id, uint8_t* data, size_t data_length, bool wait_for_response) {
     ESP_LOGI(TAG, "Adding records message of %u to queue to send it", therapy_id);
 
@@ -295,6 +299,7 @@ void send_records_info_message_to_queue(uint16_t therapy_id, uint8_t* data, size
     }
 }
 
+// Anlık mesajları yüksek öncelikli kuyruğa ekler.
 void send_info_message_to_queue(MessageType message_type, uint8_t* data, size_t data_length) {
     //ESP_LOGI(TAG, "Queue handles: high=%p low=%p", high_priority_queue, low_priority_queue);
     
@@ -353,6 +358,7 @@ void send_info_message_to_queue(MessageType message_type, uint8_t* data, size_t 
     }
 }
 
+// Records feedback geldiyse pending durumu temizler.
 bool clear_pending_approval_record(uint16_t therapy_id)
 {
 
@@ -361,7 +367,7 @@ bool clear_pending_approval_record(uint16_t therapy_id)
         return true;
     }
 /*
-    // Late ACK toleransı: en son gönderilen therapy ile eşleşiyorsa ve çok eski değilse kabul et, 
+    //TODO: düşünülsün: Late ACK toleransı: en son gönderilen therapy ile eşleşiyorsa ve çok eski değilse kabul et, 
     //Kullanılmıyor
     const uint32_t now = esp_log_timestamp();
     const uint32_t grace_ms = 30000;
@@ -400,6 +406,7 @@ bool is_record_pending(void) {
     return pending_record.active;
 }
 
+// Düşük öncelikli kuyrukta yeterli boşluk bekler.
 bool wait_low_queue_space(uint32_t min_free, uint32_t timeout_ms)
 {
     uint32_t start = esp_log_timestamp();

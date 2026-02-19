@@ -25,6 +25,7 @@
 
 static const char *TAG = "DeviceInfoMessageCreator";
 
+// Bağlantı sonrası cihaz kimlik bilgilerini gönderir.
 static void send_device_info(uint16_t passed_seconds) {
     DeviceInfoMessage message = {0};
     //message.current_time; //TODO: set current time when RTC integrated.
@@ -41,6 +42,7 @@ static void send_device_info(uint16_t passed_seconds) {
     send_info_message_to_queue(DEVICE_INFO_MESSAGE, buf, len);
 }
 
+// İlk senkron için BLE_CONNECTED log'u + device info gönderimi yapar.
 static void perform_post_connect_operations(void) {
     uint16_t passed_seconds = get_session_passed_seconds();
     esp_err_t err = save_log(BLE_CONNECTED, NULL, 0, passed_seconds);
@@ -53,6 +55,7 @@ static void perform_post_connect_operations(void) {
     restart_duration_update_watchdog_timer();
 }
 
+// CCCD'ler hazır olunca ilk senkronu tetikler.
 static void on_connect_ble() {
     ESP_LOGI(TAG, "On connect BLE");
     vTaskDelay(pdMS_TO_TICKS(500));

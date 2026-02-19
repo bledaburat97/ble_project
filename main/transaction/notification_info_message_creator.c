@@ -24,11 +24,13 @@
 
 static const char *TAG = "NotificationInfoMessageCreator";
 
+// Timer state info CONF sonrası ek bildirim üretir.
 static void on_timer_state_info_feedback_callback() {
     NotificationType helmet_status = get_helmet_state() ? NOTIF_HELMET_ON : NOTIF_HELMET_OFF;
     add_and_send_notification_info(helmet_status);
 }
 
+// Watchdog tick geldiğinde passed_seconds log'u üretir.
 static void on_passed_duration_update() {
     if(get_device_state() == STATE_ACTIVE) {
         uint16_t passed_seconds = get_session_passed_seconds();
@@ -39,6 +41,7 @@ static void on_passed_duration_update() {
     }
 }
 
+// BLE kopunca log basar ve watchdog'u resetler.
 static void on_disconnect_ble() {
     uint16_t passed_seconds = get_session_passed_seconds();
     esp_err_t err = save_log(BLE_DISCONNECTED, NULL, 0, passed_seconds);
@@ -48,6 +51,7 @@ static void on_disconnect_ble() {
     restart_duration_update_watchdog_timer();
 }
 
+// Bildirimi encode edip kuyruğa ekler.
 void send_notification_info(NotificationType type, uint16_t passed_seconds) {
     NotificationMessage message = {
         .type = type,
@@ -59,6 +63,7 @@ void send_notification_info(NotificationType type, uint16_t passed_seconds) {
     send_info_message_to_queue(NOTIFICATION_INFO_MESSAGE, buf, len);
 }
 
+// Bildirimi loglayıp uygulamaya gönderir.
 void add_and_send_notification_info(NotificationType notification_type) {
     uint16_t passed_seconds = get_session_passed_seconds();
     esp_err_t err = save_log(notification_type, NULL, 0, passed_seconds);
@@ -69,6 +74,7 @@ void add_and_send_notification_info(NotificationType notification_type) {
     restart_duration_update_watchdog_timer();
 }
 
+// Notification akışını tetikleyen callback'leri bağlar.
 void init_notification_info_message_creator() {
     register_timer_state_info_feedback_callback(on_timer_state_info_feedback_callback);
     register_passed_duration_update(on_passed_duration_update);

@@ -12,16 +12,22 @@
 #include "log_config.h"
 
 #define TAG "LogOrchestrator"
+/**
+ * log_orchestrator:
+ * - cihaza kaydedilmek istenen loglar için tek entrypoint
+ */
 
+// Terapi başlamadan önce gelen logları RAM'de tutan cache.
 static LogCache s_cache;
 
-// Writer-side buffers (global ama reader’dan ayrıldı)
 static uint8_t s_slot_buf[THERAPY_SLOT_SIZE];
 static uint8_t s_entry_buf[MAX_LOG_ENTRY_SIZE];
 static uint8_t s_write_buf[MAX_LOG_ENTRY_SIZE];
 
-static uint32_t s_starting_local_offset = 0; // performans için; istersen her seferinde scan ile bul
+// Slot içinde yazmaya başlanacak local offset (son yazım noktasından devam).
+static uint32_t s_starting_local_offset = 0; // performans için; istenirse her seferinde scan ile bulunabilir.
 
+// Entry CRC doğrulaması (bozuk kayıtları tespit etmek için).
 static inline bool verify_crc(const uint8_t *entry_ptr, LogEntrySizeInfo si)
 {
     if (!entry_ptr) return false;
@@ -30,6 +36,7 @@ static inline bool verify_crc(const uint8_t *entry_ptr, LogEntrySizeInfo si)
     return expected == entry_ptr[si.total_length - 1];
 }
 
+// BaseLogEntry -> flash'a yazılacak ham entry formatı.
 static bool create_log_entry_bytes(const BaseLogEntry *log, uint8_t *out_entry)
 {
     if (!log || !out_entry) return false;
@@ -48,6 +55,7 @@ static bool create_log_entry_bytes(const BaseLogEntry *log, uint8_t *out_entry)
     return true;
 }
 
+// Belirli offset'e tek bir log entry yazar.
 static esp_err_t write_log_entry_at(uint32_t abs_offset, const uint8_t *entry, size_t size)
 {
     if (!entry || size == 0 || size > MAX_LOG_ENTRY_SIZE) return ESP_ERR_INVALID_ARG;
@@ -60,6 +68,7 @@ static esp_err_t write_log_entry_at(uint32_t abs_offset, const uint8_t *entry, s
     return e;
 }
 
+// Slot doluluk sınırına gelindiğinde "FLASH_SLOT_IS_FULL" yazar.
 static esp_err_t write_slot_full_marker(uint32_t abs_offset, uint16_t passed_seconds)
 {
     Notification_t slot_full = {
@@ -71,13 +80,14 @@ static esp_err_t write_slot_full_marker(uint32_t abs_offset, uint16_t passed_sec
     return write_log_entry_at(abs_offset, (const uint8_t *)&slot_full, sizeof(Notification_t));
 }
 
+// Terapiyi "bitmiş" kabul eden log tipleri.
 static inline bool is_end_log_type(uint8_t t)
 {
     return (t == NOTIF_THERAPY_COMPLETED || t == NOTIF_THERAPY_STOPPED_BY_APP || t == NOTIF_ENTER_DEEP_SLEEP);
 }
 
 /**
- * Slot içinde bir sonraki yazma offset’i bulur (senin eski find_next_log_offset mantığı).
+ * Slot içinde bir sonraki yazma offset’i bulur
  * s_slot_buf, base_offset slot’u yüklenmiş olmalı.
  */
 static bool find_next_log_offset(size_t entry_size, uint8_t entry_type, bool *out_getting_full, uint32_t *out_local)
@@ -114,11 +124,13 @@ static bool find_next_log_offset(size_t entry_size, uint8_t entry_type, bool *ou
     return false;
 }
 
+// Slotu RAM buffer'a yükler.
 static esp_err_t load_slot(uint32_t base_offset)
 {
     return log_storage_read_slot(base_offset, s_slot_buf, sizeof(s_slot_buf));
 }
 
+// Slot RAM'de hazırken yeni log'u sona ekler.
 static esp_err_t append_log_entry_with_loaded_slot(uint32_t base_offset, const BaseLogEntry *log)
 {
     if (!log) return ESP_ERR_INVALID_ARG;
@@ -154,6 +166,7 @@ static esp_err_t append_log_entry_with_loaded_slot(uint32_t base_offset, const B
     }
 }
 
+// Slotu yükleyip log'u ekler.
 static esp_err_t append_log_entry(uint32_t base_offset, const BaseLogEntry *log)
 {
     esp_err_t e = load_slot(base_offset);
@@ -161,6 +174,7 @@ static esp_err_t append_log_entry(uint32_t base_offset, const BaseLogEntry *log)
     return append_log_entry_with_loaded_slot(base_offset, log);
 }
 
+// Ring buffer mantığıyla bir sonraki gelecek terapi için slot temizliği yapar.
 static esp_err_t prepare_next_slot_for_new_therapy(uint16_t new_therapy_count)
 {
     if (new_therapy_count >= MAX_SAVED_THERAPY) {
@@ -171,6 +185,7 @@ static esp_err_t prepare_next_slot_for_new_therapy(uint16_t new_therapy_count)
     return ESP_OK;
 }
 
+// Log orchestrator ve cache'i başlatır.
 esp_err_t log_orchestrator_init(void)
 {
     esp_err_t e = log_storage_init();
@@ -183,6 +198,7 @@ esp_err_t log_orchestrator_init(void)
     return ESP_OK;
 }
 
+// Cache'deki logları ilgili slota topluca yazar.
 static esp_err_t flush_cached_logs_to_slot(uint32_t base_offset)
 {
     esp_err_t e = load_slot(base_offset);
@@ -197,6 +213,7 @@ static esp_err_t flush_cached_logs_to_slot(uint32_t base_offset)
     return ESP_OK;
 }
 
+// Önceki terapi slotta bitiş logu yoksa o slota bitiş log'u ekleyerek güvenli kapatma yapar.
 esp_err_t finalize_old_slot(uint16_t therapy_id) {
     uint32_t old_base_offset = ((uint32_t)((therapy_id - 1) % MAX_SAVED_THERAPY)) * THERAPY_SLOT_SIZE;
     if (!log_storage_is_ready()) {
@@ -233,7 +250,6 @@ esp_err_t finalize_old_slot(uint16_t therapy_id) {
                 return ESP_FAIL;
             }
 
-            // burada append_log_entry çağırman OK (kilit sende, storage fonksiyonları ekstra lock almıyor)
             esp_err_t shut_down_error = append_log_entry(old_base_offset, &shutdown_log);
             if (shut_down_error != ESP_OK) {
                 ESP_LOGE(TAG, "Failed to append shutdown log: %s", esp_err_to_name(shut_down_error));
@@ -247,6 +263,7 @@ esp_err_t finalize_old_slot(uint16_t therapy_id) {
     return ESP_OK;
 }
 
+// Yeni terapi başlarken cache'i flush edip ilk log'u yazar.
 esp_err_t log_orchestrator_flush_logs(uint8_t type, const uint8_t *data, size_t data_len, uint16_t passed_seconds, uint16_t therapy_id, bool is_first_log_to_append) {
     BaseLogEntry log = fill_base_log(type, data, data_len, passed_seconds);
     if (log.entry_size == 0) return ESP_FAIL;
@@ -290,6 +307,7 @@ esp_err_t log_orchestrator_flush_logs(uint8_t type, const uint8_t *data, size_t 
     return ae;
 }
 
+// Normal akışta tek bir log ekler (cache/flash kararını içerir).
 esp_err_t log_orchestrator_add_log(uint8_t type, const uint8_t *data, size_t data_len, uint16_t passed_seconds, uint16_t therapy_id) {
     BaseLogEntry log = fill_base_log(type, data, data_len, passed_seconds);
     if (log.entry_size == 0) return ESP_FAIL;
@@ -311,7 +329,7 @@ esp_err_t log_orchestrator_add_log(uint8_t type, const uint8_t *data, size_t dat
             return ce;
         }
         ESP_LOGW(TAG, "Cache is active but log (type=%u) is not cacheable. Ignoring special handling.", log.type);
-        // cache aktif ama cachelenemez -> normal flash akışına düş
+        // cache aktif ama cachelenemez -> normal flash akışına düşer.
     }
 
     // Normal flash akışı
@@ -339,7 +357,6 @@ esp_err_t log_orchestrator_add_log(uint8_t type, const uint8_t *data, size_t dat
         return ce;
     }
 
-    // hiçbir şey yapma
     log_storage_unlock();
     return ESP_OK;
 }

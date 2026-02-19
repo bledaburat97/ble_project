@@ -1,4 +1,3 @@
-// log_resume.c
 #include "log_resume.h"
 
 #include <string.h>
@@ -12,8 +11,10 @@
 
 #define TAG "LogResume"
 
+// Son terapi slotunu okumak için geçici buffer.
 static uint8_t s_resume_slot_buf[THERAPY_SLOT_SIZE];
 
+// Entry CRC doğrulaması (bozuk kayıtları tespit eder).
 static inline bool verify_crc(const uint8_t *entry_ptr, LogEntrySizeInfo si)
 {
     if (!entry_ptr) return false;
@@ -23,6 +24,7 @@ static inline bool verify_crc(const uint8_t *entry_ptr, LogEntrySizeInfo si)
     return expected == actual;
 }
 
+// Pause/alert türlerini tek yerde toplar.
 static bool is_pause_state_type(uint8_t type) {
     return (type == TIMER_STATE_PAUSED_THERAPY) ||
            (type == TIMER_STATE_LOW_TEMP_ALERT_1) ||
@@ -37,6 +39,7 @@ static bool is_pause_state_type(uint8_t type) {
            (type == NOTIF_THERAPY_PAUSED_BY_APP);
 }
 
+// Yeni terapi veya devam loglarını tanımlar.
 static bool is_start_or_continue_state(uint8_t type) {
     return (type == TIMER_STATE_NEW_THERAPY_BY_BUTTON) ||
            (type == TIMER_STATE_NEW_THERAPY_BY_APP) ||
@@ -44,11 +47,13 @@ static bool is_start_or_continue_state(uint8_t type) {
            (type == TIMER_STATE_CONTINUE_THERAPY_BY_APP);
 }
 
+// Son terapi için slot base offset hesabı.
 static uint32_t base_offset_for_last(uint16_t therapy_count)
 {
     return ((uint32_t)((therapy_count - 1) % MAX_SAVED_THERAPY)) * THERAPY_SLOT_SIZE;
 }
 
+// Tamamlanmamış terapide geçen süreyi (session ve therapy) hesaplar.
 static bool compute_uncompleted_passed(const uint8_t *buf, uint16_t *out_last_session_passed, uint16_t *out_therapy_passed)
 {
 
@@ -117,6 +122,7 @@ static bool compute_uncompleted_passed(const uint8_t *buf, uint16_t *out_last_se
     return true;
 }
 
+// Son terapi slotundan yarım kalmış terapi bilgisini çıkartır.
 bool log_resume_read_uncompleted_therapy(UncompletedTherapyInfo *out)
 {
     if (!out) return false;
@@ -124,6 +130,7 @@ bool log_resume_read_uncompleted_therapy(UncompletedTherapyInfo *out)
     uint16_t therapy_count = read_therapy_count();
     if (therapy_count == 0) return false;
 
+    // Son terapi slotunu oku.
     uint32_t base_offset = log_reader_therapy_id_to_base_offset(therapy_count);
 
     log_storage_lock();
@@ -131,6 +138,7 @@ bool log_resume_read_uncompleted_therapy(UncompletedTherapyInfo *out)
     log_storage_unlock();
     if (e != ESP_OK) return false;
 
+    // Bitiş logları varsa terapi tamamlanmış kabul edilir.
     bool finished =
         log_reader_slot_buf_contains_type(s_resume_slot_buf, NOTIF_THERAPY_COMPLETED) ||
         log_reader_slot_buf_contains_type(s_resume_slot_buf, NOTIF_THERAPY_STOPPED_BY_APP) ||
@@ -139,9 +147,11 @@ bool log_resume_read_uncompleted_therapy(UncompletedTherapyInfo *out)
     if (finished) return false;
 
     ReadTherapyInfo info = {0};
+    // Özet terapi bilgilerini al.
     if (!log_reader_read_therapy_info(therapy_count, &info, true, s_resume_slot_buf)) return false;
 
     uint16_t last_session=0, therapy_passed=0;
+    // Geçen süreyi hesapla; başarısızsa son passed_duration'a düş.
     if (!compute_uncompleted_passed(s_resume_slot_buf, &last_session, &therapy_passed)) {
         last_session = info.passed_duration;
         therapy_passed = info.passed_duration;

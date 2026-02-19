@@ -13,14 +13,18 @@ QueueHandle_t lp_core_queue = NULL;
 static bool all_config_written = false;
 static const char *TAG = "LPCoreQueue";
 
+// LP core'a gönderilecek işlerin kuyruğunu oluşturur.
+// Bu kuyruk, HP core'da toplanan I2C isteklerini LP core'a sırayla aktarır.
 void initialize_lp_core_queue() {
     lp_core_queue = xQueueCreate(10, sizeof(lp_core_task_t));
 }
 
+// LP core tarafına temel konfigurasyon yazımları bitti mi bilgisini verir.
 bool is_all_config_written() {
     return all_config_written;
 }
 
+// LP core için bir I2C işi kuyruklar: komut, register, değer, cihaz adresi, byte sayısı.
 BaseType_t queue_add_task(uint32_t command, uint32_t reg, uint32_t value, uint32_t device_address, uint32_t byte_count) {
     if (lp_core_queue == NULL) return pdFAIL;
 
@@ -40,12 +44,16 @@ BaseType_t queue_add_task(uint32_t command, uint32_t reg, uint32_t value, uint32
     return pdPASS;
 }
 
+// Kuyruktan bir işi alır; timeout dolarsa başarısız döner.
 BaseType_t queue_get_task(lp_core_task_t *task, TickType_t timeout) {
     if (lp_core_queue == NULL) return pdFAIL;
 
     return xQueueReceive(lp_core_queue, task, timeout);
 }
 
+// LP core ile HP core arasındaki köprü task:
+// - LP core boşsa kuyruktan iş alıp ULP paylaşılan değişkenlere yazar.
+// - LP core işi bitirince sonucu okur ve gerekiyorsa interrupt'ı işler.
 void process_lp_queue_task(void *arg) {
     lp_core_task_t task;
 

@@ -25,11 +25,13 @@ uint16_t current_fragment_id = UINT16_MAX;
 
 uint8_t fragments[MAX_FRAGMENT_COUNT][MAX_FRAGMENT_SIZE];
 size_t fragment_lengths[MAX_FRAGMENT_COUNT];
+// İlk fragment'ta fragment_count byte'ının yazıldığı index.
 static uint16_t fragment_count_index = 0;
 
 static uint16_t fragment_size = DEFAULT_FRAGMENT_SIZE;
 static inline uint16_t FRAGMENT_CAPACITY(void) { return fragment_size; }
 
+// Fragment kapasitesini (MTU'ya göre) sınırlar.
 void fragments_set_capacity(size_t cap) {
     if (cap > MAX_FRAGMENT_SIZE) cap = MAX_FRAGMENT_SIZE;
     if (cap < MIN_FRAGMENT_SIZE) cap = MIN_FRAGMENT_SIZE;
@@ -41,6 +43,7 @@ void fragments_set_capacity_from_mtu(uint16_t mtu) {
     fragments_set_capacity(payload);
 }
 
+// Yeni fragment başlatır ve başlık (fragment_id + therapy_id) yazar.
 static bool start_new_fragment(uint16_t therapy_id) {
     if (FRAGMENT_CAPACITY() < 4) {
         ESP_LOGE(TAG, "Fragment capacity too small (%u)", (unsigned)FRAGMENT_CAPACITY());
@@ -67,6 +70,7 @@ static bool start_new_fragment(uint16_t therapy_id) {
     return true;
 }
 
+// Bir terapi için fragmentleme akışını başlatır ve temel header'ı yazar.
 void start_encoding_for_new_therapy(uint16_t therapy_id, uint16_t therapy_duration, uint16_t passed_therapy_duration) {
 
     if(!start_new_fragment(therapy_id)) {
@@ -90,6 +94,7 @@ void start_encoding_for_new_therapy(uint16_t therapy_id, uint16_t therapy_durati
     fragments[current_fragment_id][fragment_lengths[current_fragment_id]++] = passed_therapy_duration & 0xFF;
 }
 
+// Kayıtları ilgili fragment'a yazar.
 static void append_records_to_fragment(uint16_t count, uint8_t record_type, size_t record_size, const uint8_t *records, size_t start_index)
 {
     fragments[current_fragment_id][fragment_lengths[current_fragment_id]++] = record_type;
@@ -109,6 +114,7 @@ static void append_records_to_fragment(uint16_t count, uint8_t record_type, size
     
 }
 
+// Kayıtları fragment kapasitesine göre parçalara böler.
 void encode_records_of_therapy(uint16_t therapy_id, uint8_t record_type,
                                size_t record_size, size_t record_count,
                                const uint8_t *records) {
@@ -161,6 +167,7 @@ uint16_t get_fragment_count() {
     return current_fragment_id + 1;
 }
 
+// İlk fragment'taki fragment sayısı alanını finalize eder.
 bool add_fragment_count(void) {
     uint16_t total = get_fragment_count();
     if (total > 0xFF) {
@@ -172,6 +179,7 @@ bool add_fragment_count(void) {
     return true;
 }
 
+// Fragment buffer'larını temizler.
 void init_fragments()
 {
     current_fragment_id = UINT16_MAX;

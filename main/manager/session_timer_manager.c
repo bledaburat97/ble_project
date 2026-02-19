@@ -8,11 +8,18 @@
 
 static const char *TAG = "SessionTimerManager";
 
+//Session süresi cihazda bir terapi başladığı zaman başlar ancak o terapi sonlanana veya tamamlanana kadar tamamlanmaz.
+//Terapi süresinden farkı alarm inactivity gibi durumlarda geçen süreyi de dahil eder.
+//Bu session süresi flash'a yazılan loglarda, ble ile gönderilen mesajlarda passed_seconds parametresine set edilir.
+
+// Oturum başlangıç zamanı (us); -1 ise oturum yok.
 static int64_t session_start_us = -1; // -1: aktif oturum yok
 static inline bool is_session_running(void) { return session_start_us >= 0; }
+// Deep sleep öncesi geçen session süresi
 static int64_t passed_duration_before_deep_sleep = 0;
 
 
+// Oturum boyunca geçen süreyi saniye olarak hesaplar.
 uint16_t get_session_passed_seconds(void) {
     if (!is_session_running()) {
         ESP_LOGI(TAG, "Session is not running currently.");
@@ -37,11 +44,14 @@ uint16_t get_session_passed_seconds(void) {
     return (uint16_t)seconds;
 }
 
+// Oturumu sonlandırır ve zamanı sıfırlar.
 void clear_session_clock(void) {
     ESP_LOGW(TAG, "Session cleared");
     session_start_us = -1;
 }
 
+// Oturumu belirli bir geçmiş süre ile başlatır.
+// Tamamlanamamış terapileri yeni sessionda devam ettirmek istenirse
 void reset_session_clock(int64_t passed_time) {
     passed_duration_before_deep_sleep = passed_time;
     session_start_us = esp_timer_get_time();

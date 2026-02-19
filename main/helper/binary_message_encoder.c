@@ -4,7 +4,6 @@
 
 size_t encode_device_info_message_binary(const DeviceInfoMessage *m, uint8_t out[DEVICE_INFO_SIZE])
 {
-    // 0..5: MAC
     memcpy(&out[0], m->device_id, 6);
 
     memcpy(&out[6], m->current_time, 5);

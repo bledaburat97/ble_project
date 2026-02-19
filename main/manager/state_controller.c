@@ -11,9 +11,12 @@
 
 static const char* TAG = "StateController";
 
+// Cihazın mevcut durumu.
 static DeviceState s_current_state = STATE_IDLE;
+// Durum güncellemelerini koruyan mutex.
 static SemaphoreHandle_t s_state_mutex = NULL;
 
+// Cihaz durumunu thread-safe şekilde günceller.
 void set_device_state(DeviceState new_state) {
     if (new_state > STATE_IDLE) {
         ESP_LOGW(TAG, "Trying to set invalid state=%d", (int)new_state);
@@ -42,6 +45,7 @@ void set_device_state(DeviceState new_state) {
     xSemaphoreGive(s_state_mutex);
 }
 
+// Cihaz durumunu thread-safe şekilde okur.
 DeviceState get_device_state(void) {
     if (s_state_mutex == NULL) {
         ESP_LOGE(TAG, "State mutex is NULL!");

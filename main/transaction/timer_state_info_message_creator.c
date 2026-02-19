@@ -24,6 +24,7 @@
 static const char *TAG = "TimerStateInfoMessageCreator";
 static void (*active_or_paused_therapy_callback)() = NULL;
 
+// Timer state mesajını loglar (debug için).
 static void log_timer_state_message(const TimerStateInfoMessage *message, const char *context) {
     ESP_LOGI(TAG,
              "(%s) timer state info with type: %u, duration: %u, therapy_id: %u, therapy_passed_seconds: %u, remaining_seconds: %u, session passed seconds: %u",
@@ -31,12 +32,14 @@ static void log_timer_state_message(const TimerStateInfoMessage *message, const 
              message->therapy_passed_seconds, message->remaining_seconds, message->passed_seconds);
 }
 
+// Timer state mesajını encode edip kuyruğa ekler.
 static void enqueue_timer_state_message(const TimerStateInfoMessage *message) {
     uint8_t buf[TIMER_STATE_INFO_SIZE];
     size_t len = encode_timer_state_info_message_binary(message, buf);
     send_info_message_to_queue(TIMER_STATE_INFO_MESSAGE, buf, len);
 }
 
+// İlk senkron sonrası mevcut state snapshot'ını gönderir.
 static void on_device_info_feedback_callback() {
     TimerStateInfoMessage message = {0};
     DeviceState device_state = get_device_state();
@@ -90,23 +93,6 @@ static void on_device_info_feedback_callback() {
         message.duration = ALERT_THRESHOLD_SECONDS;
         message.remaining_seconds = get_alert_timer_remaining_s();
     }
-    else if(device_state == STATE_HUMIDITY_ALERT) {
-        if (currentTherapyState == PAUSED) {
-            message.therapy_id = get_current_therapy_id();
-            message.therapy_passed_seconds = (uint16_t)(get_paused_therapy_passed_duration_ms() / 1000u);
-        }
-        else if(currentTherapyState == NONE) {
-            message.therapy_id = 0;
-            message.therapy_passed_seconds = 0;
-        }
-        else {
-            ESP_LOGE(TAG, "Current therapy state is not set correctly for the humidity alert.");
-            return;
-        }
-        message.type = TIMER_STATE_LOW_HUM_ALERT; //TODO: hangi hata varsa o olacak.
-        message.duration = ALERT_THRESHOLD_SECONDS;
-        message.remaining_seconds = get_alert_timer_remaining_s();
-    }
     else {
         ESP_LOGE(TAG, "Device state: %u is not correct.", device_state);
         return;
@@ -124,6 +110,7 @@ static void on_device_info_feedback_callback() {
     }
 }
 
+// Pause/Inactive/Alert gibi diğer state bildirimlerini üretir.
 void add_and_send_new_other_state_info(NotificationType notification_type) {
     ESP_LOGI(TAG, "Add and send new other state info.");
 
@@ -153,6 +140,7 @@ void add_and_send_new_other_state_info(NotificationType notification_type) {
     enqueue_timer_state_message(&message);
 }
 
+// Yeni/continue terapi state mesajını loglayıp gönderir.
 static void add_and_send_new_therapy_state_info(NotificationType notification_type, TimerStateInfoMessage message) {
     uint8_t data[] = {message.therapy_id >> 8, message.therapy_id & 0xFF, message.duration >> 8, message.duration & 0xFF, message.therapy_passed_seconds >> 8, message.therapy_passed_seconds & 0xFF};
 
@@ -170,6 +158,7 @@ static void add_and_send_new_therapy_state_info(NotificationType notification_ty
     enqueue_timer_state_message(&message);
 }
 
+// Yeni terapi başlangıcını bildirir.
 void send_new_therapy_started(NotificationType notification_type) {
     uint16_t therapy_id = get_new_therapy_id_for_new_therapy();
     uint16_t duration = get_planned_therapy_duration_s();
@@ -188,6 +177,7 @@ void send_new_therapy_started(NotificationType notification_type) {
     add_and_send_new_therapy_state_info(notification_type, message);
 }
 
+// Pause edilmiş terapiyi devam ettirirken bildirir.
 void send_therapy_continued(NotificationType notification_type) {
     uint16_t therapy_id = get_current_therapy_id();
     uint16_t duration = get_planned_therapy_duration_s();
@@ -206,10 +196,12 @@ void send_therapy_continued(NotificationType notification_type) {
     add_and_send_new_therapy_state_info(notification_type, message);
 }
 
+// Aktif/paused state gönderiminden sonra çağrılacak callback'i bağlar.
 void register_active_or_paused_therapy_info(void (*callback)()) {
     active_or_paused_therapy_callback = callback;
 }
 
+// Timer state akışını başlatır (callback'leri bağlar).
 void init_timer_state_info_message_creator() {
     register_device_info_feedback_callback(on_device_info_feedback_callback);
 }

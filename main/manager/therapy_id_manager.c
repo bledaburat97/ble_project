@@ -13,6 +13,8 @@
 
 static const char *TAG = "TherapyIdManager";
 
+// Mevcut terapi durumuna göre aktif terapi ID'sini getirir.
+// Eğer başlatılmış terapi yoksa 0 döner
 uint16_t get_current_therapy_id(void)
 {
     if (get_current_therapy_state() == NONE) {
@@ -28,6 +30,7 @@ uint16_t get_current_therapy_id(void)
     return therapy_count;
 }
 
+// Yeni terapi başlatıldığı zaman, önceki terpainin id'sini 1 arttırarak yeni terapiye set edilir.
 uint16_t get_new_therapy_id_for_new_therapy(void)
 {
     uint16_t therapy_count = read_therapy_count();
@@ -38,6 +41,8 @@ uint16_t get_new_therapy_id_for_new_therapy(void)
     return (uint16_t)(therapy_count + 1u);
 }
 
+// Son sonlanmış veya tamamlanmış terapi ID'sini döner.
+// Therapy Id'ler 1 ile başlar sırayla artar. Cihazdaki kayıtlı therapy_count değeri aslında son başlatılmış terapinin id'sidir. 
 uint16_t get_last_completed_therapy_id(void) {
     uint16_t therapy_count = read_therapy_count();
     if (get_current_therapy_state() == NONE) {

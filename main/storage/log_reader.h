@@ -12,12 +12,6 @@
 extern "C" {
 #endif
 
-/**
- * log_reader:
- * - Slot parse
- * - ReadTherapyLogs / ReadTherapyInfo üretir
- * - Orchestrator’ın ihtiyaç duyduğu helper’lar: slot_contains, max_passed
- */
 
 typedef struct {
     uint8_t* measurements;      // malloc edilmiş buffer
@@ -50,11 +44,6 @@ void log_reader_slot_reset(LogReaderSlot *s);
 esp_err_t log_reader_slot_load(LogReaderSlot *s, uint32_t base_offset);
 
 
-/**
- * malloc’lı output:
- * - out->measurements / notifications / brightness_updates allocate edilir
- * - caller -> log_reader_free_therapy_logs ile free eder
- */
 bool log_reader_read_records(uint16_t therapy_id, ReadTherapyLogs *therapy_logs, LogReadMode mode, const uint8_t *slot_buf);
 void log_reader_free_therapy_logs(ReadTherapyLogs *t);
 

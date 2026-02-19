@@ -81,8 +81,6 @@ idf_component_register(SRCS "i2c/proximity/proximity_int_controller.c"
 
                             "common/device_states.c"
 
-                            "buzzer/buzzer.c"
-
                         INCLUDE_DIRS "." 
                                 "lp_core"
                                 "C:/Users/bleda.burat/esp/v5.3.1/esp-idf/components/ulp/lp_core/"
