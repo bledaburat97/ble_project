@@ -24,5 +24,6 @@ void post_therapy_state_change_request_event(const uint8_t *buffer, size_t lengt
 
 void post_device_start_event();
 void post_uncompleted_therapy_set_event(UncompletedTherapyInfo uncompletedTherapyInfo);
+void post_stop_request_for_profile_change();
 
 #endif

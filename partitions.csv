@@ -1,7 +1,11 @@
 # Name,         Type, SubType, Offset,   Size
 # Note: if you have increased the bootloader size, make sure to update the offsets to avoid overlap
 # 24 KB
-nvs,          data, nvs,     0x9000,   0x6000
+profile_storage,        data, 0x84,    0x9000,   0x1000
+passkey_storage,        data, 0x85,    0xA000,   0x1000
+bright_storage,     data, 0x86,    0xB000,   0x1000
+duration_storage,       data, 0x87,    0xC000,   0x1000
+nvs,                    data, nvs,     0xD000,   0x2000
 # 8 KB    
 otadata,      data, ota,     0xF000,   0x2000
 # 4 KB     

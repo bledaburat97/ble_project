@@ -297,7 +297,7 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
             }
         }
         else if (param->write.handle == gl_profile_tab[PROFILE_A_APP_ID].updating_records_handle) {
-            if(param->write.value != NULL && param->write.len == 2) {
+            if(param->write.value != NULL && param->write.len == 6) {
                 if (on_write_updating_records_callback) {
                     on_write_updating_records_callback(param->write.value, param->write.len);
                 }

@@ -13,6 +13,7 @@
 #include "../manager/therapy_id_manager.h"
 #include "../manager/timer_info_getter.h"
 #include "../manager/message_saver.h"
+#include "../manager/profile_manager.h"
 
 #include "../device_configuration.h"
 
@@ -174,6 +175,7 @@ void send_new_therapy_started(NotificationType notification_type) {
         .passed_seconds = get_session_passed_seconds()
     };
 
+    try_append_profile(therapy_id);
     add_and_send_new_therapy_state_info(notification_type, message);
 }
 

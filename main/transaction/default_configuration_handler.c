@@ -2,54 +2,54 @@
 
 #include "../helper/binary_message_parser.h"
 
-#include "../nvs/storage_manager.h"
-
 #include "../ble/include/ble_internal.h"
 
 #include "../device_configuration.h"
 
-#include "esp_bt_defs.h"
-#include "esp_gap_ble_api.h"
+#include "../storage/brightness_partition_manager.h"
+#include "../storage/duration_partition_manager.h"
+
 #include "esp_log.h"
 
 static const char *TAG = "DefaultConfigHandler";
-// NVS'de kalıcı varsayılanlar için anahtarlar.
-static const char *NVS_THERAPY_DUR_KEY = "therapy_dur";
-static const char *NVS_BRIGHTNESS_KEY = "bright";
 
 // Varsayılan terapi süre/parlaklık değerleri (RAM'de cache).
 static uint16_t default_therapy_duration = DEFAULT_THERAPY_DURATION;
 static uint8_t default_brightness[6] = {100,100,100,100,100,100};
 
 // Terapi süresini güvenli aralığa sınırlar.
-static uint16_t clamp_duration(uint16_t s) {
-    if (s < 10) return 10;
-    if (s > MAX_THERAPY_DURATION) return MAX_THERAPY_DURATION;
-    return s;
-}
 
-// Varsayılan terapi süresini NVS'ye yazar.
-esp_err_t set_and_store_default_therapy_duration(uint16_t seconds) {
-    seconds = clamp_duration(seconds);
-    esp_err_t err = save_parameter_u16(NVS_THERAPY_DUR_KEY, seconds);
-    if (err == ESP_OK) {
-        default_therapy_duration = seconds;
-        ESP_LOGI(TAG, "Therapy duration updated to %u", seconds);
+
+// Varsayılan terapi süresini flasha yazar.
+esp_err_t set_and_store_default_therapy_duration(const uint16_t seconds) {
+
+    if (default_duration_append(seconds)) {
+        // clamp’lenmiş değeri RAM’e tam yansıtmak için en garanti yöntem olarak tekrar oku
+        DurationEntry last;
+        if (default_duration_read_last(&last)) {
+            default_therapy_duration = last.duration;
+        } else {
+            // fallback
+            default_therapy_duration = seconds;
+        }
+        ESP_LOGI(TAG, "Therapy duration updated to %u", default_therapy_duration);
+        return ESP_OK;
     }
-    return err;
+    return ESP_FAIL;
 }
 
-// Varsayılan parlaklığı NVS'ye yazar.
-esp_err_t set_and_store_default_brightness(const uint8_t br[6]) {
-    esp_err_t err = save_parameter_blob(NVS_BRIGHTNESS_KEY, br, 6);
-    if (err == ESP_OK) {
-        memcpy(default_brightness, br, 6);
+// Varsayılan parlaklığı flasha yazar.
+esp_err_t set_and_store_default_brightness(const uint8_t brightness[6]) {
+    if (!brightness) return ESP_ERR_INVALID_ARG;
+
+    if (default_brightness_append(brightness)) {
+        memcpy(default_brightness, brightness, 6);
         ESP_LOGI(TAG, "Brightness updated to {%u,%u,%u,%u,%u,%u}",
-                 br[0], br[1], br[2], br[3], br[4], br[5]);
+                 brightness[0], brightness[1], brightness[2], brightness[3], brightness[4], brightness[5]);
+        return ESP_OK;
     }
-    return err;
+    return ESP_FAIL;
 }
-
 
 // Uygulamadan gelen "varsayılan config" mesajını işler.
 static void on_write_of_updating_configuration_message(const uint8_t *buf, size_t len) {
@@ -69,21 +69,29 @@ static void on_write_of_updating_configuration_message(const uint8_t *buf, size_
 
 }
 
-// NVS'den varsayılanları yükler ve write callback'ini bağlar.
+// Partitionlardan varsayılanları yükler ve write callback'ini bağlar.
 void init_default_configuration_handler(void) {
-    uint16_t dur = 0;
-    if (read_parameter_u16(NVS_THERAPY_DUR_KEY, &dur) != ESP_OK) {
-        dur = default_therapy_duration;
-        (void)save_parameter_u16(NVS_THERAPY_DUR_KEY, dur);
+
+    init_default_duration_partition();
+    DurationEntry last_duration;
+    if (!default_duration_read_last(&last_duration)) {
+        // hiç kayıt yok -> default'u yaz
+        default_duration_append(default_therapy_duration);
+    } else {
+        default_therapy_duration = last_duration.duration;
     }
-    default_therapy_duration = dur;
-    uint8_t brightness[6];
-    size_t  blen = sizeof(brightness);
-    if (read_parameter_blob(NVS_BRIGHTNESS_KEY, brightness, &blen) != ESP_OK || blen != 6) {
-        (void)save_parameter_blob(NVS_BRIGHTNESS_KEY, default_brightness, sizeof(default_brightness));
-        memcpy(brightness, default_brightness, 6);
+
+
+    init_brightness_partition();
+
+    DefaultBrightnessEntry last_brightness;
+    if (!default_brightness_read_last(&last_brightness)) {
+        // hiç kayıt yok -> default'u yaz
+        (void)default_brightness_append(default_brightness);
+    } else {
+        memcpy(default_brightness, last_brightness.default_brightness, 6);
     }
-    memcpy(default_brightness, brightness, 6);
+
     register_on_write_updating_configuration_callback(on_write_of_updating_configuration_message);
 }
 

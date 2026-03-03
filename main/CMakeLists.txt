@@ -20,8 +20,6 @@ idf_component_register(SRCS "i2c/proximity/proximity_int_controller.c"
 
                             "main.c"
 
-                            "nvs/storage_manager.c"
-
                             "lp_core/lp_core_queue_manager.c"
                             "lp_core/lp_core_main.c"
                             #"lp_core/main.c"
@@ -52,9 +50,12 @@ idf_component_register(SRCS "i2c/proximity/proximity_int_controller.c"
                             "storage/log_reader.c"
                             "storage/log_resume.c"
                             "storage/log_storage.c"
-
                             "storage/log_partition_manager.c"
                             "storage/therapy_counter.c"
+                            "storage/brightness_partition_manager.c"
+                            "storage/duration_partition_manager.c"   
+                            "storage/passkey_partition_manager.c"
+                            "storage/profile_partition_manager.c"
 
                             "transaction/matching_message_encoder.c"
                             "transaction/message_queue_manager.c"
@@ -78,6 +79,7 @@ idf_component_register(SRCS "i2c/proximity/proximity_int_controller.c"
                             "manager/timer_controller.c"
                             "manager/session_timer_manager.c"
                             "manager/message_saver.c"
+                            "manager/profile_manager.c"
 
                             "common/device_states.c"
 
@@ -88,9 +90,8 @@ idf_component_register(SRCS "i2c/proximity/proximity_int_controller.c"
                                 "C:/Users/bleda.burat/esp/v5.3.1/esp-idf/components/ulp/lp_core/lp_core/include"
                                 "C:/Users/bleda.burat/esp/v5.3.1/esp-idf/components/ulp/ulp_common/include"
                                 "C:/Users/bleda.burat/esp/v5.3.1/esp-idf/components/bt/include"
-                                "C:/Users/bleda.burat/esp/v5.3.1/esp-idf/components/nvs_flash/include"
                                 "C:/Users/bleda.burat/esp/v5.3.1/esp-idf/components/json/cjson"
-                        REQUIRES ulp nvs_flash json bt esp_https_ota esp_http_client esp-tls mbedtls esp_netif esp_event)
+                        REQUIRES ulp nvs_flash json bt esp_https_ota esp_http_client esp-tls mbedtls esp_netif esp_event esp_partition)
 
 set(ulp_app_name "lp_core_firmware")
 

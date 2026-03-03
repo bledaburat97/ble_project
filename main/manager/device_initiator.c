@@ -5,12 +5,12 @@
 #include "esp_log.h"
 
 // ===== Storage =====
-#include "nvs/storage_manager.h"
 #include "storage/therapy_counter.h"
 #include "storage/log_partition_manager.h"
 #include "storage/log_orchestrator.h"
 #include "storage/log_resume.h"
 #include "storage/log_types.h"
+#include "storage/profile_partition_manager.h"
 
 // ===== BLE / Transaction =====
 #include "ble/include/ble_controller.h"
@@ -70,8 +70,6 @@ static void init_message_creators(void)
 
 static void init_storage(const DeviceFeatureConfig *cfg)
 {
-    init_nvs();
-
     if (cfg->therapy_counter_partition_active) {
         init_therapy_counter_partition();
         uint16_t therapy_count = read_therapy_count();
@@ -123,6 +121,7 @@ static void init_ble_and_transaction(const DeviceFeatureConfig *cfg)
 
     init_ble();
     init_message_queue_manager();
+    init_profile_partition();
     init_passkey_handler();
     init_default_configuration_handler();
     init_message_creators();
@@ -178,6 +177,7 @@ static void init_state_machine(const DeviceFeatureConfig *cfg)
     if (cfg->ble_active) {
         register_on_write_activation_callback(post_activation_request_event);
         register_on_write_updating_therapy_state_callback(post_therapy_state_change_request_event);
+        register_on_change_in_profile_id_during_active(post_stop_request_for_profile_change);
     }
 
     register_button_press_callback(post_button_press_event);

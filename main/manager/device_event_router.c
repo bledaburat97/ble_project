@@ -87,6 +87,12 @@ void post_helmet_state_change_event(bool helmet_on)
     post_device_event(&event);
 }
 
+void post_stop_request_for_profile_change() {
+    DeviceEvent event = {0};
+    event.type = EVT_STOP_REQUEST;
+    post_device_event(&event);
+}
+
 void post_therapy_state_change_request_event(const uint8_t *buffer, size_t length)
 {
     (void)length;

@@ -13,6 +13,7 @@
 #include "manager/message_saver.h"
 
 #include "manager/device_initiator.h"
+#include "storage/profile_partition_manager.h"
 
 static const char *TAG = "Main";
 
@@ -61,7 +62,6 @@ static bool activate_device_if_needed(bool default_sleep_active)
 void app_main(void)
 {
     initialize_nvs_flash_module();
-
     const bool default_sleep_active = false;
 
     if (!activate_device_if_needed(default_sleep_active)) {
