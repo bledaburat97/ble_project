@@ -67,7 +67,22 @@ static void on_passkey_updated(const uint8_t *buf, size_t len){
     // Not: Telefon tarafında da “Unpair/Forget” yapmak gerekebilir.
 }
 
-void reset_pairing_and_set_default_passkey()
+
+static bool set_passkey_to_factory(void)
+{
+    PasskeyEntry factory;
+    if (!passkey_read_first(&factory)) {
+        ESP_LOGE(TAG, "Factory passkey not found in partition.");
+        return false;
+    }
+
+    ESP_LOGW(TAG, "Restoring passkey to factory value: %lu", (unsigned long)factory.passkey);
+    change_passkey(factory.passkey);
+    return true;
+}
+
+//Butona uzun süre basılınca olsun
+void reset_pairing_and_restore_factory_passkey()
 {
     ESP_LOGW(TAG, "Pairing reset started: closing connection, removing bonds, setting passkey=000000");
 
@@ -118,10 +133,13 @@ void reset_pairing_and_set_default_passkey()
     memcpy(g_peer_bda, zero, sizeof(esp_bd_addr_t));
 
     // 4) Passkey'i default'a çek (000000)
-    change_passkey(0);
+    if (!set_passkey_to_factory()) {
+        ESP_LOGE(TAG, "Failed to restore factory passkey. Keeping current passkey unchanged.");
+    }
 
     ESP_LOGW(TAG, "Pairing reset done.");
 }
+
 
 void init_passkey_handler() {
     uint32_t passkey = 0;

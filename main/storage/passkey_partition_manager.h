@@ -14,6 +14,6 @@ typedef struct {
 esp_err_t init_passkey_partition();
 bool passkey_read_last(PasskeyEntry *out);
 bool passkey_append(uint32_t passkey);
-
+bool passkey_read_first(PasskeyEntry *out);
 
 #endif

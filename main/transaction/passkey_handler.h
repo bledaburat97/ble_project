@@ -4,5 +4,6 @@
 #include <stdint.h>
 
 void init_passkey_handler();
+void reset_pairing_and_restore_factory_passkey();
 
 #endif 

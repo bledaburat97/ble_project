@@ -147,3 +147,32 @@ bool passkey_append(uint32_t passkey)
     ESP_LOGI(TAG, "passkey_append ok idx=%d paskey=%lu", empty_idx, (unsigned long)passkey);
     return true;
 }
+
+bool passkey_read_first(PasskeyEntry *out)
+{
+    if (!out) return false;
+    if (!passkey_partition && init_passkey_partition() != ESP_OK) {
+        return false;
+    }
+
+    // Append-only yapıda "ilk yazılan" = index 0 varsayımı.
+    // Ancak üretimde bazen boş/bozuk olabilirse, ilk valid entry’yi tarayalım.
+    int maxc = max_entry_count();
+    for (int i = 0; i < maxc; i++) {
+        uint8_t raw[PASSKEY_ENTRY_SIZE];
+        esp_err_t e = esp_partition_read(passkey_partition, (size_t)i * PASSKEY_ENTRY_SIZE,
+                                         raw, PASSKEY_ENTRY_SIZE);
+        if (e != ESP_OK) return false;
+
+        // boş entry -> daha ileri yok
+        if (raw[0] == 0xFF) break;
+
+        PasskeyEntry tmp;
+        if (decode_entry_bytes(raw, &tmp)) {
+            *out = tmp;
+            return true;
+        }
+    }
+
+    return false;
+}
