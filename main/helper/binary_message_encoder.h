@@ -4,16 +4,14 @@
 #ifndef BINARY_MESSAGE_ENCODER_H
 #define BINARY_MESSAGE_ENCODER_H
 
-#define DEVICE_INFO_SIZE 17
+#define DEVICE_INFO_SIZE 4
 #define TIMER_STATE_INFO_SIZE 11
 #define MEASUREMENT_INFO_SIZE 6
 #define NOTIFICATION_INFO_SIZE 5
 
 typedef struct {
-    uint8_t device_id[6];
-    uint8_t current_time[5];
-    uint16_t last_saved_therapy_id;
-    uint16_t passed_seconds;
+    uint16_t first_stored_therapy_id;
+    uint16_t last_stored_therapy_id;
 } DeviceInfoMessage;
 
 typedef struct {

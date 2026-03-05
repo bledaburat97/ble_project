@@ -103,16 +103,16 @@ void register_on_write_activation_callback(void (*cb)(const uint8_t *buf, size_t
     on_write_activation_callback = cb; 
 }
 
-void register_on_write_updating_records_callback(void (*cb)(const uint8_t *buf, size_t len)) { 
-    on_write_updating_records_callback = cb; 
+void register_on_write_profile_info_callback(void (*cb)(const uint8_t *buf, size_t len)) { 
+    on_write_profile_info_callback = cb; 
 }
 
 void register_on_write_updating_therapy_state_callback(void (*cb)(const uint8_t *buf, size_t len)) { 
     on_write_updating_therapy_state_callback = cb;
 }
 
-void register_on_write_records_feedback_callback(void (*cb)(const uint8_t *buf, size_t len)) { 
-    on_write_records_feedback_callback = cb;
+void register_on_write_record_request_callback(void (*cb)(const uint8_t *buf, size_t len)) { 
+    on_write_record_request_callback = cb;
 }
 
 void register_on_write_updating_passkey_callback(void (*cb)(const uint8_t *buf, size_t len)) { 

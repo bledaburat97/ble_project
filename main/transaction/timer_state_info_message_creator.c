@@ -198,11 +198,6 @@ void send_therapy_continued(NotificationType notification_type) {
     add_and_send_new_therapy_state_info(notification_type, message);
 }
 
-// Aktif/paused state gönderiminden sonra çağrılacak callback'i bağlar.
-void register_active_or_paused_therapy_info(void (*callback)()) {
-    active_or_paused_therapy_callback = callback;
-}
-
 // Timer state akışını başlatır (callback'leri bağlar).
 void init_timer_state_info_message_creator() {
     register_device_info_feedback_callback(on_device_info_feedback_callback);

@@ -4,9 +4,9 @@
 void (*on_connect_callback)(void) = NULL;
 void (*on_disconnect_callback)(void) = NULL;
 void (*on_write_activation_callback)(const uint8_t *buf, size_t len) = NULL;
-void (*on_write_updating_records_callback)(const uint8_t *buf, size_t len) = NULL;
+void (*on_write_profile_info_callback)(const uint8_t *buf, size_t len) = NULL;
 void (*on_write_updating_therapy_state_callback)(const uint8_t *buf, size_t len) = NULL;
-void (*on_write_records_feedback_callback)(const uint8_t *buf, size_t len) = NULL;
+void (*on_write_record_request_callback)(const uint8_t *buf, size_t len) = NULL;
 void (*on_write_updating_passkey_callback)(const uint8_t *buf, size_t len) = NULL;
 void (*on_write_updating_configuration_callback)(const uint8_t *buf, size_t len) = NULL;
 void (*on_write_wifi_config_callback)(const uint8_t *buf, size_t len) = NULL;

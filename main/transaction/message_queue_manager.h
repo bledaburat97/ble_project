@@ -11,28 +11,14 @@ typedef struct {
     uint8_t *data;              // Data
     size_t data_length;         // Data uzunluğu
     uint16_t id;                // Records için therapy_id, diğerlerinde 0
-    bool wait_for_response;
     uint32_t enq_ts;
 } MessageQueueEntry;
 
-typedef struct {
-    bool     active;        // şu anda bir terapi record’u beklemede mi?
-    uint16_t therapy_id;    // hangi terapi
-    uint8_t  retry_count;   // kaç kez yeniden denedik (0..2)
-    uint32_t send_timestamp;  // son "son fragment" gönderim zaman damgası
-    uint16_t last_sent_therapy_id;
-    uint32_t last_sent_timestamp;
-} RecordsPending;
-
 void send_info_message_to_queue(MessageType message_type, uint8_t* data, size_t data_length);
-void send_records_info_message_to_queue(uint16_t therapy_id, uint8_t* data, size_t data_length, bool wait_for_response);
+void send_records_info_message_to_queue(uint16_t therapy_id, uint8_t* data, size_t data_length);
 void init_message_queue_manager();
 void register_device_info_feedback_callback(void (*callback)());
 void register_timer_state_info_feedback_callback(void (*callback)());
-bool clear_pending_approval_record(uint16_t therapy_id);
-void register_send_record_again_callback(void (*callback)(uint16_t));
-void register_send_new_record_callback(void (*callback)(uint16_t));
-bool is_record_pending(void);
 bool wait_low_queue_space(uint32_t min_free, uint32_t timeout_ms);
 
 #endif

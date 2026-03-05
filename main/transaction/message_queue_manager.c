@@ -10,7 +10,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
@@ -19,8 +18,6 @@
 
 static const char *TAG = "MessageQueueManager";
 static void (*device_info_feedback_callback)() = NULL;
-static void (*send_record_again_callback)(uint16_t) = NULL;
-static void (*send_new_record_callback)(uint16_t) = NULL;
 
 static int dynamic_period = DYNAMIC_PERIOD;
 
@@ -28,7 +25,6 @@ static int dynamic_period = DYNAMIC_PERIOD;
 QueueHandle_t high_priority_queue;
 // Record fragment'ları için düşük öncelikli kuyruk.
 QueueHandle_t low_priority_queue;
-static RecordsPending pending_record = {0};
 
 static void (*timer_state_info_listeners[MAX_STATE_LISTENERS])();
 static int timer_state_info_listener_count = 0;
@@ -44,46 +40,6 @@ static inline bool requires_conf(MessageType t) {
         default:
             return false;  // notify → CONF yok
     }
-}
-
-// Records feedback timeout kontrolü (ACK gelmezse retry).
-static void check_pending_timeouts()
-{
-    uint32_t now = esp_log_timestamp();
-    if(pending_record.active) {
-        if (now - pending_record.send_timestamp > MAX_TIMEOUT_DURATION) {
-            ESP_LOGE(TAG, "Records timeout (therapy id=%d)", pending_record.therapy_id);
-            pending_record.active = false;
-            if (pending_record.retry_count < MAX_MESSAGE_RETRY_COUNT) {
-                if (send_record_again_callback) {
-                    send_record_again_callback(pending_record.therapy_id);
-                }
-            }
-            else{
-                if (send_new_record_callback) {
-                    send_new_record_callback(pending_record.therapy_id);
-                }
-            }
-        }
-    }
-}
-
-static void set_record_pending(uint16_t therapy_id) {
-    if(pending_record.active) {
-        ESP_LOGE(TAG, "Big error.");
-        return;
-    }
-    pending_record.active = true;
-    if(pending_record.therapy_id == therapy_id) {
-        pending_record.retry_count += 1;
-    }
-    else {
-        pending_record.therapy_id = therapy_id;
-        pending_record.retry_count = 1;
-    }
-    pending_record.send_timestamp = esp_log_timestamp();
-    pending_record.last_sent_therapy_id = therapy_id;
-    pending_record.last_sent_timestamp = pending_record.send_timestamp;
 }
 
 static inline void drain_old_conf(void){
@@ -107,8 +63,7 @@ static send_res_t send_and_track(const MessageQueueEntry *entry)
     const bool need_conf = requires_conf(entry->type);
 
     uint32_t now = esp_log_timestamp();
-    ESP_LOGI(TAG, "Dequeue type=%d after %ums", entry->type, (unsigned)(now - entry->enq_ts));
-    ESP_LOGI(TAG, "dynamic_period=%d need_conf=%d", dynamic_period, need_conf);
+    ESP_LOGI(TAG, "Dequeue message of type=%d after %ums", entry->type, (unsigned)(now - entry->enq_ts));
 
     if (need_conf) {
         if(entry->type == NOTIFICATION_INFO_MESSAGE && !notif_ind_enabled) {
@@ -134,7 +89,7 @@ static send_res_t send_and_track(const MessageQueueEntry *entry)
             continue;
         }
 
-        ESP_LOGW(TAG, "Message is sent: %d", entry->type);
+        ESP_LOGI(TAG, "Message of type %d is sent.", entry->type);
         esp_err_t ret = ble_send_info_message_with_type(entry->type, entry->data, entry->data_length);
         xSemaphoreGive(ble_mutex);
 
@@ -146,9 +101,6 @@ static send_res_t send_and_track(const MessageQueueEntry *entry)
         }
 
         if (!need_conf) {
-            if (entry->wait_for_response && entry->type == RECORDS_INFO_MESSAGE) {
-                set_record_pending(entry->id);
-            }
             return SEND_OK;
         }
 
@@ -217,7 +169,7 @@ static void queue_sender_task(void *pvParameters)
             if (r == SEND_OK || r == SEND_FAIL) {
                 free(entry.data);
             } else if (r == SEND_NOT_READY) {
-                ESP_LOGI(TAG, "Sending is not ready, sending it to front of the query");
+                ESP_LOGI(TAG, "Sending is not ready, sending it to front of the queue.");
                 vTaskDelay(pdMS_TO_TICKS(500));
                 xQueueSendToFront(high_priority_queue, &entry, 0);
                 continue;
@@ -244,7 +196,6 @@ static void queue_sender_task(void *pvParameters)
             continue;
         }
 
-        check_pending_timeouts();
         vTaskDelay(1);
     }
 }
@@ -268,7 +219,7 @@ void init_message_queue_manager()
 }
 
 // Record fragment'ını düşük öncelikli kuyruğa ekler.
-void send_records_info_message_to_queue(uint16_t therapy_id, uint8_t* data, size_t data_length, bool wait_for_response) {
+void send_records_info_message_to_queue(uint16_t therapy_id, uint8_t* data, size_t data_length) {
     ESP_LOGI(TAG, "Adding records message of %u to queue to send it", therapy_id);
 
     if (low_priority_queue == NULL) {
@@ -289,7 +240,7 @@ void send_records_info_message_to_queue(uint16_t therapy_id, uint8_t* data, size
         .data = data_copy,
         .data_length = data_length,
         .id = therapy_id,
-        .wait_for_response = wait_for_response
+        .enq_ts = esp_log_timestamp(),
     };
 
     const TickType_t wait = pdMS_TO_TICKS(500);
@@ -307,9 +258,16 @@ void send_info_message_to_queue(MessageType message_type, uint8_t* data, size_t 
         return;
     }
 
-    if (message_type == TIMER_STATE_INFO_MESSAGE && !timer_ind_enabled) return;
-    if (message_type == NOTIFICATION_INFO_MESSAGE && !notif_ind_enabled) return;
-    if (message_type == DEVICE_INFO_MESSAGE && !device_ind_enabled) return;
+    if (message_type == DEVICE_INFO_MESSAGE) {
+        for (int attempt = 0; attempt < 3; attempt++) {
+            if (device_ind_enabled) break;
+            if (attempt == 2) return;               // 3. denemede de kapalıysa vazgeç
+            vTaskDelay(pdMS_TO_TICKS(100));         // 100ms bekle, tekrar kontrol et
+        }
+    } else {
+        if (message_type == TIMER_STATE_INFO_MESSAGE && !timer_ind_enabled) return;
+        if (message_type == NOTIFICATION_INFO_MESSAGE && !notif_ind_enabled) return;
+    }
 
     if (!high_priority_queue) {
         ESP_LOGE(TAG, "High priority queue is NULL");
@@ -333,11 +291,10 @@ void send_info_message_to_queue(MessageType message_type, uint8_t* data, size_t 
         .data = data_copy,
         .data_length = data_length,
         .id = 0,
-        .wait_for_response = false
     };
 
     entry.enq_ts = esp_log_timestamp();
-    ESP_LOGI(TAG, "Enqueued type=%d qfree=%u", message_type, uxQueueSpacesAvailable(high_priority_queue));
+    ESP_LOGI(TAG, "Enqueued message with type=%d qfree=%u", message_type, uxQueueSpacesAvailable(high_priority_queue));
 
     if (xQueueSend(high_priority_queue, &entry, 0) == pdTRUE) {
         return;
@@ -358,30 +315,6 @@ void send_info_message_to_queue(MessageType message_type, uint8_t* data, size_t 
     }
 }
 
-// Records feedback geldiyse pending durumu temizler.
-bool clear_pending_approval_record(uint16_t therapy_id)
-{
-
-    if (pending_record.active && pending_record.therapy_id == therapy_id) {
-        pending_record.active = false;
-        return true;
-    }
-/*
-    //TODO: düşünülsün: Late ACK toleransı: en son gönderilen therapy ile eşleşiyorsa ve çok eski değilse kabul et, 
-    //Kullanılmıyor
-    const uint32_t now = esp_log_timestamp();
-    const uint32_t grace_ms = 30000;
-    if (therapy_id == pending_record.last_sent_therapy_id &&
-        (now - pending_record.last_sent_timestamp) <= grace_ms) {
-        ESP_LOGW(TAG, "Late records feedback accepted (therapy_id=%u)", therapy_id);
-        pending_record.active = false;
-        return true;
-    }
-*/
-    ESP_LOGW(TAG, "Unexpected records feedback (therapy_id=%u). Ignoring.", therapy_id);
-    return false;
-}
-
 void register_device_info_feedback_callback(void (*callback)()) {
     device_info_feedback_callback = callback;
 }
@@ -394,17 +327,7 @@ void register_timer_state_info_feedback_callback(void (*callback)()) {
     }
 }
 
-void register_send_record_again_callback(void (*callback)(uint16_t)) {
-    send_record_again_callback = callback;
-}
 
-void register_send_new_record_callback(void (*callback)(uint16_t)) {
-    send_new_record_callback = callback;
-}
-
-bool is_record_pending(void) {
-    return pending_record.active;
-}
 
 // Düşük öncelikli kuyrukta yeterli boşluk bekler.
 bool wait_low_queue_space(uint32_t min_free, uint32_t timeout_ms)

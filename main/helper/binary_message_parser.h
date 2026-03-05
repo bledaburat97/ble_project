@@ -24,12 +24,11 @@ typedef struct {
 typedef struct {
     uint16_t last_therapy_id;
     uint32_t profile_id;
-} UpdateRecordRequestMessage;
+} ProfileInfoMessage;
 
 typedef struct {
     uint16_t therapy_id;
-    bool is_success;
-} RecordsFeedbackMessage;
+} RecordRequestMessage;
 
 typedef struct {
     uint32_t passkey;
@@ -37,7 +36,7 @@ typedef struct {
 
 bool decode_activation_message_bin(const uint8_t *buf, ActivationMessage *out_msg);
 bool decode_status_change_message_bin(const uint8_t *buf, StatusChangeMessage *out_msg);
-bool decode_update_record_request_message_bin(const uint8_t *buf, size_t len, UpdateRecordRequestMessage *out_msg);
-bool decode_records_feedback_message_bin(const uint8_t *buf, RecordsFeedbackMessage *out_msg);
+bool decode_profile_info_message_bin(const uint8_t *buf, size_t len, ProfileInfoMessage *out_msg);
+bool decode_record_request_message_bin(const uint8_t *buf, RecordRequestMessage *out_msg);
 bool decode_update_passkey_message_bin(const uint8_t *buf, size_t len, UpdatePasskeyMessage *out_msg);
 #endif

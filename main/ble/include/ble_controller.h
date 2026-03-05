@@ -22,9 +22,9 @@ esp_err_t ble_send_info_message_with_type(MessageType message_type, uint8_t* dat
 void register_on_connect_callback(void (*callback)(void));
 void register_on_disconnect_callback(void (*callback)(void));
 void register_on_write_activation_callback(void (*callback)(const uint8_t *buf, size_t len));
-void register_on_write_updating_records_callback(void (*callback)(const uint8_t *buf, size_t len));
+void register_on_write_profile_info_callback(void (*callback)(const uint8_t *buf, size_t len));
 void register_on_write_updating_therapy_state_callback(void (*callback)(const uint8_t *buf, size_t len));
-void register_on_write_records_feedback_callback(void (*callback)(const uint8_t *buf, size_t len));
+void register_on_write_record_request_callback(void (*callback)(const uint8_t *buf, size_t len));
 void register_on_write_updating_passkey_callback(void (*callback)(const uint8_t *buf, size_t len));
 void register_on_write_updating_configuration_callback(void (*callback)(const uint8_t *buf, size_t len));
 void register_on_write_wifi_config_callback(void (*callback)(const uint8_t *buf, size_t len));

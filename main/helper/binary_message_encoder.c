@@ -4,15 +4,13 @@
 
 size_t encode_device_info_message_binary(const DeviceInfoMessage *m, uint8_t out[DEVICE_INFO_SIZE])
 {
-    memcpy(&out[0], m->device_id, 6);
+    if (!m || !out) return 0;
 
-    memcpy(&out[6], m->current_time, 5);
+    out[0] = (uint8_t)(m->first_stored_therapy_id >> 8);
+    out[1] = (uint8_t)(m->first_stored_therapy_id & 0xFF);
 
-    out[11] = (uint8_t)(m->last_saved_therapy_id >> 8);
-    out[12] = (uint8_t)(m->last_saved_therapy_id & 0xFF);
-
-    out[13] = (uint8_t)(m->passed_seconds >> 8);
-    out[14] = (uint8_t)(m->passed_seconds & 0xFF);
+    out[2] = (uint8_t)(m->last_stored_therapy_id >> 8);
+    out[3] = (uint8_t)(m->last_stored_therapy_id & 0xFF);
 
     return DEVICE_INFO_SIZE;
 }
@@ -40,7 +38,6 @@ size_t encode_timer_state_info_message_binary(const TimerStateInfoMessage *m, ui
 
     return TIMER_STATE_INFO_SIZE;
 }
-
 
 size_t encode_measurement_info_message_binary(const MeasurementInfoMessage *m, uint8_t out[MEASUREMENT_INFO_SIZE])
 {

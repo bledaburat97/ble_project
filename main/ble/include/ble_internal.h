@@ -25,10 +25,10 @@
 #define GATTS_CHAR_UUID_NOTIFICATION            0x2A59
 #define GATTS_CHAR_UUID_DEVICE                  0x2A5A
 #define GATTS_CHAR_UUID_ACTIVATION              0x2A5B
-#define GATTS_CHAR_UUID_UPDATING_RECORDS        0x2A5C
+#define GATTS_CHAR_UUID_PROFILE_INFO            0x2A5C
 #define GATTS_CHAR_UUID_UPDATING_PASSKEY        0x2A5D
 #define GATTS_CHAR_UUID_UPDATING_THERAPY_STATE  0x2A5E
-#define GATTS_CHAR_UUID_RECORDS_FEEDBACK        0x2A5F
+#define GATTS_CHAR_UUID_RECORD_REQUEST          0x2A5F
 #define ESP_GATT_UUID_CHAR_CLIENT_CONFIG        0x2902
 #define GATTS_SERVICE_UUID16                    0x5555
 
@@ -58,7 +58,7 @@ typedef enum {
   STEP_ADD_UPD_PASSKEY,
   STEP_ADD_UPD_CONFIG,
   STEP_ADD_UPD_THERAPY_STATE,
-  STEP_ADD_RECORDS_FEEDBACK,
+  STEP_ADD_RECORD_REQUEST,
   STEP_ADD_WIFI_CONFIG,
   STEP_DONE
 } build_step_t;
@@ -77,11 +77,11 @@ struct gatts_profile_inst {
     uint16_t notification_handle;
     uint16_t device_handle;
     uint16_t activation_handle;
-    uint16_t updating_records_handle;
+    uint16_t profile_info_handle;
     uint16_t updating_therapy_state_handle;
     uint16_t updating_passkey_handle;
     uint16_t updating_configuration_handle;
-    uint16_t records_feedback_handle;
+    uint16_t record_request_handle;
     uint16_t wifi_config_handle;
     esp_bt_uuid_t char_uuid;
 };
@@ -91,9 +91,9 @@ extern struct gatts_profile_inst gl_profile_tab[PROFILE_NUM];
 extern void (*on_connect_callback)(void);
 extern void (*on_disconnect_callback)(void);
 extern void (*on_write_activation_callback)(const uint8_t *buf, size_t len);
-extern void (*on_write_updating_records_callback)(const uint8_t *buf, size_t len);
+extern void (*on_write_profile_info_callback)(const uint8_t *buf, size_t len);
 extern void (*on_write_updating_therapy_state_callback)(const uint8_t *buf, size_t len);
-extern void (*on_write_records_feedback_callback)(const uint8_t *buf, size_t len);
+extern void (*on_write_record_request_callback)(const uint8_t *buf, size_t len);
 extern void (*on_write_updating_passkey_callback)(const uint8_t *buf, size_t len);
 extern void (*on_write_updating_configuration_callback)(const uint8_t *buf, size_t len);
 extern void (*on_write_wifi_config_callback)(const uint8_t *buf, size_t len);

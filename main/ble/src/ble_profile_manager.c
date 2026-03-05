@@ -93,7 +93,7 @@ static void run_build_step(void) {
                       ESP_GATT_CHAR_PROP_BIT_WRITE);
         break;
     case STEP_ADD_UPD_RECORDS:
-        e = add_char_16(GATTS_CHAR_UUID_UPDATING_RECORDS,
+        e = add_char_16(GATTS_CHAR_UUID_PROFILE_INFO,
                       ESP_GATT_PERM_WRITE_ENC_MITM,
                       ESP_GATT_CHAR_PROP_BIT_WRITE);
         break;
@@ -112,8 +112,8 @@ static void run_build_step(void) {
                       ESP_GATT_PERM_WRITE_ENC_MITM,
                       ESP_GATT_CHAR_PROP_BIT_WRITE);
         break;
-    case STEP_ADD_RECORDS_FEEDBACK:
-        e = add_char_16(GATTS_CHAR_UUID_RECORDS_FEEDBACK,
+    case STEP_ADD_RECORD_REQUEST:
+        e = add_char_16(GATTS_CHAR_UUID_RECORD_REQUEST,
                       ESP_GATT_PERM_WRITE_ENC_MITM,
                       ESP_GATT_CHAR_PROP_BIT_WRITE);
         break;
@@ -220,16 +220,16 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
             gl_profile_tab[PROFILE_A_APP_ID].device_handle = h;
             } else if (uuid == GATTS_CHAR_UUID_ACTIVATION) {
             gl_profile_tab[PROFILE_A_APP_ID].activation_handle = h;
-            } else if (uuid == GATTS_CHAR_UUID_UPDATING_RECORDS) {
-            gl_profile_tab[PROFILE_A_APP_ID].updating_records_handle = h;
+            } else if (uuid == GATTS_CHAR_UUID_PROFILE_INFO) {
+            gl_profile_tab[PROFILE_A_APP_ID].profile_info_handle = h;
             } else if (uuid == GATTS_CHAR_UUID_UPDATING_PASSKEY) {
             gl_profile_tab[PROFILE_A_APP_ID].updating_passkey_handle = h;
             } else if (uuid == GATTS_CHAR_UUID_UPDATING_CONFIG) {
             gl_profile_tab[PROFILE_A_APP_ID].updating_configuration_handle = h;
             } else if (uuid == GATTS_CHAR_UUID_UPDATING_THERAPY_STATE) {
             gl_profile_tab[PROFILE_A_APP_ID].updating_therapy_state_handle = h;
-            } else if (uuid == GATTS_CHAR_UUID_RECORDS_FEEDBACK) {
-            gl_profile_tab[PROFILE_A_APP_ID].records_feedback_handle = h;
+            } else if (uuid == GATTS_CHAR_UUID_RECORD_REQUEST) {
+            gl_profile_tab[PROFILE_A_APP_ID].record_request_handle = h;
             } else if (uuid == GATTS_CHAR_UUID_WIFI_CONFIG) {
                 gl_profile_tab[PROFILE_A_APP_ID].wifi_config_handle = h;
             }
@@ -249,8 +249,8 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
             case STEP_ADD_UPD_RECORDS:       s_build = STEP_ADD_UPD_PASSKEY;      break;
             case STEP_ADD_UPD_PASSKEY:       s_build = STEP_ADD_UPD_CONFIG;       break;
             case STEP_ADD_UPD_CONFIG:        s_build = STEP_ADD_UPD_THERAPY_STATE;break;
-            case STEP_ADD_UPD_THERAPY_STATE: s_build = STEP_ADD_RECORDS_FEEDBACK; break;
-            case STEP_ADD_RECORDS_FEEDBACK:  s_build = STEP_ADD_WIFI_CONFIG;      break;
+            case STEP_ADD_UPD_THERAPY_STATE: s_build = STEP_ADD_RECORD_REQUEST;   break;
+            case STEP_ADD_RECORD_REQUEST:    s_build = STEP_ADD_WIFI_CONFIG;      break;
             case STEP_ADD_WIFI_CONFIG:       s_build = STEP_DONE;                 break;
             default: break;
         }
@@ -296,10 +296,10 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
                 esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_INVALID_PDU, NULL);
             }
         }
-        else if (param->write.handle == gl_profile_tab[PROFILE_A_APP_ID].updating_records_handle) {
+        else if (param->write.handle == gl_profile_tab[PROFILE_A_APP_ID].profile_info_handle) {
             if(param->write.value != NULL && param->write.len == 6) {
-                if (on_write_updating_records_callback) {
-                    on_write_updating_records_callback(param->write.value, param->write.len);
+                if (on_write_profile_info_callback) {
+                    on_write_profile_info_callback(param->write.value, param->write.len);
                 }
                 esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
             }
@@ -341,10 +341,10 @@ void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gat
                 esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_INVALID_PDU, NULL);
             }
         }
-        else if (param->write.handle == gl_profile_tab[PROFILE_A_APP_ID].records_feedback_handle) {
-            if(param->write.value != NULL && param->write.len == 3) {
-                if (on_write_records_feedback_callback) {
-                    on_write_records_feedback_callback(param->write.value, param->write.len);
+        else if (param->write.handle == gl_profile_tab[PROFILE_A_APP_ID].record_request_handle) {
+            if(param->write.value != NULL && param->write.len == 2) {
+                if (on_write_record_request_callback) {
+                    on_write_record_request_callback(param->write.value, param->write.len);
                 }
                 esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
             }
