@@ -1,0 +1,57 @@
+#include "therapy_id_manager.h"
+
+#include "current_therapy_state_manager.h"
+
+#include "../storage/therapy_counter.h"
+
+#include "../transaction/default_configuration_handler.h"
+
+#include "../device_configuration.h"
+
+#include <stdint.h>
+#include "esp_log.h"
+
+static const char *TAG = "TherapyIdManager";
+
+// Mevcut terapi durumuna göre aktif terapi ID'sini getirir.
+// Eğer başlatılmış terapi yoksa 0 döner
+uint16_t get_current_therapy_id(void)
+{
+    if (get_current_therapy_state() == NONE) {
+        ESP_LOGI(TAG, "No active or paused therapy is present when requesting current therapy ID.");
+        return 0;
+    }
+
+    uint16_t therapy_count = read_therapy_count();
+    if (therapy_count == 0) {
+        ESP_LOGW(TAG, "Therapy counter returned zero while a therapy state is active.");
+    }
+
+    return therapy_count;
+}
+
+// Yeni terapi başlatıldığı zaman, önceki terpainin id'sini 1 arttırarak yeni terapiye set edilir.
+uint16_t get_new_therapy_id_for_new_therapy(void)
+{
+    uint16_t therapy_count = read_therapy_count();
+    if (therapy_count >= MAX_THERAPY_COUNT) {
+        ESP_LOGW(TAG, "Therapy counter reached the maximum value: %u", therapy_count);
+        return therapy_count;
+    }
+    return (uint16_t)(therapy_count + 1u);
+}
+
+// Son sonlanmış veya tamamlanmış terapi ID'sini döner.
+// Therapy Id'ler 1 ile başlar sırayla artar. Cihazdaki kayıtlı therapy_count değeri aslında son başlatılmış terapinin id'sidir. 
+uint16_t get_last_completed_therapy_id(void) {
+    uint16_t therapy_count = read_therapy_count();
+    if (get_current_therapy_state() == NONE) {
+        return therapy_count;
+    }
+    if (therapy_count == 0) {
+        ESP_LOGW(TAG, "Therapy counter returned zero while a session is active.");
+        return 0;
+    }
+    return (uint16_t)(therapy_count - 1u);
+}
+

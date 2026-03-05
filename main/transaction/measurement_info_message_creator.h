@@ -1,0 +1,6 @@
+#ifndef MEASUREMENT_INFO_MESSAGE_CREATOR_H
+#define MEASUREMENT_INFO_MESSAGE_CREATOR_H
+
+void init_measurement_info_message_creator();
+
+#endif

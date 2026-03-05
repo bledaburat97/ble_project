@@ -1,0 +1,43 @@
+#include "deep_sleep_manager.h"
+
+#include "../manager/session_timer_getter.h"
+#include "../manager/message_saver.h"
+
+#include "../i2c/laser/laser_driver_controller.h"
+
+#include "../device_configuration.h"
+
+#include "../storage/log_types.h"
+
+#include "driver/rtc_io.h" 
+#include "esp_sleep.h"
+#include "driver/gpio.h"
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+
+static const char *TAG = "DeepSleepManager";
+
+void set_deep_sleep_button() {
+    gpio_config_t io_conf = {
+        .pin_bit_mask = BUTTON_PIN_BITMASK,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    gpio_config(&io_conf);
+}
+
+void enter_deep_sleep() {
+    uint16_t passed_seconds = get_session_passed_seconds();
+
+    save_log(NOTIF_ENTER_DEEP_SLEEP, NULL, 0, passed_seconds);
+
+    ESP_LOGI(TAG, "Entering to deep sleep");
+    set_laser_drivers_status(false);
+    set_deep_sleep_button();
+    esp_sleep_enable_ext1_wakeup(BUTTON_PIN_BITMASK, ESP_EXT1_WAKEUP_ANY_LOW);
+    esp_deep_sleep_start();
+}
+
+

@@ -1,0 +1,70 @@
+#include "measurement_info_message_creator.h"
+
+#include "message_queue_manager.h"
+
+#include "../helper/binary_message_encoder.h"
+
+#include "../storage/log_types.h"
+
+#include "../temperature/temp_sensor_reader.h"
+#include "../temperature/temp_sensor_manager.h"
+#include "../humidity/humidity_sensor_controller.h"
+
+#include "../manager/timer_info_getter.h"
+#include "../manager/message_saver.h"
+#include "../manager/session_timer_getter.h"
+
+#include "esp_log.h"
+#include <stdlib.h>
+#include <string.h>
+#include "esp_err.h"
+
+static const char *TAG = "MeasurementInfoMessageCreator";
+
+// Ölçümü loglar ve BLE ile uygulamaya gönderir.
+static void add_and_send_measurement_info(uint8_t temperature, uint8_t humidity) {
+    uint8_t data[] = {temperature, humidity};
+    uint16_t passed_seconds = get_session_passed_seconds();
+    esp_err_t err = save_log(MEASUREMENT_CHANGED, data, sizeof(data), passed_seconds);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to persist measurement log: %s", esp_err_to_name(err));
+    }
+    ESP_LOGI(TAG, "Measurement log recorded with temperature: %u, humidity: %u, passed_seconds: %u", temperature, humidity, passed_seconds);
+
+    restart_duration_update_watchdog_timer();
+
+    MeasurementInfoMessage message = {
+        .temperature = temperature,
+        .humidity = humidity,
+        .passed_seconds = passed_seconds
+    };
+
+    uint8_t buf[MEASUREMENT_INFO_SIZE];
+    size_t len = encode_measurement_info_message_binary(&message, buf);
+    send_info_message_to_queue(MEASUREMENT_INFO_MESSAGE, buf, len);
+}
+
+// İlk senkron sonrası snapshot ölçümü gönderir.
+static void on_timer_state_info_feedback_callback() {
+    uint8_t current_temperature = temp_sensor_reader_measure_and_get_temperature();
+    uint8_t current_humidity = measure_and_get_humidity();
+    ESP_LOGI(TAG, "On device info feedback, Sending temperature: %u", current_temperature);
+    add_and_send_measurement_info(current_temperature, current_humidity);
+}
+
+// Sıcaklık güncellenince nem ile birlikte gönderir.
+static void on_temperature_update(uint8_t temperature) {
+    add_and_send_measurement_info(temperature, get_humidity());
+}
+
+// Nem güncellenince sıcaklık ile birlikte gönderir.
+static void on_humidity_update(uint8_t humidity) {
+    add_and_send_measurement_info(temp_sensor_reader_get_temperature(), humidity);
+}
+
+// Ölçüm update callback'lerini bağlar.
+void init_measurement_info_message_creator() {
+    register_timer_state_info_feedback_callback(on_timer_state_info_feedback_callback);
+    temp_sensor_manager_register_temperature_update(on_temperature_update);
+    register_humidity_update(on_humidity_update);
+}
